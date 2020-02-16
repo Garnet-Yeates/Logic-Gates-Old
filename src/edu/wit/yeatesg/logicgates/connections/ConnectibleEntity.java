@@ -24,13 +24,17 @@ public abstract class ConnectibleEntity extends Entity {
     public abstract boolean canConnectTo(ConnectibleEntity e, CircuitPoint at);
 
     public void disconnectAll() {
-        for (ConnectibleEntity e : getConnectedEntities())
+        for (ConnectibleEntity e : getConnectedEntities()) {
             disconnect(e);
+            e.disconnect(this);
+        }
     }
+
 
     public abstract void connectCheck(ConnectibleEntity e);
 
     public void connectCheck() {
+        System.out.println("CONNECT CHEK CALLED () ON " + this);
         disconnectAll();
         ArrayList<ConnectibleEntity> connectibles = c.getAllEntitiesOfType(ConnectibleEntity.class);
         connectibles.remove(this);
@@ -50,8 +54,14 @@ public abstract class ConnectibleEntity extends Entity {
     public static final Color NO_POWER = new Color(34, 99, 0);
 
     public void onPowerReceive() {
-        powered = true;
         receivedPowerThisUpdate = true;
+        powered = true;
+    }
+
+    public void resetPower() {
+        if (!isPowerSource())
+            powered = false;
+        receivedPowerThisUpdate = false;
     }
 
     public Color getColor() {

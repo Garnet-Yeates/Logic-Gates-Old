@@ -8,6 +8,8 @@ import java.awt.*;
 import java.lang.reflect.Array;
 import java.util.ArrayList;
 
+import static java.awt.event.KeyEvent.VK_CONTROL;
+
 public class Circuit {
 
     public static final Color COL_BG = Color.white;
@@ -160,6 +162,8 @@ public class Circuit {
     }
 
     public void refreshTransmissions() {
+        for (ConnectibleEntity e : getAllEntitiesOfType(ConnectibleEntity.class))
+            e.resetPower();
         for (ConnectibleEntity e : getAllEntitiesOfType(ConnectibleEntity.class))
             if (e.isPowerSource())
                 e.onPowerReceive();

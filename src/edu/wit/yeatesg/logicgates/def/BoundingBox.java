@@ -10,7 +10,10 @@ public class BoundingBox {
     public CircuitPoint p1, p2,
                         p3, p4;
 
-    public BoundingBox(CircuitPoint corner1, CircuitPoint corner2) {
+    public Entity owner;
+
+    public BoundingBox(CircuitPoint corner1, CircuitPoint corner2, Entity owner) {
+        this.owner = owner;
         Circuit c = corner2.getCircuit();
         if (corner1.x >= corner2.x) {
             if (corner1.y >= corner2.y) {
@@ -39,16 +42,11 @@ public class BoundingBox {
         }
     }
 
-    public BoundingBox(PanelDrawPoint corner1, PanelDrawPoint corner2) {
-        this(corner1.toCircuitPoint(), corner2.toCircuitPoint());
+    public BoundingBox(PanelDrawPoint corner1, PanelDrawPoint corner2, Entity owner) {
+        this(corner1.toCircuitPoint(), corner2.toCircuitPoint(), owner);
     }
 
-    public boolean intercepts(BoundingBox other) {
-        for (CircuitPoint p : new CircuitPoint[] { p1, p2, p3, p4 })
-            if (intercepts(p))
-                return true;
-        return false;
-    }
+
 
     public boolean intercepts(CircuitPoint p) {
         return intercepts(p.toPanelDrawPoint());
@@ -57,15 +55,10 @@ public class BoundingBox {
     public boolean intercepts(PanelDrawPoint p) {
         PanelDrawPoint p1 = this.p1.toPanelDrawPoint();
         PanelDrawPoint p4 = this.p4.toPanelDrawPoint();
-        System.out.println();
-        for (CircuitPoint pee : new CircuitPoint[] {this.p1, p2, p3, this.p4,}) {
-            System.out.print(pee + " ");
-        }
-        System.out.println("\nP E NUTS" );
-        int thresh = (int) (p1.getCircuit().getScale()*0.3);
+        int thresh = (int) (p1.getCircuit().getScale()*0.35);
         if (p1.x == p4.x || p1.y == p4.y) {
             return new BoundingBox(new PanelDrawPoint(p1.x - thresh, p1.y - thresh, p1.getCircuit()),
-                    new PanelDrawPoint(p4.x + thresh, p4.y + thresh, p4.getCircuit())).intercepts(p);
+                    new PanelDrawPoint(p4.x + thresh, p4.y + thresh, p4.getCircuit()), owner).intercepts(p);
         }
         return p.x >= p1.x && p.x <= p4.x && p.y >= p1.y && p.y <= p4.y;
     }
@@ -92,9 +85,13 @@ public class BoundingBox {
     }
 
     public void paintSimple(Graphics2D g) {
-        Stroke stroke = new BasicStroke(1);
-        g.setStroke(stroke);
-        g.setColor(Color.orange);
+        g.setColor(BOX_COL);
+        int ownerStroke = owner == null ? 1 : owner.getStrokeSize();
+        int stroke = (int) (ownerStroke * 0.3);
+        if (stroke % 2 == 0) stroke++;
+        stroke = Math.min(ownerStroke - 2, stroke);
+        stroke = Math.max(1, stroke);
+        g.setStroke(new BasicStroke(stroke));
         PanelDrawPoint p1 = this.p1.toPanelDrawPoint();
         PanelDrawPoint p2 = this.p2.toPanelDrawPoint();
         PanelDrawPoint p3 = this.p3.toPanelDrawPoint();

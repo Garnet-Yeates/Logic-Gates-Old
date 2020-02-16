@@ -59,7 +59,6 @@ public class ConnectionNode {
            else return (((ConnectionNode) other).parent.equals(parent)
                    && ((ConnectionNode) other).location.equals(location)
                    && ((ConnectionNode) other).connectedTo.equals(connectedTo));
-
        }
        return false;
     }

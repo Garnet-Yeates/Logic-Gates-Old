@@ -17,6 +17,12 @@ public class InputBlock extends ConnectibleEntity implements Pokable {
         initDone = true;
         c.addEntity(this);
         reconstruct();
+        c.refreshTransmissions();
+    }
+
+    @Override
+    public int getStrokeSize() {
+        return c.getStrokeSize();
     }
 
     public void reconstruct() {
@@ -24,6 +30,16 @@ public class InputBlock extends ConnectibleEntity implements Pokable {
             disconnectAll();
             establishConnectionNode(pointSetForDrawing.get(0));
             System.out.println("ESTABLISHED");
+        }
+    }
+
+    @Override
+    public void onPowerReceive() {
+        if (!receivedPowerThisUpdate) {
+            super.onPowerReceive();
+            ConnectionNode connectNode = getNodeAt(pointSetForDrawing.get(0));
+            if (connectNode.hasConnectedEntity() && !connectNode.getConnectedTo().receivedPowerThisUpdate)
+                connectNode.getConnectedTo().onPowerReceive();
         }
     }
 
@@ -54,7 +70,7 @@ public class InputBlock extends ConnectibleEntity implements Pokable {
     public void draw(Graphics2D g) {
         PanelDrawPoint drawPoint;
         PointSet pts = getPointSetForDrawing();
-        g.setStroke(c.getStroke());
+        g.setStroke(getStroke());
 
         // Draw Border
         g.setColor(Color.black);
@@ -85,25 +101,32 @@ public class InputBlock extends ConnectibleEntity implements Pokable {
         g.fillOval(drawPoint.x - circleSize/2, drawPoint.y - circleSize/2, circleSize, circleSize);
     }
 
+
     @Override
     public void onPoke() {
-
+        powered = !powered;
     }
 
+    @Override
+    public boolean isPowerSource() {
+        return powered;
+    }
 
     @Override
     public void connect(ConnectibleEntity e, CircuitPoint atLocation) {
-
+        if (!hasNodeAt(atLocation))
+            throw new RuntimeException("Can't connect to InputBlock here, no ConnectionNode at this CircuitPoint");
+        getNodeAt(atLocation).connectedTo = e;
     }
 
     @Override
     public boolean canPullConnectionFrom(CircuitPoint locationOnThisEntity) {
-        return false;
+        return hasNodeAt(locationOnThisEntity) && !getNodeAt(locationOnThisEntity).hasConnectedEntity();
     }
 
     @Override
     public void disconnect(ConnectibleEntity e) {
-
+        getConnectionTo(e).setConnectedTo(null);
     }
 
     @Override
@@ -124,7 +147,7 @@ public class InputBlock extends ConnectibleEntity implements Pokable {
 
     @Override
     public BoundingBox getBoundingBox() {
-        return new BoundingBox(pointSetForDrawing.get(2), pointSetForDrawing.get(4));
+        return new BoundingBox(pointSetForDrawing.get(2), pointSetForDrawing.get(4), this);
     }
 
     @Override
@@ -134,13 +157,18 @@ public class InputBlock extends ConnectibleEntity implements Pokable {
 
     @Override
     public boolean intercepts(CircuitPoint p) {
-        return false;
+        return getBoundingBox().intercepts(p);
     }
 
     @Override
     public boolean doesGenWireInvalidlyInterceptThis(Wire w, CircuitPoint... exceptions) {
         return false;
     }
+
+   /* @Override
+    public boolean equals(Object other) {
+        return (other instanceof InputBlock && ((InputBlock) other).location.equals(location));
+    }*/
 
 
 }

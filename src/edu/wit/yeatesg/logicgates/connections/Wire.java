@@ -34,8 +34,9 @@ public class Wire extends ConnectibleEntity {
             bisectCheck();
             mergeCheck();
             connectCheck();
+            c.refreshTransmissions();
+            c.getEditorPanel().repaint();
         }
-        c.getEditorPanel().repaint();
     }
 
     public Direction getDirection() {
@@ -86,12 +87,19 @@ public class Wire extends ConnectibleEntity {
                 throw new RuntimeException("Wires can only be connected at end points! (w2)");
             if (w.getDirection() == getDirection() && w.getNumOtherEdgePointsAt(atLocation) == 1)
                 throw new RuntimeException("These wires cannot connect because they need to be merged");
-        } else {
+            connections.add(new ConnectionNode(atLocation, this, e));
+            e.connections.add(new ConnectionNode(atLocation, e, this));
+        } else if (e instanceof InputBlock) {
+            InputBlock block = (InputBlock) e;
+            connections.add(new ConnectionNode(atLocation, this, e));
+            block.getNodeAt(atLocation).connectedTo = this;
+            System.out.println(block.getNodeAt(atLocation) + "P E NUTS");
             // Handle other cases...
+
         }
-  //    System.out.println("CONNECT:\n  " + this + "\n  AT: " + atLocation + "\n  To: " + e);
-        connections.add(new ConnectionNode(atLocation, this, e));
-        e.connections.add(new ConnectionNode(atLocation, e, this));
+        //    System.out.println("CONNECT:\n  " + this + "\n  AT: " + atLocation + "\n  To: " + e);
+
+        c.refreshTransmissions();
     }
 
     public void bisectCheck() {
@@ -125,6 +133,7 @@ public class Wire extends ConnectibleEntity {
         new Wire(endpointOfThisWire, oldStartLoc);
         connectCheck();
         other.connectCheck();
+        c.refreshTransmissions();
     }
 
     public void mergeCheck() {
@@ -167,7 +176,19 @@ public class Wire extends ConnectibleEntity {
                     for (Wire w : allWires)
                         w.bisectCheck(this);
                     connectCheck();
+                    c.refreshTransmissions();
                 }
+            }
+        }
+    }
+
+    @Override
+    public void onPowerReceive() {
+        if (!receivedPowerThisUpdate) {
+            super.onPowerReceive();
+            for (ConnectibleEntity ent : getConnectedEntities()) {
+                if (!ent.receivedPowerThisUpdate)
+                    ent.onPowerReceive();
             }
         }
     }
@@ -184,32 +205,22 @@ public class Wire extends ConnectibleEntity {
 
     @Override
     public boolean canPullConnectionFrom(CircuitPoint locationOnThisEntity) {
-        if (getDirection() == Direction.HORIZONTAL && locationOnThisEntity.y == startLocation.y) {
-            CircuitPoint lefter = startLocation.x < endLocation.x ? startLocation : endLocation;
-            CircuitPoint righter = lefter == startLocation ? endLocation : startLocation;
-            return locationOnThisEntity.x >= lefter.x && locationOnThisEntity.x <= righter.x;
-        } else if (locationOnThisEntity.x == startLocation.x){
-            CircuitPoint higher = startLocation.y < endLocation.y ? startLocation : endLocation;
-            CircuitPoint lower = higher == startLocation ? endLocation : startLocation;
-            return locationOnThisEntity.y >= higher.y && locationOnThisEntity.y <= lower.y;
-        }
-        return false;
+        return getNumEntitiesConnectedAt(locationOnThisEntity) < 3;
     }
 
     @Override
     public void disconnect(ConnectibleEntity e) {
         connections.remove(getConnectionTo(e));
-        e.connections.remove(e.getConnectionTo(this));
     }
 
     @Override
     public boolean canConnectTo(ConnectibleEntity e, CircuitPoint at) {
         if (isEdgePoint(at)
                 && !hasConnectionTo(e)
-                && getNumEntitiesConnectedAt(at) < 3) {
+                && getNumOtherEdgePointsAt(at) < 4) {
             if (e instanceof Wire) {
                 Wire other = (Wire) e;
-                return getDirection() != other.getDirection() || other.getNumEntitiesConnectedAt(at) > 0;
+                return getDirection() != other.getDirection() || other.getNumOtherEdgePointsAt(at) > 1;
             } else
                 return true;
         }
@@ -223,7 +234,7 @@ public class Wire extends ConnectibleEntity {
 
     @Override
     public BoundingBox getBoundingBox() {
-        return new BoundingBox(startLocation, endLocation);
+        return new BoundingBox(startLocation, endLocation, this);
     }
 
     public void draw(Graphics2D g, boolean drawJunctions) {
@@ -243,7 +254,7 @@ public class Wire extends ConnectibleEntity {
 
     public void drawJunction(Graphics2D g, CircuitPoint loc) {
         g.setColor(getColor());
-        int circleSize = (int) (getWireStroke() * 2.75);
+        int circleSize = (int) (getStrokeSize() * 2.75);
         if (circleSize % 2 != 0) circleSize++;
         PanelDrawPoint dp = loc.toPanelDrawPoint();
         g.fillOval(dp.x - circleSize / 2, dp.y - circleSize / 2, circleSize, circleSize);
@@ -254,8 +265,11 @@ public class Wire extends ConnectibleEntity {
         draw(g, true);
     }
 
-    public int getWireStroke() {
-        return (int) (c.getScale() * 0.25);
+    @Override
+    public int getStrokeSize() {
+        int stroke = (int) (c.getScale() * 0.25);
+        if (stroke % 2 == 0) stroke++;
+        return stroke;
     }
 
     @Override

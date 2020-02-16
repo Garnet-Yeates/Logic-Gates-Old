@@ -23,6 +23,12 @@ public abstract class Entity {
         }
     }
 
+    public abstract int getStrokeSize();
+
+    public Stroke getStroke() {
+        return new BasicStroke(getStrokeSize());
+    }
+
     public Circuit getCircuit() {
         return c;
     }
@@ -149,7 +155,9 @@ public abstract class Entity {
 
     @Override
     public boolean equals(Object other) {
-        return other instanceof Entity && ((Entity) other).location.equals(location);
+        if (!other.getClass().equals(getClass()))
+            return false;
+        return ((Entity) other).location.equals(location);
     }
 
     public abstract boolean intercepts(CircuitPoint p);

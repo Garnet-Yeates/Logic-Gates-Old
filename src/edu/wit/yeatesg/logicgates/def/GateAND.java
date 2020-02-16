@@ -11,7 +11,13 @@ public class GateAND extends Entity {
     public GateAND(CircuitPoint location) {
         super(location);
         c.addEntity(this);
+        c.refreshTransmissions();
         c.getEditorPanel().repaint();
+    }
+
+    @Override
+    public int getStrokeSize() {
+        return c.getStrokeSize();
     }
 
     @Override
