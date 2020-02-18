@@ -1,16 +1,20 @@
 package edu.wit.yeatesg.logicgates.def;
 
+import edu.wit.yeatesg.logicgates.connections.PointSet;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 import edu.wit.yeatesg.logicgates.points.PanelDrawPoint;
 
 import java.awt.*;
+import java.util.function.Consumer;
 
 public class BoundingBox {
 
     public CircuitPoint p1, p2,
                         p3, p4;
 
-    public Entity owner;
+    private Entity owner;
+
+    private PointSet gridPointsWithin;
 
     public BoundingBox(CircuitPoint corner1, CircuitPoint corner2, Entity owner) {
         this.owner = owner;
@@ -40,13 +44,22 @@ public class BoundingBox {
                 p3 = new CircuitPoint(p1.x, p4.y, c);
             }
         }
+        CircuitPoint topLeft = p1.getGridSnapped();
+        CircuitPoint bottomRight = p4.getGridSnapped();
+        gridPointsWithin = new PointSet();
+        for (int y = (int) topLeft.y; y <= bottomRight.y; y++)
+            for (int x = (int) topLeft.x; x <= bottomRight.x; x++)
+                gridPointsWithin.add(new CircuitPoint(x, y, topLeft.getCircuit()));
+
     }
 
     public BoundingBox(PanelDrawPoint corner1, PanelDrawPoint corner2, Entity owner) {
         this(corner1.toCircuitPoint(), corner2.toCircuitPoint(), owner);
     }
 
-
+    public PointSet getGridPointsWithin() {
+        return gridPointsWithin;
+    }
 
     public boolean intercepts(CircuitPoint p) {
         return intercepts(p.toPanelDrawPoint());
@@ -55,12 +68,17 @@ public class BoundingBox {
     public boolean intercepts(PanelDrawPoint p) {
         PanelDrawPoint p1 = this.p1.toPanelDrawPoint();
         PanelDrawPoint p4 = this.p4.toPanelDrawPoint();
-        int thresh = (int) (p1.getCircuit().getScale()*0.35);
-        if (p1.x == p4.x || p1.y == p4.y) {
-            return new BoundingBox(new PanelDrawPoint(p1.x - thresh, p1.y - thresh, p1.getCircuit()),
-                    new PanelDrawPoint(p4.x + thresh, p4.y + thresh, p4.getCircuit()), owner).intercepts(p);
-        }
+        int thresh = (int) (p1.getCircuit().getScale()*0.4);
+        if (p1.x == p4.x || p1.y == p4.y)
+            return new BoundingBox(
+                    new PanelDrawPoint(p1.x - thresh, p1.y - thresh, p1.getCircuit()),
+                    new PanelDrawPoint(p4.x + thresh, p4.y + thresh, p4.getCircuit()),
+                    owner).intercepts(p);
         return p.x >= p1.x && p.x <= p4.x && p.y >= p1.y && p.y <= p4.y;
+    }
+
+    public BoundingBox clone() {
+        return new BoundingBox(p1.clone(), p4.clone(), owner);
     }
 
     public static final Color BOX_COL = new Color(255, 249, 230);
@@ -84,10 +102,11 @@ public class BoundingBox {
         }
     }
 
-    public void paintSimple(Graphics2D g) {
+    public void drawBorder(Graphics2D g) {
         g.setColor(BOX_COL);
+        g.setColor(Color.orange);
         int ownerStroke = owner == null ? 1 : owner.getStrokeSize();
-        int stroke = (int) (ownerStroke * 0.3);
+        int stroke = (int) (ownerStroke * 0.55);
         if (stroke % 2 == 0) stroke++;
         stroke = Math.min(ownerStroke - 2, stroke);
         stroke = Math.max(1, stroke);

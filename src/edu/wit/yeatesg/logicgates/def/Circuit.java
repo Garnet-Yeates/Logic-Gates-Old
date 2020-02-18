@@ -1,6 +1,7 @@
 package edu.wit.yeatesg.logicgates.def;
 
 import edu.wit.yeatesg.logicgates.connections.ConnectibleEntity;
+import edu.wit.yeatesg.logicgates.connections.EntityList;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 import edu.wit.yeatesg.logicgates.points.PanelDrawPoint;
 
@@ -147,14 +148,14 @@ public class Circuit {
         yoff = y;
     }
 
-    private ArrayList<Entity> allEntities = new ArrayList<>();
+    private EntityList<Entity> allEntities = new EntityList<>();
 
-    public ArrayList<Entity> getAllEntities() {
+    public EntityList<Entity> getAllEntities() {
         return getAllEntities(true);
     }
 
-    public ArrayList<Entity> getAllEntitiesThatIntercept(CircuitPoint p) {
-        ArrayList<Entity> list = new ArrayList<>();
+    public EntityList<Entity> getAllEntitiesThatIntercept(CircuitPoint p) {
+        EntityList<Entity> list = new EntityList<>();
         for (Entity e : getAllEntities())
             if (e.intercepts(p))
                 list.add(e);
@@ -169,9 +170,8 @@ public class Circuit {
                 e.onPowerReceive();
     }
 
-    @SuppressWarnings("unchecked")
-    public ArrayList<Entity> getAllEntities(boolean clone) {
-        return clone ? (ArrayList<Entity>) allEntities.clone() : allEntities;
+    public EntityList<Entity> getAllEntities(boolean clone) {
+        return clone ? allEntities.clone() : allEntities;
     }
 
     public boolean removeEntity(Entity e) {
@@ -182,52 +182,16 @@ public class Circuit {
         return removed;
     }
 
-    public void drawEntities(Graphics2D g) {
-        for (Entity e : getAllEntitiesOfType(Entity.class)) {
-            e.draw(g);
-        }
-    }
-
     public void addEntity(Entity entity) {
         allEntities.add(entity);
     }
 
-    public ArrayList<Entity> getEntitiesThatIntercept(CircuitPoint... locations) {
-        ArrayList<Entity> intercepters = new ArrayList<>();
-        for (Entity e : allEntities) {
-            for (CircuitPoint loc : locations)
-                if (e.interceptsAll(locations))
-                    intercepters.add(e);
-        }
-        return intercepters;
-    }
-
-    public Entity getEntityThatIntercepts(CircuitPoint location) {
-        ArrayList<Entity> intercepters = getEntitiesThatIntercept(location);
-        return intercepters.isEmpty() ? null : intercepters.get(0);
-    }
-
     @SuppressWarnings("unchecked")
-    public <T> ArrayList<T> getAllEntitiesOfType(Class<T> type, boolean clone) {
-        ArrayList<T> list = new ArrayList<>(allEntities.size());
-        for (Entity e : getAllEntities(clone)) {
-            if (e.getClass().equals(type)) {
-                list.add((T) e);
-            } else {
-                ArrayList<Class<?>> classes = new ArrayList<>();
-                Class<?> curr = e.getClass();
-                while (!curr.getSuperclass().getSimpleName().equals("Object")) {
-                    classes.add(curr.getSuperclass());
-                    curr = curr.getSuperclass();
-                }
-                if (classes.contains(type))
-                    list.add((T) e);
-            }
-        }
-        return list;
+    public <T extends Entity> EntityList<T> getAllEntitiesOfType(Class<T> type, boolean clone) {
+        return allEntities.ofType(type, clone);
     }
 
-    public <T> ArrayList<T> getAllEntitiesOfType(Class<T> type) {
+    public <T extends Entity> EntityList<T> getAllEntitiesOfType(Class<T> type) {
         return getAllEntitiesOfType(type, true);
     }
 

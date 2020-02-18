@@ -1,5 +1,6 @@
 package edu.wit.yeatesg.logicgates.def;
 
+import edu.wit.yeatesg.logicgates.connections.PointSet;
 import edu.wit.yeatesg.logicgates.connections.Wire;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 import edu.wit.yeatesg.logicgates.points.PanelDrawPoint;
@@ -11,13 +12,17 @@ public class GateAND extends Entity {
     public GateAND(CircuitPoint location) {
         super(location);
         c.addEntity(this);
-        c.refreshTransmissions();
         c.getEditorPanel().repaint();
     }
 
     @Override
     public int getStrokeSize() {
-        return c.getStrokeSize();
+        return 0;
+    }
+
+    @Override
+    public PointSet getInterceptPoints() {
+        return null;
     }
 
     @Override

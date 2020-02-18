@@ -1,7 +1,6 @@
 package edu.wit.yeatesg.logicgates.connections;
 
 import edu.wit.yeatesg.logicgates.def.BoundingBox;
-import edu.wit.yeatesg.logicgates.def.LogicGates;
 import edu.wit.yeatesg.logicgates.def.Vector;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 import edu.wit.yeatesg.logicgates.points.PanelDrawPoint;
@@ -10,37 +9,10 @@ import java.awt.*;
 
 public class InputBlock extends ConnectibleEntity implements Pokable {
 
-    private boolean initDone;
-
     public InputBlock(CircuitPoint location) {
         super(location);
-        initDone = true;
         c.addEntity(this);
-        reconstruct();
-        c.refreshTransmissions();
-    }
-
-    @Override
-    public int getStrokeSize() {
-        return c.getStrokeSize();
-    }
-
-    public void reconstruct() {
-        if (initDone) {
-            disconnectAll();
-            establishConnectionNode(pointSetForDrawing.get(0));
-            System.out.println("ESTABLISHED");
-        }
-    }
-
-    @Override
-    public void onPowerReceive() {
-        if (!receivedPowerThisUpdate) {
-            super.onPowerReceive();
-            ConnectionNode connectNode = getNodeAt(pointSetForDrawing.get(0));
-            if (connectNode.hasConnectedEntity() && !connectNode.getConnectedTo().receivedPowerThisUpdate)
-                connectNode.getConnectedTo().onPowerReceive();
-        }
+        establishConnectionNode(pointSetForDrawing.get(0));
     }
 
     @Override
@@ -49,27 +21,27 @@ public class InputBlock extends ConnectibleEntity implements Pokable {
     }
 
     @Override
-    public void onRotate() {
-        super.onRotate();
-        reconstruct();
+    public PointSet getRelativePointSet() {
+        PointSet drawPointRelative = new PointSet();
+        drawPointRelative.add(new CircuitPoint(0, 0, c)); // Origin (bottom middle) is 0
+        drawPointRelative.add(new CircuitPoint(-1, 0, c)); // bottom left is 1
+        drawPointRelative.add(new CircuitPoint(-1, -2, c)); // top left is 2
+        drawPointRelative.add(new CircuitPoint(1, -2, c)); // top right is 3
+        drawPointRelative.add(new CircuitPoint(1, 0, c)); // bottom right is 4
+        drawPointRelative.add(new CircuitPoint(0, -1, c)); // center point is 5
+        return drawPointRelative;
     }
 
     @Override
-    public PointSet getRelativePointSet() {
-        PointSet set = new PointSet();
-        set.add(new CircuitPoint(0, 0, c)); // Origin (bottom middle) is 0
-        set.add(new CircuitPoint(-1, 0, c)); // bottom left is 1
-        set.add(new CircuitPoint(-1, -2, c)); // top left is 2
-        set.add(new CircuitPoint(1, -2, c)); // top right is 3
-        set.add(new CircuitPoint(1, 0, c)); // bottom right is 4
-        set.add(new CircuitPoint(0, -1, c)); // center point is 5
-        return set;
+    public BoundingBox getBoundingBox() {
+        return new BoundingBox(pointSetForDrawing.get(2), pointSetForDrawing.get(4), this);
     }
+
 
     @Override
     public void draw(Graphics2D g) {
         PanelDrawPoint drawPoint;
-        PointSet pts = getPointSetForDrawing();
+        PointSet pts = pointSetForDrawing;
         g.setStroke(getStroke());
 
         // Draw Border
@@ -101,6 +73,26 @@ public class InputBlock extends ConnectibleEntity implements Pokable {
         g.fillOval(drawPoint.x - circleSize/2, drawPoint.y - circleSize/2, circleSize, circleSize);
     }
 
+    @Override
+    public int getStrokeSize() {
+        return c.getStrokeSize();
+    }
+
+    @Override
+    public PointSet getInterceptPoints() {
+        return new PointSet();
+    }
+
+
+    @Override
+    public void onPowerReceive() {
+        if (!receivedPowerThisUpdate) {
+            super.onPowerReceive();
+            ConnectionNode connectNode = getNodeAt(pointSetForDrawing.get(0));
+            if (connectNode.hasConnectedEntity() && !connectNode.getConnectedTo().receivedPowerThisUpdate)
+                connectNode.getConnectedTo().onPowerReceive();
+        }
+    }
 
     @Override
     public void onPoke() {
@@ -131,8 +123,7 @@ public class InputBlock extends ConnectibleEntity implements Pokable {
 
     @Override
     public boolean canConnectTo(ConnectibleEntity e, CircuitPoint at) {
-        LogicGates.debug("HasNodeAt?", hasNodeAt(at));
-        return e instanceof Wire && hasNodeAt(at) && getNumEntitiesConnectedAt(at) == 0;
+        return e instanceof Wire && hasNodeAt(at) && getNumEntitiesConnectedAt(at) == 0 && !e.isDeleted();
     }
 
     @Override
@@ -145,10 +136,6 @@ public class InputBlock extends ConnectibleEntity implements Pokable {
         return false;
     }
 
-    @Override
-    public BoundingBox getBoundingBox() {
-        return new BoundingBox(pointSetForDrawing.get(2), pointSetForDrawing.get(4), this);
-    }
 
     @Override
     public void onDelete() {

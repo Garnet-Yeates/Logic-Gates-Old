@@ -7,7 +7,6 @@ import edu.wit.yeatesg.logicgates.points.PanelDrawPoint;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
-import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -26,7 +25,7 @@ public class EditorPanel extends JPanel implements MouseListener, MouseMotionLis
     public Selection currSelection = new Selection();
     public ConnectionSelection currConnectionView = new ConnectionSelection();
 
-    public class Selection extends ArrayList<Entity> {
+    public static class Selection extends ArrayList<Entity> {
 
         public Selection(Entity... entities) {
             if (entities != null)
@@ -66,7 +65,7 @@ public class EditorPanel extends JPanel implements MouseListener, MouseMotionLis
                 Stroke stroke = new BasicStroke(3);
                 g.setStroke(stroke);
                 g.setColor(Color.orange);
-                inThisSelection.getBoundingBox().paintSimple(g);
+                inThisSelection.getBoundingBox().drawBorder(g);
             }
         }
 
@@ -89,25 +88,13 @@ public class EditorPanel extends JPanel implements MouseListener, MouseMotionLis
         currentCircuit.setEditorPanel(this);
         viewOrigin();
         new GateAND(new CircuitPoint(0, 10, currentCircuit)).setRotation(90);
-        new GateAND(new CircuitPoint(-10, 10, currentCircuit)).setRotation(90);
+        new GateAND(new CircuitPoint(-10, 10, currentCircuit)).setRotation(0);
 
         new Wire(new CircuitPoint(0, 0, currentCircuit), new CircuitPoint(0, -5, currentCircuit));
         new Wire(new CircuitPoint(0, 0, currentCircuit), new CircuitPoint(-5, 0, currentCircuit));
         new Wire(new CircuitPoint(0, 0, currentCircuit), new CircuitPoint(5, 0, currentCircuit));
 
-
-        //   new Wire(new CircuitPoint(2, 2, currentCircuit), new CircuitPoint(2, 10, currentCircuit));
-      //  new Wire(new CircuitPoint(2, 5, currentCircuit), new CircuitPoint(10, 5, currentCircuit));
-   //     new Wire(new CircuitPoint(2, 2, currentCircuit), new CircuitPoint(2, -8, currentCircuit));
-       // new Wire(new CircuitPoint(0, 0, currentCircuit), new CircuitPoint(5, 0, currentCircuit));
-        ///new Wire(new CircuitPoint(5, 0, currentCircuit), new CircuitPoint(5, 5, currentCircuit));
         new InputBlock(new CircuitPoint(-5, -5, currentCircuit));
-
-     /*   List<Wire.TheoreticalWire> ting = Wire.generateWirePath(new CircuitPoint(-25, -25, currentCircuit),
-                new CircuitPoint(-35, -35, currentCircuit), 20);
-        System.out.println(ting.size());
-        for (Wire.TheoreticalWire w : ting)
-            System.out.println(w);*/
     }
 
     @Override
@@ -123,49 +110,27 @@ public class EditorPanel extends JPanel implements MouseListener, MouseMotionLis
             drawGridPoints(g);
 
             drawTheoreticalWires(true, g);
-            LogicGates.debug("repaint() method", "", "currConnectionView ", currConnectionView);
-            System.out.println("repaint() connection view:");
-            for (Entity e : currConnectionView) {
-                System.out.println("  " + e);
-            }
+
             for (Entity e : currentCircuit.getAllEntities()) {
-                if (e instanceof InputBlock && currConnectionView.contains(e)) {
-                    System.out.println("Et de feck? " + currConnectionView.size());
-                    for (Entity e2 : currConnectionView) {
-                        System.out.println("       " + e2);
-                    }
-                }
                 if (!currConnectionView.contains(e))
                     e.draw(g);
-
             }
             drawTheoreticalWires(false, g);
 
             if (theoreticalDeletion != null)
                 drawCurrentDeletion(g);
 
-            if (pullPoint != null && (!isPulling || mouseSnap.equals(pullPoint)))
-                drawPullableCircle(g);
-
-
             for (Entity e : currConnectionView) {
-                e.getBoundingBox().paintSimple(g);
+                e.getBoundingBox().drawBorder(g);
                 currConnectionView.draw(e, g);
             }
 
             for (Entity e : currSelection)
                 e.getBoundingBox().paint(g);
 
+            if (pullPoint != null && (!isPullingWire || mouseSnap.equals(pullPoint)))
+                drawPullableCircle(g);
 
-            for (Entity e : currentCircuit.getAllEntities()) {
-                if (e.getBoundingBox() != null);
-        //            e.getBoundingBox().paintSimple(g);
-            }
-
-
-      /*  new BezierCurve((new CurvePolygon(new CircuitPoint(5, 5, currentCircuit),
-                new CircuitPoint(10, 8, currentCircuit), new CircuitPoint(15, 20, currentCircuit),
-                new CircuitPoint(2, 30, currentCircuit)))).draw(g, currentCircuit.getStroke());*/
         } catch (Exception ex) {
             ex.printStackTrace();
             System.exit(0);
@@ -194,19 +159,21 @@ public class EditorPanel extends JPanel implements MouseListener, MouseMotionLis
         }
     }
 
-    private Color hypotheticalPullColor = Color.black;
+    private Color hypotheticalPullColor = Color.orange;
 
     private void drawPullableCircle(Graphics2D g) {
-        int strokeSize = (int) (currentCircuit.getStrokeSize() * 1.0);
+        int strokeSize = (int) (currentCircuit.getStrokeSize() * 0.8);
         if (strokeSize % 2 == 0) strokeSize++;
         int circleSize = (int) (currentCircuit.getScale() / 2.5);
-  //      System.out.println(canPullFrom + " yellow");
+        if (circleSize % 2 != 0) circleSize++;
+        int bigCircleSize = (int) (circleSize * 1.5);
+        if (bigCircleSize % 2 != 0) bigCircleSize++;
 
         PanelDrawPoint dp = pullPoint.toPanelDrawPoint();
         g.setStroke(new BasicStroke(strokeSize));
+        g.setColor(Color.black);
+        g.drawOval(dp.x - bigCircleSize/2, dp.y - bigCircleSize/2, bigCircleSize, bigCircleSize);
         g.setColor(hypotheticalPullColor);
-        if (wireShortening != null)
-            g.setColor(Color.red);
         g.drawOval(dp.x - circleSize/2, dp.y - circleSize/2, circleSize, circleSize);
     }
 
@@ -231,22 +198,19 @@ public class EditorPanel extends JPanel implements MouseListener, MouseMotionLis
     }
 
     public void updatePossiblePullPoint() {
-        if (!isPulling) {
+        if (!isPullingWire) {
             CircuitPoint gridSnapAtMouse = circuitPointAtMouse(true);
-            CircuitPoint prevCanPullFrom = pullPoint;
             pullPoint = null;
 
             ArrayList<ConnectibleEntity> interceptingConnectibles = new ArrayList<>();
-            for (ConnectibleEntity ce : currentCircuit.getAllEntitiesOfType(ConnectibleEntity.class)) {
-                if (ce.intercepts(gridSnapAtMouse)) {
+            for (ConnectibleEntity ce : currentCircuit.getAllEntitiesOfType(ConnectibleEntity.class))
+                if (ce.intercepts(gridSnapAtMouse))
                     if (ce instanceof Wire)
                         interceptingConnectibles.add(ce);
                     else
                         for (ConnectionNode node : ce.getConnections())
                             if (node.getLocation().equals(gridSnapAtMouse))
                                 interceptingConnectibles.add(ce);
-                }
-            }
 
             for (ConnectibleEntity ce : interceptingConnectibles)
                 if (ce.canPullConnectionFrom(gridSnapAtMouse))
@@ -257,19 +221,13 @@ public class EditorPanel extends JPanel implements MouseListener, MouseMotionLis
                     if (!ce.canPullConnectionFrom(gridSnapAtMouse))
                         pullPoint = null;
 
-            for (Entity e : currSelection) {
+            for (Entity e : currSelection)
                 if (e.intercepts(gridSnapAtMouse))
                     pullPoint = null;
-            }
 
-            boolean pullPointChanged = prevCanPullFrom == null && pullPoint != null
-                    || prevCanPullFrom != null && pullPoint == null;
-            if (pullPointChanged)
+            if (gridSnapChanged)
                 repaint();
         }
-
-        if (gridSnapChanged)
-            repaint();
     }
 
     @Override
@@ -325,10 +283,11 @@ public class EditorPanel extends JPanel implements MouseListener, MouseMotionLis
     boolean movingSelection = false;
     boolean ctrl = false;
 
+    @SuppressWarnings("unchecked")
     public void determineSelecting() {
+        selectedSomething = false;
         PanelDrawPoint atMouse = panelDrawPointAtMouse();
-        System.out.println("CTRL? " + ctrl);
-        if (isPulling) {
+        if (isPullingWire) {
             currSelection.clear();
             currConnectionView.clear();
         } else {
@@ -336,35 +295,84 @@ public class EditorPanel extends JPanel implements MouseListener, MouseMotionLis
                 currSelection.clear();
                 currConnectionView.clear();
             }
-            else if (!currSelection.isEmpty())
-                movingSelection = true;
+
+            ArrayList<Entity> deselected = new ArrayList<>();
+            if (!currSelection.isEmpty() && currSelection.intercepts(atMouse)) {
+                if (ctrl) {
+                    for (Entity e : (ArrayList<Entity>) currSelection.clone()) {
+                        if (e.getBoundingBox().intercepts(atMouse)) {
+                            currSelection.remove(e);
+                            deselected.add(e);
+                        }
+                    }
+                }
+                else
+                    movingSelection = true;
+
+            }
 
             if (currSelection.isEmpty() || ctrl) {
                 ArrayList<Entity> potentialClickSelection = new ArrayList<>();
                 for (Entity e : currentCircuit.getAllEntities())
-                    if (e.getBoundingBox() != null && e.getBoundingBox().intercepts(atMouse))
+                    if (e.getBoundingBox() != null
+                            && e.getBoundingBox().intercepts(atMouse)
+                            && !deselected.contains(e))
                         potentialClickSelection.add(e);
-                if (potentialClickSelection.size() > 0)
+                if (potentialClickSelection.size() > 0) {
                     currSelection.addAll(potentialClickSelection);
-                else if (!ctrl) {
+                    selectedSomething = true;
+                } else if (!ctrl) {
                     // Start creating selection box
                 }
 
             }
 
-            if (currSelection.size() > 1)
+            if (currSelection.size() != 1)
                 currConnectionView.clear();
 
+            if (currSelection.size() == 1
+                    && currConnectionView.isEmpty()
+                    && currSelection.get(0) instanceof ConnectibleEntity) {
+                ConnectibleEntity selectedConnectible = (ConnectibleEntity) currSelection.get(0);
+                currConnectionView.addAll(selectedConnectible.getConnectedEntities());
+                currConnectionView.resetTimer();
+            }
+            /*
+            SELECT DEBUG
+            for (Entity e : currSelection) {
+                if (e instanceof ConnectibleEntity) {
+                    ConnectibleEntity ce = (ConnectibleEntity) e;
+                    System.out.println("SELECTED " + e);
+                    for (ConnectibleEntity connected : ce.getConnectedEntities())
+                        System.out.println("  connected to " + connected + " at " + ce.getConnectionTo(connected).getLocation());
+                }
+            }
+             */
         }
 
         LogicGates.debug("End Of DetermineSelecting() method", "", "CurrSelection", currSelection, "curr connection view", currConnectionView);
      //   repaint();
     }
 
+    boolean pressedOnSelectedEntity = false;
+    boolean selectedSomething = false;
+
+    private void determineSelectingMouseRelease() {
+        if (pressPointGrid.equals(releasePointGrid) && (currSelection.isEmpty() || ctrl)) {
+            if (!pressedOnSelectedEntity && !selectedSomething) {
+                pullPoint = null;
+                determineSelecting();
+                updatePossiblePullPoint();
+            }
+        }
+    }
+
+
     @Override
     public void mousePressed(MouseEvent ev) {
         updateMousePos(ev);
         pressPointGrid = circuitPointAtMouse(true);
+        pressedOnSelectedEntity = currSelection.intercepts(panelDrawPointAtMouse());
         determineIfPullingWire();
         determineSelecting();
         System.out.println("PRESSED END? " + pressedOnEndpoint);
@@ -397,38 +405,11 @@ public class EditorPanel extends JPanel implements MouseListener, MouseMotionLis
         if (pullPoint != null)
             onStopPulling();
 
-        if (pressPointGrid.equals(releasePointGrid) && (currSelection.isEmpty() || ctrl)) {
-            for (Wire w : currentCircuit.getAllEntitiesOfType(Wire.class))
-                if (w.getBoundingBox().intercepts(panelDrawPointAtMouse()))
-                    currSelection.add(w);
-            pullPoint = null;
-        }
-
-        LogicGates.debug("End Of MouseReleased() method", "", "CurrSelection", currSelection, "curr connection view", currConnectionView);
-
-        if (currSelection.size() == 1
-                && currConnectionView.isEmpty()
-                && currSelection.get(0) instanceof ConnectibleEntity) {
-            ConnectibleEntity selectedConnectible = (ConnectibleEntity) currSelection.get(0);
-            currConnectionView.addAll(selectedConnectible.getConnectedEntities());
-            currConnectionView.resetTimer();
-        }
-
-        for (Entity e : currSelection) {
-            if (e instanceof ConnectibleEntity) {
-                ConnectibleEntity ce = (ConnectibleEntity) e;
-                System.out.println("SELECTED " + e);
-                for (ConnectibleEntity connected : ce.getConnectedEntities())
-                    System.out.println("  connected to " + connected + " at " + ce.getConnectionTo(connected).getLocation());
-            }
-        }
-
-
-
-
+        determineSelectingMouseRelease();
         repaint();
 
     }
+
 
     @Override
     public void mouseClicked(MouseEvent e) {
@@ -439,10 +420,10 @@ public class EditorPanel extends JPanel implements MouseListener, MouseMotionLis
 
 
     private CircuitPoint pullPoint = null;
-    private boolean isPulling = false;
+    private boolean isPullingWire = false;
     private Vector pullDir = null;
     private boolean pressedOnEndpoint = false;
-    private Wire wireShortening = null;
+    private Wire wireBeingShortened = null;
     private Wire.TheoreticalWire theoreticalDeletion = null;
     private List<Wire.TheoreticalWire> theoreticalCreations = new ArrayList<>();
 
@@ -454,14 +435,13 @@ public class EditorPanel extends JPanel implements MouseListener, MouseMotionLis
     }
 
     private void onStartPulling() {
-        isPulling = true;
+        isPullingWire = true;
         for (Wire w : currentCircuit.getAllEntitiesOfType(Wire.class))
             if (w.isEdgePoint(pullPoint))
                 pressedOnEndpoint = true;
     }
 
-    private void onGridSnapChangeWhilePulling() {
-        System.out.println("GS SNAP");
+    private void onGridSnapChangeWhilePullingWire() {
         CircuitPoint gridAtMouse = circuitPointAtMouse(true);
         if (pullDir == null) { // If a preferred pull dir hasn't been chosen by the user yet, set it
             Vector dir = new Vector(pullPoint, gridAtMouse);
@@ -469,24 +449,19 @@ public class EditorPanel extends JPanel implements MouseListener, MouseMotionLis
                 pullDir = dir;
         }
 
-        boolean isSameEntity = false;
-        for (Entity ent : currentCircuit.getAllEntities()) {
-            if (ent.interceptsAll(gridAtMouse, pullPoint)) {
-                isSameEntity = true;
-                break;
-            }
-        }
+        // Whether or not the mouse pos is on the same entity that the pull point is on
+        boolean isSameEntity = currentCircuit.getAllEntities().thatInterceptAll(gridAtMouse, pullPoint).size() > 0;
 
-        Wire prevShortening = wireShortening;
-        wireShortening = null;
-        if (pressedOnEndpoint  // Check to see if they are currently deleting or adding
-                && pullDir != null)
-            for (Wire w : currentCircuit.getAllEntitiesOfType(Wire.class))
-                if (w.isEdgePoint(pullPoint) && w.interceptsAll(pullPoint, gridAtMouse)
-                    && !gridAtMouse.equals(pullPoint))
-                    wireShortening = w;
+        Wire prevShortening = wireBeingShortened;
+        wireBeingShortened = null;
+        if (pressedOnEndpoint  // Check to see if they are deleting wire
+                && pullDir != null
+                && !gridAtMouse.equals(pullPoint))
+            for (Wire w : currentCircuit.getAllEntitiesOfType(Wire.class).thatInterceptAll(pullPoint, gridAtMouse))
+                if (w.isEdgePoint(pullPoint))
+                    wireBeingShortened = w;
 
-        if (wireShortening == null // If they move the pullpoint to another spot by mousing over an adjacent spot
+        if (wireBeingShortened == null // If they move the pullPoint to another spot by mousing over an adjacent spot
                 && pullDir != null // that is on the same entity that they originally pulled from
                 && !gridAtMouse.equals(pullPoint)
                 && pullPoint.is4AdjacentTo(gridAtMouse)
@@ -496,25 +471,16 @@ public class EditorPanel extends JPanel implements MouseListener, MouseMotionLis
             theoreticalCreations = new ArrayList<>();
         }
 
-        boolean wentFromDeletingToNotDeleting = prevShortening != null && wireShortening == null;
-        if (wentFromDeletingToNotDeleting) {
-            // Pullpoint is the endpoint of the wiere they were originally deleting from
-            if (pullPoint.is4AdjacentTo(gridAtMouse)) {
-                pullDir = new Vector(pullPoint, gridAtMouse);
-            } else {
-                // Find a new direction tht makes the most sense
-            }
-        }
-
-        if (wireShortening == null)
+        if (wireBeingShortened == null)
             theoreticalDeletion = null;
 
-        if (wireShortening != null && !gridAtMouse.equals(pullPoint)) {
+        if (wireBeingShortened != null && !gridAtMouse.equals(pullPoint)) {
             theoreticalCreations = new ArrayList<>();
             theoreticalDeletion = new Wire.TheoreticalWire(pullPoint, gridAtMouse);
         }
 
-        if (wireShortening == null && pullPoint != null && !isSameEntity) {
+        // If they aren't shortening wire and the mouse isn't on the same entity, display theoretical creations
+        if (wireBeingShortened == null && !isSameEntity) {
             theoreticalCreations = Wire.generateWirePath(pullPoint, gridAtMouse, pullDir, 8);
             if (theoreticalCreations == null) { // If we couldn't do it in their preferred dir, try the other 3
                 List<List<Wire.TheoreticalWire>> possiblePaths = new ArrayList<>();
@@ -524,20 +490,23 @@ public class EditorPanel extends JPanel implements MouseListener, MouseMotionLis
                 theoreticalCreations = Wire.getShortestPath(possiblePaths);
             }
             theoreticalCreations = theoreticalCreations == null ? new ArrayList<>() : theoreticalCreations;
-            for (Wire w : theoreticalCreations) {
-                System.out.println(w + "           NEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE");
-            }
         }
 
         // If they went back to pull point with mouse after giving it an initial vec
-        if (gridAtMouse.equals(pullPoint) && wireShortening == null && pullDir != null) {
+        if (gridAtMouse.equals(pullPoint) && wireBeingShortened == null && pullDir != null) {
             pullDir = null;
             theoreticalCreations = new ArrayList<>();
         }
         repaint();
     }
 
+    /**
+     * Theoretical wires are drawn before (under) wires, and since we need theoretical junctions to be drawn above
+     * wires, we need to keep track of them with this list so they can be drawn after.
+     * @see EditorPanel#drawTheoreticalWires(boolean, Graphics2D)
+     */
     ArrayList<CircuitPoint> theoJuncsToDrawAfterWires = new ArrayList<>();
+
     private void drawTheoreticalWires(boolean calledBeforeDrawWires, Graphics2D g) {
         ArrayList<Wire> allWires = currentCircuit.getAllEntitiesOfType(Wire.class);
         if (calledBeforeDrawWires) {
@@ -572,14 +541,15 @@ public class EditorPanel extends JPanel implements MouseListener, MouseMotionLis
     private void drawCurrentDeletion(Graphics2D g) {
         CircuitPoint theoStart = theoreticalDeletion.getStartLocation();
         CircuitPoint theoEnd = theoreticalDeletion.getEndLocation();
+
         // First, white out any wire junctions at the end of the deletion
         // then draw the wire junctions that need to be added back
         for (CircuitPoint edgePoint : new CircuitPoint[] { theoStart, theoEnd }) {
-            if (wireShortening.isEdgePoint(edgePoint)) {
+            if (wireBeingShortened.isEdgePoint(edgePoint)) {
                 theoreticalDeletion.setColor(backgroundColor);
                 theoreticalDeletion.drawJunction(g, edgePoint);
-                int numConnects = wireShortening.getNumWiresConnectedAt(edgePoint);
-                for (Wire w : wireShortening.getWiresConnectedAt(edgePoint))
+                int numConnects = wireBeingShortened.getNumWiresConnectedAt(edgePoint);
+                for (Wire w : wireBeingShortened.getWiresConnectedAt(edgePoint))
                     w.draw(g, numConnects == 3);
             }
         }
@@ -590,69 +560,38 @@ public class EditorPanel extends JPanel implements MouseListener, MouseMotionLis
 
         // Next, overlap any possible white spaces with the original intercepting wires (don't draw the junctions tho)
         for (CircuitPoint edgePoint : new CircuitPoint[] { theoStart, theoEnd })
-            if (wireShortening.isEdgePoint(edgePoint))
-                for (Wire w : wireShortening.getWiresConnectedAt(edgePoint))
+            if (wireBeingShortened.isEdgePoint(edgePoint))
+                for (Wire w : wireBeingShortened.getWiresConnectedAt(edgePoint))
                     w.draw(g, false);
 
-        for (Entity e : currentCircuit.getEntitiesThatIntercept(theoEnd))
-            if (e instanceof Wire && ((Wire) e).getDirection() != wireShortening.getDirection()
+        // Draw junctions back
+        for (Entity e : currentCircuit.getAllEntities().thatIntercept(theoEnd))
+            if (e instanceof Wire && ((Wire) e).getDirection() != wireBeingShortened.getDirection()
                 && ((Wire) e).getNumEntitiesConnectedAt(theoEnd) == 0)
                 ((Wire) e).drawJunction(g, theoEnd);
     }
 
     private void onStopPulling() {
         CircuitPoint gridSnapAtMouse = circuitPointAtMouse(true);
-        if (wireShortening != null) {
-            if (wireShortening.intercepts(gridSnapAtMouse)) {
-                wireShortening.set(pullPoint, gridSnapAtMouse);
-                // Merge/Other checks need to occur at both endpoints of a modified wire if it was shortened
-                // REMEMBER: Merge does a delete of its own, and that isn't going to be reflected in the
-                // currentCircuit.getEntitiesThatIntercept(edgePoint) call below since the list is made before
-                // the merge. So I added a field 'deleted' to wire. I'll probably move it to Entity because it
-                // might have more uses later
-                for (CircuitPoint edgePoint : new CircuitPoint[] {pullPoint, gridSnapAtMouse}) {
-                    for (Entity e : currentCircuit.getEntitiesThatIntercept(edgePoint)) {
-                        if (e instanceof ConnectibleEntity && !e.isDeleted()) {
-                            ((ConnectibleEntity) e).connectCheck();
-                            if (e instanceof Wire) {
-                                ((Wire) e).bisectCheck();
-                                ((Wire) e).mergeCheck();
-                            }
-                            ((ConnectibleEntity) e).connectCheck();
-                        }
-                    }
-                }
-
+        if (wireBeingShortened != null) {
+            if (wireBeingShortened.intercepts(gridSnapAtMouse)) {
+                wireBeingShortened.set(pullPoint, gridSnapAtMouse);
             }
-            wireShortening = null;
+            wireBeingShortened = null;
+        }
+
+        if (theoreticalCreations != null && !theoreticalCreations.isEmpty()) {
+            for (Wire.TheoreticalWire w : theoreticalCreations)
+                new Wire(w.getStartLocation(), w.getEndLocation());
+            theoreticalCreations = new ArrayList<>();
         }
 
         pressedOnEndpoint = false;
-        wireShortening = null;
-        isPulling = false;
+        wireBeingShortened = null;
+        isPullingWire = false;
         pullPoint = null;
         pullDir = null;
         theoreticalDeletion = null;
-        if (theoreticalCreations != null && !theoreticalCreations.isEmpty()) {
-            for (Wire.TheoreticalWire w : theoreticalCreations) {
-                new Wire(w.getStartLocation(), w.getEndLocation());
-                for (CircuitPoint edgePoint : new CircuitPoint[] { w.getStartLocation(), w.getEndLocation() }) {
-                    for (Entity e : currentCircuit.getEntitiesThatIntercept(edgePoint)) {
-                        if (e instanceof ConnectibleEntity) {
-                            ((ConnectibleEntity) e).connectCheck();
-                            if (e instanceof Wire) {
-                                ((Wire) e).bisectCheck();
-                                ((Wire) e).mergeCheck();
-                            }
-                            ((ConnectibleEntity) e).connectCheck();
-                        }
-                    }
-                }
-            }
-            theoreticalCreations = new ArrayList<>();
-
-            // do checks on endpoints of each theo
-        }
         updatePossiblePullPoint();
     }
 
@@ -679,14 +618,9 @@ public class EditorPanel extends JPanel implements MouseListener, MouseMotionLis
 
 
     public void onGridSnapChangeWhileDragging() {
-        Circuit c = currentCircuit;
-        CircuitPoint gridAtMouse = circuitPointAtMouse(true);
-
-        // Everything under this if-block is associated with creating/deleting wires
-        if (isPulling)
-            onGridSnapChangeWhilePulling();
-
-
+        if (isPullingWire)
+            onGridSnapChangeWhilePullingWire();
+        // if (movingWire...) { ... ]
     }
 
     @Override
@@ -712,6 +646,10 @@ public class EditorPanel extends JPanel implements MouseListener, MouseMotionLis
             holdingSpace = true;
         if (e.getKeyCode() == VK_CONTROL)
             ctrl = true;
+        if (e.getKeyCode() == VK_ESCAPE) {
+            currSelection.clear();
+            currConnectionView.clear();
+        }
         if (e.getKeyCode() == VK_P)
             onPoke();
         repaint();

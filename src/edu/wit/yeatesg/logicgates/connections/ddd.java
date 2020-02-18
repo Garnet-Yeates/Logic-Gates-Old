@@ -1,5 +1,6 @@
 package edu.wit.yeatesg.logicgates.connections;
 
+import com.sun.jdi.connect.spi.Connection;
 import edu.wit.yeatesg.logicgates.def.Circuit;
 import edu.wit.yeatesg.logicgates.def.Entity;
 import edu.wit.yeatesg.logicgates.def.Vector;
@@ -13,7 +14,8 @@ import static edu.wit.yeatesg.logicgates.def.LogicGates.*;
 public class ddd {
 
     public static void main(String[] args) {
-        ArrayList<Entity> arr = new ArrayList<>();
+        ArrayList<Entity> arr = new ArrayList<>(44);
+        arr.set(4, new InputBlock(new CircuitPoint(4, 4, new Circuit())));
 
         /**star: ( 5.0 , -7.0 )
          End: ( 5.0 , 2.0 )*/

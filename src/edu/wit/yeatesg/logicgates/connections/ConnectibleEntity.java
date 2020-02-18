@@ -1,5 +1,6 @@
 package edu.wit.yeatesg.logicgates.connections;
 
+import edu.wit.yeatesg.logicgates.def.Circuit;
 import edu.wit.yeatesg.logicgates.def.Entity;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 
@@ -12,6 +13,11 @@ public abstract class ConnectibleEntity extends Entity {
 
     public ConnectibleEntity(CircuitPoint location) {
         super(location);
+        connections = new ConnectionList();
+    }
+
+    public ConnectibleEntity(Circuit c) {
+        super(c);
         connections = new ConnectionList();
     }
 
@@ -30,14 +36,14 @@ public abstract class ConnectibleEntity extends Entity {
         }
     }
 
-
     public abstract void connectCheck(ConnectibleEntity e);
 
     public void connectCheck() {
-        System.out.println("CONNECT CHEK CALLED () ON " + this);
         disconnectAll();
-        ArrayList<ConnectibleEntity> connectibles = c.getAllEntitiesOfType(ConnectibleEntity.class);
-        connectibles.remove(this);
+        ArrayList<ConnectibleEntity> connectibles =
+                c.getAllEntitiesOfType(ConnectibleEntity.class)
+                .thatAreNotDeleted()
+                .except(this);
         for (ConnectibleEntity e : connectibles)
                 connectCheck(e);
         c.getEditorPanel().repaint();

@@ -1,5 +1,7 @@
 package edu.wit.yeatesg.logicgates.def;
 
+import edu.wit.yeatesg.logicgates.connections.ConnectibleEntity;
+import edu.wit.yeatesg.logicgates.connections.PointSet;
 import edu.wit.yeatesg.logicgates.connections.Wire;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 
@@ -16,11 +18,15 @@ public abstract class Entity {
     public Entity(CircuitPoint location) {
         c = location.getCircuit();
         this.location = location;
-   //     System.out.println("New Entity: " + this.getClass().getSimpleName());
         if (canRotate()) {
             pointSetForDrawing = getRelativePointSet();
             setRotation(0);
         }
+    }
+
+    /** For theoretical entities, where you don't want them to have an actual location */
+    public Entity(Circuit circuit) {
+        c = circuit;
     }
 
     public abstract int getStrokeSize();
@@ -33,61 +39,16 @@ public abstract class Entity {
         return c;
     }
 
-    protected class PointSet extends ArrayList<CircuitPoint> {
-        public PointSet(CircuitPoint... points) {
-            this.addAll(Arrays.asList(points));
-        }
+    protected PointSet pointSetForDrawing;
 
-        public PointSet(int initialCapacity) {
-            super(initialCapacity);
-        }
+    public abstract PointSet getInterceptPoints();
 
-        public PointSet(double... points) {
-            if (points.length % 2 != 0)
-                throw new RuntimeException("Invalid Bezier Curve Points!");
-            CircuitPoint[] circuitPoints = new CircuitPoint[points.length / 2];
-            for (int i = 0, j = 1; j < points.length; i += 2, j += 2)
-                circuitPoints[i / 2] = new CircuitPoint(points[i], points[j], c);
-            this.addAll(Arrays.asList(circuitPoints));
-        }
 
-        public PointSet() {
-            super();
-        }
-
-        public boolean intercepts(CircuitPoint p) {
-            for (CircuitPoint other : this)
-                if (p.equals(other))
-                    return true;
-            return false;
-        }
-
-        public boolean intercepts(PointSet other) {
-            for (CircuitPoint o : other)
-                if (intercepts(o))
-                    return true;
-            return false;
-        }
-    }
+    public abstract BoundingBox getBoundingBox();
 
     public PointSet getRelativePointSet() {
         return null;
     }
-
-    /** For drawing */
-    protected PointSet pointSetForDrawing;
-
-    public PointSet getPointSetForDrawing() {
-        return pointSetForDrawing;
-    }
-
-    public CircuitPoint getLocation() {
-        return location.clone();
-    }
-
-    public abstract boolean canMoveBy(Vector vector);
-
-    public abstract BoundingBox getBoundingBox();
 
     private int rotation;
 
@@ -132,8 +93,6 @@ public abstract class Entity {
         onRotate();
     }
 
-    public abstract void draw(Graphics2D g);
-
     public boolean canRotate() {
         return getRelativePointSet() != null;
     }
@@ -141,6 +100,35 @@ public abstract class Entity {
     public void onRotate() { }
 
     protected boolean deleted = false;
+
+
+    public boolean intercepts(CircuitPoint p) {
+        return getInterceptPoints().contains(p);
+    }
+
+    public boolean interceptsAny(CircuitPoint... points) {
+        for (CircuitPoint p : points)
+            if (intercepts(p))
+                return true;
+        return false;
+    }
+
+    public boolean interceptsNone(CircuitPoint... points) {
+        return !interceptsAny(points);
+    }
+
+    /** For drawing */
+
+
+    public CircuitPoint getLocation() {
+        return location.clone();
+    }
+
+    public abstract boolean canMoveBy(Vector vector);
+
+
+    public abstract void draw(Graphics2D g);
+
 
     public boolean delete() {
         deleted = true;
@@ -159,8 +147,6 @@ public abstract class Entity {
             return false;
         return ((Entity) other).location.equals(location);
     }
-
-    public abstract boolean intercepts(CircuitPoint p);
 
     public boolean interceptsAll(CircuitPoint... pts) {
         for (CircuitPoint p : pts)
