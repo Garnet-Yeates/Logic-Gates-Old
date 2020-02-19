@@ -13,20 +13,8 @@ public abstract class Entity {
 
     protected Circuit c;
 
-    protected CircuitPoint location;
-
-    public Entity(CircuitPoint location) {
-        c = location.getCircuit();
-        this.location = location;
-        if (canRotate()) {
-            pointSetForDrawing = getRelativePointSet();
-            setRotation(0);
-        }
-    }
-
-    /** For theoretical entities, where you don't want them to have an actual location */
-    public Entity(Circuit circuit) {
-        c = circuit;
+    public Entity(Circuit c) {
+        this.c = c;
     }
 
     public abstract int getStrokeSize();
@@ -39,68 +27,19 @@ public abstract class Entity {
         return c;
     }
 
-    protected PointSet pointSetForDrawing;
+    protected PointSet drawPoints;
 
     public abstract PointSet getInterceptPoints();
 
+    public abstract PointSet getInvalidInterceptPoints(Entity e);
+
+    public boolean invalidlyIntercepts(Entity e) {
+        return getInvalidInterceptPoints(e) != null && getInvalidInterceptPoints(e).size() > 0;
+    }
 
     public abstract BoundingBox getBoundingBox();
 
-    public PointSet getRelativePointSet() {
-        return null;
-    }
-
-    private int rotation;
-
-    private int getRotation() {
-        return rotation;
-    }
-
-    public void setRotation(int rotation) {
-        if (!canRotate())
-            return;
-        PointSet defaultSet = getRelativePointSet();
-        ArrayList<Vector> relationshipToOriginSet = new ArrayList<>();
-        CircuitPoint relativeOrigin = defaultSet.get(0);
-        for (CircuitPoint point : defaultSet) {
-            Vector relationToOrigin = new Vector(relativeOrigin, point);
-            relationshipToOriginSet.add(relationToOrigin);
-        }
-        for (Vector v : relationshipToOriginSet) {
-            double xv = v.x;
-            double yv = v.y;
-            switch (rotation) {
-                case 1: case 90:
-                    rotation = 90;
-                    v.x = -yv;
-                    v.y = xv;
-                    break;
-                case 2: case 180:
-                    rotation = 180;
-                    v.x = -xv;
-                    v.y = -yv;
-                    break;
-                case 3: case 270:
-                    rotation = 270;
-                    v.x = yv;
-                    v.y = -xv;
-                    break;
-            }
-        }
-        for (int i = 0; i < pointSetForDrawing.size(); i++) {
-            pointSetForDrawing.set(i, location.getIfModifiedBy(relationshipToOriginSet.get(i)));
-        }
-        onRotate();
-    }
-
-    public boolean canRotate() {
-        return getRelativePointSet() != null;
-    }
-
-    public void onRotate() { }
-
     protected boolean deleted = false;
-
 
     public boolean intercepts(CircuitPoint p) {
         return getInterceptPoints().contains(p);
@@ -119,11 +58,6 @@ public abstract class Entity {
 
     /** For drawing */
 
-
-    public CircuitPoint getLocation() {
-        return location.clone();
-    }
-
     public abstract boolean canMoveBy(Vector vector);
 
 
@@ -141,12 +75,7 @@ public abstract class Entity {
 
     public abstract void onDelete();
 
-    @Override
-    public boolean equals(Object other) {
-        if (!other.getClass().equals(getClass()))
-            return false;
-        return ((Entity) other).location.equals(location);
-    }
+    public abstract boolean equals(Object other);
 
     public boolean interceptsAll(CircuitPoint... pts) {
         for (CircuitPoint p : pts)

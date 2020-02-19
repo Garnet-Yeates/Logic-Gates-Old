@@ -1,17 +1,20 @@
 package edu.wit.yeatesg.logicgates.def;
 
 import edu.wit.yeatesg.logicgates.connections.PointSet;
+import edu.wit.yeatesg.logicgates.connections.Rotatable;
 import edu.wit.yeatesg.logicgates.connections.Wire;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 import edu.wit.yeatesg.logicgates.points.PanelDrawPoint;
 
 import java.awt.*;
 
-public class GateAND extends Entity {
+public class GateAND extends Entity implements Rotatable {
 
-    public GateAND(CircuitPoint location) {
-        super(location);
+    public GateAND(CircuitPoint origin, int rotation) {
+        super(origin.getCircuit());
         c.addEntity(this);
+        drawPoints = getRelativePointSet().applyToOrigin(origin, rotation);
+    //    establishConnectionNode(drawPoints.get(0));
         c.getEditorPanel().repaint();
     }
 
@@ -26,26 +29,40 @@ public class GateAND extends Entity {
     }
 
     @Override
-    public PointSet getRelativePointSet() {
-        CircuitPoint[] points = new CircuitPoint[7];
+    public PointSet getInvalidInterceptPoints(Entity e) {
+        return null;
+    }
+
+    @Override
+    public Entity getRotated(int rotation) {
+        return null;
+    }
+
+    @Override
+    public int getRotation() {
+        return 0;
+    }
+
+    @Override
+    public RelativePointSet getRelativePointSet() {
+        RelativePointSet relatives = new RelativePointSet();
         // Origin (middle bot of curve (u shaped curve))
-        points[0] = new CircuitPoint(0, 0, c);
+        relatives.add(0, 0, c);
 
         // Top left of curve
-        points[1] = new CircuitPoint(-2.5, -2.5, c);
+        relatives.add(-2.5, -2.5, c);
         // Bottom left of curve
-        points[2] = new CircuitPoint(-2.5, 0.8, c);
+        relatives.add(-2.5, -0.8, c);
         // Bottom right of curve
-        points[3] = new CircuitPoint(2.5, 0.8, c);
+        relatives.add(2.5, 0.8, c);
         // Top right of curve
-        points[4] = new CircuitPoint(2.5, -2.5, c);
+        relatives.add(2.5, -2.5, c);
 
         // Top right
-        points[5] = new CircuitPoint(2.5, -5, c);
+        relatives.add(2.5, -5, c);
         // Top left
-        points[6] = new CircuitPoint(-2.5, -5, c);
-
-        return new PointSet(points);
+        relatives.add(-2.5, -5, c);
+        return relatives;
     }
 
     @Override
@@ -63,7 +80,7 @@ public class GateAND extends Entity {
     public void draw(Graphics2D g) {
         g.setColor(Color.black);
         g.setStroke(c.getStroke());
-        PointSet ps = pointSetForDrawing;
+        PointSet ps = drawPoints;
 
         PanelDrawPoint p5 = ps.get(5).toPanelDrawPoint();
         PanelDrawPoint p6 = ps.get(6).toPanelDrawPoint();
@@ -85,6 +102,11 @@ public class GateAND extends Entity {
     @Override
     public void onDelete() {
 
+    }
+
+    @Override
+    public boolean equals(Object other) {
+        return false;
     }
 
     @Override

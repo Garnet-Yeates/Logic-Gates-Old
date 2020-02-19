@@ -15,7 +15,7 @@ public class ddd {
 
     public static void main(String[] args) {
         ArrayList<Entity> arr = new ArrayList<>(44);
-        arr.set(4, new InputBlock(new CircuitPoint(4, 4, new Circuit())));
+        arr.set(4, new InputBlock(new CircuitPoint(4, 4, new Circuit()), 0));
 
         /**star: ( 5.0 , -7.0 )
          End: ( 5.0 , 2.0 )*/

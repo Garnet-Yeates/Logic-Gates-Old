@@ -1,47 +1,64 @@
 package edu.wit.yeatesg.logicgates.connections;
 
 import edu.wit.yeatesg.logicgates.def.BoundingBox;
+import edu.wit.yeatesg.logicgates.def.Entity;
 import edu.wit.yeatesg.logicgates.def.Vector;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 import edu.wit.yeatesg.logicgates.points.PanelDrawPoint;
 
 import java.awt.*;
 
-public class InputBlock extends ConnectibleEntity implements Pokable {
+public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable {
 
-    public InputBlock(CircuitPoint location) {
-        super(location);
+    private CircuitPoint origin;
+
+    public InputBlock(CircuitPoint origin, int rotation) {
+        super(origin.getCircuit());
         c.addEntity(this);
-        establishConnectionNode(pointSetForDrawing.get(0));
+        this.origin = origin;
+        drawPoints = getRelativePointSet().applyToOrigin(origin, rotation);
+        establishConnectionNode(drawPoints.get(0));
+    }
+
+    // Rotatable Interface Methods
+
+    private int rotation;
+
+    @Override
+    public Entity getRotated(int rotation) {
+        if (!validRotation(rotation))
+            throw new RuntimeException("Invalid Rotation");
+        return null;
     }
 
     @Override
-    public boolean canRotate() {
-        return true;
+    public int getRotation() {
+        return rotation;
     }
 
     @Override
-    public PointSet getRelativePointSet() {
-        PointSet drawPointRelative = new PointSet();
-        drawPointRelative.add(new CircuitPoint(0, 0, c)); // Origin (bottom middle) is 0
-        drawPointRelative.add(new CircuitPoint(-1, 0, c)); // bottom left is 1
-        drawPointRelative.add(new CircuitPoint(-1, -2, c)); // top left is 2
-        drawPointRelative.add(new CircuitPoint(1, -2, c)); // top right is 3
-        drawPointRelative.add(new CircuitPoint(1, 0, c)); // bottom right is 4
-        drawPointRelative.add(new CircuitPoint(0, -1, c)); // center point is 5
+    public RelativePointSet getRelativePointSet() {
+        RelativePointSet drawPointRelative = new RelativePointSet();
+        drawPointRelative.add(0, 0, c); // Origin (bottom middle) is 0
+        drawPointRelative.add(-1, 0, c); // bottom left is 1
+        drawPointRelative.add(-1, -2, c); // top left is 2
+        drawPointRelative.add(1, -2, c); // top right is 3
+        drawPointRelative.add(1, 0, c); // bottom right is 4
+        drawPointRelative.add(0, -1, c); // center point is 5
         return drawPointRelative;
     }
 
+    // Other stuff
+
     @Override
     public BoundingBox getBoundingBox() {
-        return new BoundingBox(pointSetForDrawing.get(2), pointSetForDrawing.get(4), this);
+        return new BoundingBox(drawPoints.get(2), drawPoints.get(4), this);
     }
-
 
     @Override
     public void draw(Graphics2D g) {
         PanelDrawPoint drawPoint;
-        PointSet pts = pointSetForDrawing;
+        PointSet pts = drawPoints;
         g.setStroke(getStroke());
 
         // Draw Border
@@ -83,12 +100,17 @@ public class InputBlock extends ConnectibleEntity implements Pokable {
         return new PointSet();
     }
 
+    @Override
+    public PointSet getInvalidInterceptPoints(Entity e) {
+        return null;
+    }
+
 
     @Override
     public void onPowerReceive() {
         if (!receivedPowerThisUpdate) {
             super.onPowerReceive();
-            ConnectionNode connectNode = getNodeAt(pointSetForDrawing.get(0));
+            ConnectionNode connectNode = getNodeAt(drawPoints.get(0));
             if (connectNode.hasConnectedEntity() && !connectNode.getConnectedTo().receivedPowerThisUpdate)
                 connectNode.getConnectedTo().onPowerReceive();
         }
@@ -152,10 +174,8 @@ public class InputBlock extends ConnectibleEntity implements Pokable {
         return false;
     }
 
-   /* @Override
+   @Override
     public boolean equals(Object other) {
-        return (other instanceof InputBlock && ((InputBlock) other).location.equals(location));
-    }*/
-
-
+        return (other instanceof InputBlock && ((InputBlock) other).origin.equals(origin));
+    }
 }

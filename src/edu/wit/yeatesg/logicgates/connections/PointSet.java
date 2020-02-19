@@ -38,10 +38,19 @@ public class PointSet extends ArrayList<CircuitPoint> {
         }
 
         public boolean intercepts(PointSet other) {
-            for (CircuitPoint o : other)
-                if (intercepts(o))
-                    return true;
-            return false;
+            return intersection(other).size() > 0;
+        }
+
+        public PointSet intersection(PointSet other) {
+            other = other.clone();
+            PointSet intersect = new PointSet();
+            for (CircuitPoint p : this) {
+                if (other.contains(p)) {
+                    other.remove(p);
+                    intersect.add(p);
+                }
+            }
+            return intersect;
         }
 
     @Override

@@ -34,7 +34,7 @@ public class EditorPanel extends JPanel implements MouseListener, MouseMotionLis
 
         public boolean intercepts(PanelDrawPoint p) {
             for (Entity e : this)
-                if (e.getBoundingBox().intercepts(p))
+                if (e.getBoundingBox().intercepts(p, true))
                     return true;
             return false;
         }
@@ -87,14 +87,14 @@ public class EditorPanel extends JPanel implements MouseListener, MouseMotionLis
         currentCircuit = new Circuit();
         currentCircuit.setEditorPanel(this);
         viewOrigin();
-        new GateAND(new CircuitPoint(0, 10, currentCircuit)).setRotation(90);
-        new GateAND(new CircuitPoint(-10, 10, currentCircuit)).setRotation(0);
+        new GateAND(new CircuitPoint(0, 10, currentCircuit), 90);
+        new GateAND(new CircuitPoint(-10, 10, currentCircuit), 180);
 
         new Wire(new CircuitPoint(0, 0, currentCircuit), new CircuitPoint(0, -5, currentCircuit));
         new Wire(new CircuitPoint(0, 0, currentCircuit), new CircuitPoint(-5, 0, currentCircuit));
         new Wire(new CircuitPoint(0, 0, currentCircuit), new CircuitPoint(5, 0, currentCircuit));
 
-        new InputBlock(new CircuitPoint(-5, -5, currentCircuit));
+        new InputBlock(new CircuitPoint(-5, -5, currentCircuit), 180);
     }
 
     @Override
@@ -300,7 +300,7 @@ public class EditorPanel extends JPanel implements MouseListener, MouseMotionLis
             if (!currSelection.isEmpty() && currSelection.intercepts(atMouse)) {
                 if (ctrl) {
                     for (Entity e : (ArrayList<Entity>) currSelection.clone()) {
-                        if (e.getBoundingBox().intercepts(atMouse)) {
+                        if (e.getBoundingBox().intercepts(atMouse, true)) {
                             currSelection.remove(e);
                             deselected.add(e);
                         }
@@ -308,14 +308,13 @@ public class EditorPanel extends JPanel implements MouseListener, MouseMotionLis
                 }
                 else
                     movingSelection = true;
-
             }
 
             if (currSelection.isEmpty() || ctrl) {
                 ArrayList<Entity> potentialClickSelection = new ArrayList<>();
                 for (Entity e : currentCircuit.getAllEntities())
                     if (e.getBoundingBox() != null
-                            && e.getBoundingBox().intercepts(atMouse)
+                            && e.getBoundingBox().intercepts(atMouse, true)
                             && !deselected.contains(e))
                         potentialClickSelection.add(e);
                 if (potentialClickSelection.size() > 0) {
