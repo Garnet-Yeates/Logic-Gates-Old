@@ -135,8 +135,6 @@ public class EditorPanel extends JPanel implements MouseListener, MouseMotionLis
             ex.printStackTrace();
             System.exit(0);
         }
-
-
     }
 
     private void drawGridPoints(Graphics2D g) {

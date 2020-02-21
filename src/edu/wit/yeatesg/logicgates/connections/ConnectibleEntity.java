@@ -50,9 +50,6 @@ public abstract class ConnectibleEntity extends Entity {
     protected boolean receivedPowerThisUpdate;
     protected boolean powered;
 
-
-
-
     public static final Color POWER = new Color(50, 199, 0);
     public static final Color NO_POWER = new Color(34, 99, 0);
 
@@ -98,23 +95,15 @@ public abstract class ConnectibleEntity extends Entity {
 
     public static void checkEntities(CircuitPoint... checking) {
         Circuit c = checking[0].getCircuit();
-        EntityList<ConnectibleEntity> checkedEntities;
         for (CircuitPoint edge : checking) {
-            for (ConnectibleEntity ce : (checkedEntities =   // When a wire is shortened/deleted, we need
-                    c.getAllEntities()                       // to check every connectible entity that
-                            .thatIntercept(edge)             // intercepts the pullPoint and release point
-                            .ofType(ConnectibleEntity.class) // because they may now be disconnected, or
-                            .thatAreNotDeleted())) {         // connected in some cases
+            for (ConnectibleEntity ce :  c.getAllEntities()  // When a wire is shortened/deleted, we need
+                            .thatIntercept(edge)             // to check every connectible entity that intercepts
+                            .ofType(ConnectibleEntity.class) // the pullPoint and release pointbecause they may now be
+                            .thatAreNotDeleted()) {          // disconnected, or connected in some cases
                 ce.connectCheck();
-            }
-            for (Wire w : checkedEntities.ofType(Wire.class)) {
-                w.bisectCheck();
-                w.mergeCheck();
-                w.connectCheck();
             }
         }
     }
-
 
     // Redundant ConnectionList methods
 

@@ -26,8 +26,6 @@ public class Wire extends ConnectibleEntity {
             if (isSimilar(w))
                 throw new RuntimeException("Duplicate/Similar Wire " + startLocation + " " + endLocation);
         c.addEntity(this);
-        bisectCheck();
-        mergeCheck();
         connectCheck();
     }
 
@@ -80,6 +78,13 @@ public class Wire extends ConnectibleEntity {
         for (CircuitPoint edgePoint : getEdgePoints())
             if (canConnectTo(e, edgePoint) && e.canConnectTo(this, edgePoint) && !deleted && !e.isDeleted())
                 connect(e, edgePoint);
+    }
+
+    @Override
+    public void connectCheck() {
+        bisectCheck();
+        mergeCheck();
+        super.connectCheck();
     }
 
     public void connect(ConnectibleEntity e, CircuitPoint atLocation) {
@@ -231,9 +236,8 @@ public class Wire extends ConnectibleEntity {
         g.drawLine(p1.x, p1.y, p2.x, p2.y);
         if (drawJunctions)
             for (CircuitPoint edgePoint : new CircuitPoint[] { startLocation, endLocation })
-                if (getNumEntitiesConnectedAt(edgePoint) > 1) {
+                if (getNumEntitiesConnectedAt(edgePoint) > 1)
                     drawJunction(g, edgePoint);
-                }
     }
 
     public void drawJunction(Graphics2D g, CircuitPoint loc) {
@@ -256,8 +260,6 @@ public class Wire extends ConnectibleEntity {
         return stroke;
     }
 
-
-
     @Override
     public boolean intercepts(CircuitPoint p) {
         return getInterceptPoints().contains(p);
@@ -272,8 +274,8 @@ public class Wire extends ConnectibleEntity {
     @Override
     public String toString() {
         return "Wire{" +
-                "startLocation=" + startLocation +
-                ", endLocation=" + endLocation +
+                "start=" + startLocation +
+                ", end=" + endLocation +
                 '}';
     }
 
@@ -299,15 +301,9 @@ public class Wire extends ConnectibleEntity {
                                                           int maxLength,
                                                           boolean canSplit,
                                                           CircuitPoint absoluteEnd) {
-        System.out.println("FROM: " + start + " TO " + end + " DIR " + currDirection);
-        System.out.println("  CURR DIR: " + currDirection);
         if (invalidDirectionForPath(currDirection, start, end))
             currDirection = findValidDirectionForPath(start, end);
-        System.out.println("  DIR AFTER CHECK: " + currDirection);
         Circuit c = start.getCircuit();
-       /* debug("CURR ITERATION", currLength, "MAX ITERATION", maxLength, "ALL ENTITIES",
-                start.getCircuit().getAllEntities(), "START", start, "END", end, "CURR PATH", currPath,
-                "CURR DIR", currDirection, "GENERAL DIR", Vector.getGeneralDirection(currDirection));*/
         if (currLength > maxLength)
             return null;
         for (Entity e : c.getAllEntities())
@@ -353,6 +349,12 @@ public class Wire extends ConnectibleEntity {
                     trying = new CircuitPoint(end.x, start.y, start.getCircuit());
                 else
                     trying = new CircuitPoint(start.x, end.y, start.getCircuit());
+                // Overshoot 'trying' a little bit
+                if (currLength < 3) {
+                    int overShoot = 5;
+                    Vector overShootVec = new Vector(currDirection.x * overShoot, currDirection.y * overShoot);
+                    trying = overShootVec.addedTo(trying);
+                }
                 Vector oppositeDir = currDirection.getMultiplied(-1);
                 ArrayList<TheoreticalWire> potentials = new ArrayList<>();
                 while (!trying.equals(start)) {
@@ -362,17 +364,20 @@ public class Wire extends ConnectibleEntity {
                         potentials.add(potentialWire);
                     trying = oppositeDir.addedTo(trying);
                 }
-                if (currLength == 1) { // If first iteration, try all potential sub wires
+                if (currLength < 3) { // For the first 2 iterations, try the 10 sub paths that are closest to 'end'
                     List<List<TheoreticalWire>> paths = new ArrayList<>();
+                    currLength++;
+                    int lastN = 15;
                     for (TheoreticalWire theo : potentials) {
-                        ArrayList<TheoreticalWire> currPathClone = new ArrayList<>(currPath);
-                        currPathClone.add(theo);
-                        paths.add(generateWirePath(theo.getEndLocation(),
-                                end, currPathClone, null, ++currLength, maxLength, canSplit, absoluteEnd));
+                        if (lastN-- > 0) {
+                            ArrayList<TheoreticalWire> currPathClone = new ArrayList<>(currPath);
+                            currPathClone.add(theo);
+                            paths.add(generateWirePath(theo.getEndLocation(),
+                                    end, currPathClone, null, currLength, maxLength, canSplit, absoluteEnd));
+                        }
                     }
                     return getShortestPath(paths);
                 } else if (!potentials.isEmpty()) {
-                    System.out.println("  WE GOT OURSELVES AN ENDPOINT: " + trying);
                     currPath.add(potentials.get(0));
                     return generateWirePath(potentials.get(0).getEndLocation(),
                             end, currPath, null, ++currLength, maxLength, canSplit, absoluteEnd);
@@ -383,9 +388,9 @@ public class Wire extends ConnectibleEntity {
         }
     }
 
-    public boolean set(CircuitPoint edgePoint, CircuitPoint to) {
+    public void set(CircuitPoint edgePoint, CircuitPoint to) {
         if (!isEdgePoint(edgePoint))
-            throw new RuntimeException();
+            throw new RuntimeException("Set must be called on the edgePoint of a wire");
         if (to.equals(getOppositeEdgePoint(edgePoint))) {
             delete();
         }
@@ -397,8 +402,6 @@ public class Wire extends ConnectibleEntity {
 
         if (!deleted)
             ConnectibleEntity.checkEntities(edgePoint, startLocation, endLocation);
-
-        return deleted;
     }
 
     @Override
@@ -444,14 +447,27 @@ public class Wire extends ConnectibleEntity {
     public static List<TheoreticalWire> getShortestPath(List<List<TheoreticalWire>> pathList) {
         int shortestIndex = -1;
         int shortestLength = Integer.MAX_VALUE;
+        int shortestUnits = Integer.MAX_VALUE;
         for (int i = 0; i < pathList.size(); i++) {
             List<TheoreticalWire> path = pathList.get(i);
-            if (path != null && path.size() < shortestLength) {
-                shortestLength = path.size();
-                shortestIndex = i;
+            if (path != null) {
+                int units = getNumUnitsCovered(path);
+                if (path.size() < shortestLength || (path.size() == shortestLength && units < shortestUnits)) {
+                    shortestLength = path.size();
+                    shortestIndex = i;
+                    shortestUnits = getNumUnitsCovered(path);
+                }
             }
+
         }
         return shortestIndex == -1 ? null : pathList.get(shortestIndex);
+    }
+
+    public static int getNumUnitsCovered(List<TheoreticalWire> path) {
+        int units = 0;
+        for (TheoreticalWire w : path)
+            units += w.getInterceptPoints().size();
+        return units;
     }
 
     public static boolean canPlaceWireWithoutInterceptingAnything(TheoreticalWire wire,
@@ -526,7 +542,7 @@ public class Wire extends ConnectibleEntity {
     public static class TheoreticalWire extends Wire {
         public TheoreticalWire(CircuitPoint start, CircuitPoint end) {
             super(start.getCircuit());
-            if (start == null || end == null || (start.x != end.x && start.y != end.y) || start.equals(end))
+            if (end == null || (start.x != end.x && start.y != end.y) || start.equals(end))
                 throw new RuntimeException("Invalid Theoretical Wire");
             this.startLocation = start;
             this.endLocation = end;

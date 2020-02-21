@@ -1,13 +1,10 @@
 package edu.wit.yeatesg.logicgates.def;
 
-import edu.wit.yeatesg.logicgates.connections.ConnectibleEntity;
 import edu.wit.yeatesg.logicgates.connections.PointSet;
 import edu.wit.yeatesg.logicgates.connections.Wire;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 
 import java.awt.*;
-import java.util.ArrayList;
-import java.util.Arrays;
 
 public abstract class Entity {
 
@@ -85,6 +82,7 @@ public abstract class Entity {
     }
 
     public abstract boolean doesGenWireInvalidlyInterceptThis(Wire w, CircuitPoint... exceptions);
+
     public boolean doesGenWireInvalidlyInterceptThis(Wire w) {
         return doesGenWireInvalidlyInterceptThis(w, new CircuitPoint[0]);
     }
