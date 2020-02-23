@@ -23,6 +23,10 @@ public class CircuitPoint {
                 p.c);
     }
 
+    public double distance(CircuitPoint other) {
+        return Math.sqrt(Math.pow(other.x - x, 2) + Math.pow(other.y - y, 2));
+    }
+
     public PanelDrawPoint toPanelDrawPoint() {
         return new PanelDrawPoint(this);
     }
@@ -45,9 +49,9 @@ public class CircuitPoint {
 
     @Override
     public String toString() {
-        return "CircuitPoint{" +
-                " " + x + " , " + y +
-                "}";
+        return "[ " +
+                 + x + " , " + y +
+                " ]";
     }
 
     @Override

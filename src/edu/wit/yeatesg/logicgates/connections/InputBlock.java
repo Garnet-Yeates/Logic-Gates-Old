@@ -18,6 +18,7 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
         this.origin = origin;
         drawPoints = getRelativePointSet().applyToOrigin(origin, rotation);
         establishConnectionNode(drawPoints.get(0));
+        c.getEditorPanel().repaint();
     }
 
     // Rotatable Interface Methods
@@ -97,14 +98,15 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
 
     @Override
     public PointSet getInterceptPoints() {
-        return new PointSet();
+        return getBoundingBox().getGridPointsWithin();
     }
 
     @Override
     public PointSet getInvalidInterceptPoints(Entity e) {
-        return null;
+        if (e instanceof Wire)
+            return e.getInvalidInterceptPoints(this); // Wire covers this case for us (obv casting not necessary but i did)
+        return getInterceptPoints(e); // If it's not a wire, any intersect point is invalid
     }
-
 
     @Override
     public void onPowerReceive() {
@@ -150,7 +152,9 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
 
     @Override
     public void connectCheck(ConnectibleEntity e) {
-
+        CircuitPoint nodeLoc = drawPoints.get(0);
+        if (canConnectTo(e, nodeLoc) && e.canConnectTo(this, nodeLoc) && !deleted && !e.isDeleted())
+                connect(e, nodeLoc);
     }
 
     @Override
@@ -169,13 +173,21 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
         return getBoundingBox().intercepts(p);
     }
 
-    @Override
-    public boolean doesGenWireInvalidlyInterceptThis(Wire w, CircuitPoint... exceptions) {
-        return false;
-    }
 
    @Override
     public boolean equals(Object other) {
         return (other instanceof InputBlock && ((InputBlock) other).origin.equals(origin));
+    }
+
+    @Override
+    public boolean doesGenWireInvalidlyInterceptThis(Wire.TheoreticalWire theo, PermitList permit, boolean strictWithWires) {
+        permit = new PermitList(permit);
+        if (theo.invalidlyIntercepts(this))
+            return true;
+        else
+            for (CircuitPoint p : theo.getInterceptPoints(this))
+                if (!permit.contains(new InterceptPermit(this, p)))
+                    return true;
+        return false;
     }
 }

@@ -5,6 +5,8 @@ import edu.wit.yeatesg.logicgates.connections.Wire;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 
 import java.awt.*;
+import java.util.Arrays;
+import java.util.LinkedList;
 
 public abstract class Entity {
 
@@ -28,10 +30,20 @@ public abstract class Entity {
 
     public abstract PointSet getInterceptPoints();
 
-    public abstract PointSet getInvalidInterceptPoints(Entity e);
 
     public boolean invalidlyIntercepts(Entity e) {
         return getInvalidInterceptPoints(e) != null && getInvalidInterceptPoints(e).size() > 0;
+    }
+
+
+    public abstract PointSet getInvalidInterceptPoints(Entity e);
+
+    public boolean intercepts(Entity other) {
+        return getInterceptPoints(other).size() > 0;
+    }
+
+    public PointSet getInterceptPoints(Entity other) {
+        return getInterceptPoints().intersection(other.getInterceptPoints());
     }
 
     public abstract BoundingBox getBoundingBox();
@@ -81,10 +93,47 @@ public abstract class Entity {
         return true;
     }
 
-    public abstract boolean doesGenWireInvalidlyInterceptThis(Wire w, CircuitPoint... exceptions);
+    public static class InterceptPermit {
+        public Entity entity;
+        public CircuitPoint allowedToConnectAt;
 
-    public boolean doesGenWireInvalidlyInterceptThis(Wire w) {
-        return doesGenWireInvalidlyInterceptThis(w, new CircuitPoint[0]);
+        public InterceptPermit(Entity e, CircuitPoint p) {
+            this.entity = e;
+            this.allowedToConnectAt = p;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            return o instanceof InterceptPermit && ((InterceptPermit) o).entity.equals(entity) &&
+                    ((InterceptPermit) o).allowedToConnectAt.equals(allowedToConnectAt);
+        }
+
+        @Override
+        public String toString() {
+            return "InterceptException{" +
+                    "entity=" + entity +
+                    ", allowedToConnectAt=" + allowedToConnectAt +
+                    '}';
+        }
     }
+
+    public static class PermitList extends LinkedList<InterceptPermit> {
+        public PermitList(InterceptPermit... exceptions) {
+            this.addAll(Arrays.asList(exceptions));
+        }
+
+        public PermitList() {
+            super();
+        }
+
+        public PermitList(PermitList cloning) {
+            super(cloning);
+        }
+    }
+
+    public abstract boolean doesGenWireInvalidlyInterceptThis(Wire.TheoreticalWire theo,
+                                                                 PermitList exceptions,
+                                                                 boolean strictWithWires);
+
 
 }

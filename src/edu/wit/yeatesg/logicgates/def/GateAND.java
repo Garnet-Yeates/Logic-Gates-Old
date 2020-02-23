@@ -110,12 +110,14 @@ public class GateAND extends Entity implements Rotatable {
     }
 
     @Override
-    public boolean intercepts(CircuitPoint p) {
+    public boolean doesGenWireInvalidlyInterceptThis(Wire.TheoreticalWire theo, PermitList exceptions, boolean strictWithWires) {
         return false;
     }
 
     @Override
-    public boolean doesGenWireInvalidlyInterceptThis(Wire w, CircuitPoint... exceptions) {
+    public boolean intercepts(CircuitPoint p) {
         return false;
     }
+
+
 }

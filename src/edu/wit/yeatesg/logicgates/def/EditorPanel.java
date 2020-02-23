@@ -17,9 +17,22 @@ public class EditorPanel extends JPanel implements MouseListener, MouseMotionLis
 
     private Circuit currentCircuit;
 
+    public Circuit getCurrentCircuit() {
+        return currentCircuit;
+    }
+
     public static void main(String[] args) {
         JFrame frame = new JFrame();
         EditorPanel panel = new EditorPanel(frame);
+        Circuit currentCircuit = panel.currentCircuit;
+        new GateAND(new CircuitPoint(0, 10, currentCircuit), 90);
+        new GateAND(new CircuitPoint(-10, 10, currentCircuit), 180);
+
+        new Wire(new CircuitPoint(0, 0, currentCircuit), new CircuitPoint(0, -5, currentCircuit));
+        new Wire(new CircuitPoint(0, 0, currentCircuit), new CircuitPoint(-5, 0, currentCircuit));
+        new Wire(new CircuitPoint(0, 0, currentCircuit), new CircuitPoint(5, 0, currentCircuit));
+
+        new InputBlock(new CircuitPoint(5, -5, currentCircuit), 180);
     }
 
     public Selection currSelection = new Selection();
@@ -87,14 +100,6 @@ public class EditorPanel extends JPanel implements MouseListener, MouseMotionLis
         currentCircuit = new Circuit();
         currentCircuit.setEditorPanel(this);
         viewOrigin();
-        new GateAND(new CircuitPoint(0, 10, currentCircuit), 90);
-        new GateAND(new CircuitPoint(-10, 10, currentCircuit), 180);
-
-        new Wire(new CircuitPoint(0, 0, currentCircuit), new CircuitPoint(0, -5, currentCircuit));
-        new Wire(new CircuitPoint(0, 0, currentCircuit), new CircuitPoint(-5, 0, currentCircuit));
-        new Wire(new CircuitPoint(0, 0, currentCircuit), new CircuitPoint(5, 0, currentCircuit));
-
-        new InputBlock(new CircuitPoint(-5, -5, currentCircuit), 180);
     }
 
     @Override
@@ -418,7 +423,7 @@ public class EditorPanel extends JPanel implements MouseListener, MouseMotionLis
 
     private CircuitPoint pullPoint = null;
     private boolean isPullingWire = false;
-    private Vector pullDir = null;
+    private Direction pullDir = null;
     private boolean pressedOnEndpoint = false;
     private Wire wireBeingShortened = null;
     private Wire.TheoreticalWire theoreticalDeletion = null;
@@ -442,14 +447,18 @@ public class EditorPanel extends JPanel implements MouseListener, MouseMotionLis
         CircuitPoint gridAtMouse = circuitPointAtMouse(true);
         if (pullDir == null) { // If a preferred pull dir hasn't been chosen by the user yet, set it
             Vector dir = new Vector(pullPoint, gridAtMouse);
-            if (!(dir.equals(Vector.ZERO_VECTOR)) && Vector.getDirectionVecs().contains(dir))
-                pullDir = dir;
+            if ((!dir.equals(Vector.ZERO_VECTOR)) && Vector.getDirectionVecs().contains(dir)) {
+                if (dir == Vector.LEFT || dir == Vector.RIGHT)
+                    pullDir = Direction.HORIZONTAL;
+                else
+                    pullDir = Direction.VERTICAL;
+            }
+
         }
 
         // Whether or not the mouse pos is on the same entity that the pull point is on
         boolean isSameEntity = currentCircuit.getAllEntities().thatInterceptAll(gridAtMouse, pullPoint).size() > 0;
 
-        Wire prevShortening = wireBeingShortened;
         wireBeingShortened = null;
         if (pressedOnEndpoint  // Check to see if they are deleting wire
                 && pullDir != null
@@ -478,15 +487,12 @@ public class EditorPanel extends JPanel implements MouseListener, MouseMotionLis
 
         // If they aren't shortening wire and the mouse isn't on the same entity, display theoretical creations
         if (wireBeingShortened == null && !isSameEntity) {
-            theoreticalCreations = Wire.generateWirePath(pullPoint, gridAtMouse, pullDir, 8);
-            if (theoreticalCreations == null) { // If we couldn't do it in their preferred dir, try the other 3
-                List<List<Wire.TheoreticalWire>> possiblePaths = new ArrayList<>();
-                for (Vector v : Vector.getDirectionVecs())
-                    if (!v.equals(pullDir))
-                        possiblePaths.add(Wire.generateWirePath(pullPoint, gridAtMouse, v, 8));
-                theoreticalCreations = Wire.getShortestPath(possiblePaths);
-            }
+            theoreticalCreations = Wire.genWirePath(pullPoint, gridAtMouse, pullDir, 8, false);
+            if (theoreticalCreations == null && pullDir != null) // If we couldn't do it in their preferred dir, try the other
+                theoreticalCreations = Wire.genWirePath(pullPoint, gridAtMouse, pullDir.getPerpendicular(), 8, false);
             theoreticalCreations = theoreticalCreations == null ? new ArrayList<>() : theoreticalCreations;
+        } else if (wireBeingShortened == null) {
+            theoreticalCreations.clear();
         }
 
         // If they went back to pull point with mouse after giving it an initial vec

@@ -109,6 +109,10 @@ public class Vector {
         return p1.x == p2.x ? Direction.VERTICAL : Direction.HORIZONTAL;
     }
 
+    public Direction getGeneralDirection() {
+        return getGeneralDirection(this);
+    }
+
     @Override
     public String toString() {
         return "Vector{" +

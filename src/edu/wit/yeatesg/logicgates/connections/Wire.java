@@ -1,15 +1,13 @@
 package edu.wit.yeatesg.logicgates.connections;
 
-import edu.wit.yeatesg.logicgates.def.BoundingBox;
-import edu.wit.yeatesg.logicgates.def.Circuit;
-import edu.wit.yeatesg.logicgates.def.Entity;
+import edu.wit.yeatesg.logicgates.def.*;
 import edu.wit.yeatesg.logicgates.def.Vector;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 import edu.wit.yeatesg.logicgates.points.PanelDrawPoint;
 
 import java.awt.*;
+import java.util.*;
 import java.util.List;
-import java.util.ArrayList;
 
 public class Wire extends ConnectibleEntity {
 
@@ -24,14 +22,16 @@ public class Wire extends ConnectibleEntity {
         this.endLocation = endLocation;
         for (Wire w : c.getAllEntitiesOfType(Wire.class))
             if (isSimilar(w))
-                throw new RuntimeException("Duplicate/Similar Wire " + startLocation + " " + endLocation);
+                throw new RuntimeException("Duplicate/Similar Wire " + startLocation + " " + endLocation );
         c.addEntity(this);
         connectCheck();
+        c.getEditorPanel().repaint();
     }
 
     protected Wire(Circuit c) {
         super(c);
     }
+
 
     @Override
     public PointSet getInterceptPoints() {
@@ -52,9 +52,52 @@ public class Wire extends ConnectibleEntity {
 
     @Override
     public PointSet getInvalidInterceptPoints(Entity e) {
-        return null;
+        PointSet interceptPoints = getInterceptPoints(e);
+        PointSet invalidPoints = new PointSet();
+        if (e instanceof Wire) {
+            Wire other = (Wire) e;
+            if (other.getDirection() != getDirection()) {
+                for (CircuitPoint interceptPoint : interceptPoints)
+                    if (!(other.isEdgePoint(interceptPoint) || isEdgePoint(interceptPoint)))
+                        invalidPoints.add(interceptPoint);
+            } else {
+                for (CircuitPoint interceptPoint : interceptPoints)
+                    if (!(other.isEdgePoint(interceptPoint) && isEdgePoint(interceptPoint)))
+                        invalidPoints.add(interceptPoint);
+            }
+            return invalidPoints;
+        } else if (e instanceof ConnectibleEntity) {
+            ConnectibleEntity ce = (ConnectibleEntity) e;
+            if (interceptPoints.size() > 1)
+                return interceptPoints; // If it hits the same entity twice, ALL points are invalid
+            else if (interceptPoints.size() == 1)
+                if (!canConnectTo(ce, interceptPoints.get(0)) || !ce.canConnectTo(this, interceptPoints.get(0)))
+                    return interceptPoints; // If it hits the entity once, but cant connect, it's invalid
+        }
+        // TODO if i add non connectible entitties (like labels and stuff) if i want them to be invalid at some points add it here
+        return invalidPoints; // InvalidPoints is empty here
     }
 
+    @Override
+    public PointSet getInterceptPoints(Entity other) {
+        if (other instanceof Wire) {
+            if (((Wire) other).getDirection() == getDirection())
+                return other.getInterceptPoints().intersection(getInterceptPoints());
+            else {
+                PointSet interceptPoints = new PointSet();
+                for (CircuitPoint edgePoint : getEdgePoints())
+                    for (CircuitPoint otherPoint : other.getInterceptPoints())
+                        if (edgePoint.equals(otherPoint) && !interceptPoints.contains(otherPoint))
+                            interceptPoints.add(edgePoint);
+                for (CircuitPoint otherEdgePoint : ((Wire) other).getEdgePoints())
+                    for (CircuitPoint thisPoint : getInterceptPoints())
+                        if (otherEdgePoint.equals(thisPoint) && !interceptPoints.contains(thisPoint))
+                            interceptPoints.add(thisPoint);
+                return interceptPoints;
+            }
+        }
+        return super.getInterceptPoints(other);
+    }
 
     @Override
     public BoundingBox getBoundingBox() {
@@ -117,7 +160,7 @@ public class Wire extends ConnectibleEntity {
     }
 
     public void bisectCheck(Wire other) {
-        for (CircuitPoint thisWiresEndpoint : new CircuitPoint[] { startLocation, endLocation })
+        for (CircuitPoint thisWiresEndpoint : new CircuitPoint[]{startLocation, endLocation})
             if (other.getPointsExcludingEndpoints().contains(thisWiresEndpoint)
                     && other.getDirection() != getDirection()
                     && !(other.deleted || deleted))  // This means it is bisecting the wire
@@ -153,8 +196,8 @@ public class Wire extends ConnectibleEntity {
     }
 
     public void mergeCheck(Wire other) {
-        for (CircuitPoint edgePoint : new CircuitPoint[] { startLocation, endLocation }) {
-            for (CircuitPoint otherEdgePoint : new CircuitPoint[] { other.startLocation, other.endLocation }) {
+        for (CircuitPoint edgePoint : new CircuitPoint[]{startLocation, endLocation}) {
+            for (CircuitPoint otherEdgePoint : new CircuitPoint[]{other.startLocation, other.endLocation}) {
                 if (edgePoint.equals(otherEdgePoint)
                         && (other.getNumOtherEdgePointsAt(edgePoint) < 2)
                         && other.getDirection() == getDirection()
@@ -221,6 +264,59 @@ public class Wire extends ConnectibleEntity {
         return false;
     }
 
+    public CircuitPoint getStartLocation() {
+        return startLocation;
+    }
+
+    public CircuitPoint getEndLocation() {
+        return endLocation;
+    }
+
+    public CircuitPoint[] getEdgePoints() {
+        return new CircuitPoint[]{startLocation, endLocation};
+    }
+
+    public String whichEdgePoint(CircuitPoint p) {
+        return p.equals(startLocation) ? "start" : (p.equals(endLocation) ? "end" : "none");
+    }
+
+    public boolean isEdgePoint(CircuitPoint location) {
+        return !whichEdgePoint(location).equals("none");
+    }
+
+    public CircuitPoint getOppositeEdgePoint(CircuitPoint p) {
+        if (!isEdgePoint(p))
+            throw new RuntimeException();
+        if (whichEdgePoint(p).equals("start"))
+            return endLocation;
+        else
+            return startLocation;
+
+    }
+
+    public void set(CircuitPoint edgePoint, CircuitPoint to) {
+        if (!isEdgePoint(edgePoint))
+            throw new RuntimeException("Set must be called on the edgePoint of a wire");
+        if (to.equals(getOppositeEdgePoint(edgePoint))) {
+            delete();
+        } else if (whichEdgePoint(edgePoint).equals("start")) {
+            startLocation = to;
+        } else if (whichEdgePoint(edgePoint).equals("end"))
+            endLocation = to;
+
+        if (!deleted)
+            ConnectibleEntity.checkEntities(edgePoint, startLocation, endLocation);
+    }
+
+    @Override
+    public void onDelete() {
+        disconnectAll();
+        deleted = true;
+        ConnectibleEntity.checkEntities(startLocation, endLocation);
+        c.refreshTransmissions();
+    }
+
+
     @Override
     public boolean canMoveBy(Vector movementVector) {
         return true;
@@ -235,7 +331,7 @@ public class Wire extends ConnectibleEntity {
         PanelDrawPoint p2 = endLocation.toPanelDrawPoint();
         g.drawLine(p1.x, p1.y, p2.x, p2.y);
         if (drawJunctions)
-            for (CircuitPoint edgePoint : new CircuitPoint[] { startLocation, endLocation })
+            for (CircuitPoint edgePoint : new CircuitPoint[]{startLocation, endLocation})
                 if (getNumEntitiesConnectedAt(edgePoint) > 1)
                     drawJunction(g, edgePoint);
     }
@@ -279,155 +375,270 @@ public class Wire extends ConnectibleEntity {
                 '}';
     }
 
-    public static List<TheoreticalWire> generateWirePath(CircuitPoint from,
-                                                         CircuitPoint to,
-                                                         int maxLength) {
-        return generateWirePath(from, to, new ArrayList<>(), null, 1, maxLength, true, to);
+    // TODO implement getPointInLineWith(start, end, preferredDirection);
+    public static CircuitPoint getPointInLineWith(CircuitPoint start, CircuitPoint end, Direction prefDir) {
+        if (start.equals(end))
+            throw new RuntimeException(start + " is equal to and therefore already in line with " + end);
+        if (start.isInLineWith(end))
+            throw new RuntimeException(start + " is already in line with " + end);
+        CircuitPoint inLine;
+        inLine = prefDir == Direction.HORIZONTAL // Will be equal to 'start' if it is already in line but the prefDir
+                ? new CircuitPoint(end.x, start.y, start.getCircuit()) // is perpendicular. If they are in line and
+                : new CircuitPoint(start.x, end.y, start.getCircuit()); // the dir is parallel, it will be 'end'
+       return inLine;
     }
 
-    public static List<TheoreticalWire> generateWirePath(CircuitPoint from,
-                                                         CircuitPoint to,
-                                                         Vector initialDir,
-                                                         int maxLength) {
-        System.out.println("Generate Wire Path From " + from + " to " + to + " with initial vector " + initialDir);
-        return generateWirePath(from, to, new ArrayList<>(), initialDir, 1, maxLength, true, to);
+    public static Vector directionVecFromInLinePoints(CircuitPoint start, CircuitPoint end) {
+        if (!start.isInLineWith(end))
+            throw new RuntimeException("These points are not in line");
+        if (start.equals(end))
+            throw new RuntimeException("These points are equal");
+        if (start.x == end.x)
+            return start.y > end.y ? Vector.UP : Vector.DOWN;
+        else
+            return start.x > end.x ? Vector.LEFT : Vector.RIGHT;
     }
 
-    private static List<TheoreticalWire> generateWirePath(CircuitPoint start,
+    // TODO implement getDirectionFromInlinePoints(start, end)
+        // if !start.isinLineWith(end) throw exception
+
+
+    public static ArrayList<TheoreticalWire> genWirePath(CircuitPoint start,
                                                           CircuitPoint end,
-                                                          List<TheoreticalWire> currPath,
-                                                          Vector currDirection,
-                                                          int currLength,
+                                                          Direction initialDir,
                                                           int maxLength,
-                                                          boolean canSplit,
-                                                          CircuitPoint absoluteEnd) {
-        if (invalidDirectionForPath(currDirection, start, end))
-            currDirection = findValidDirectionForPath(start, end);
-        Circuit c = start.getCircuit();
-        if (currLength > maxLength)
-            return null;
-        for (Entity e : c.getAllEntities())
-            if (e.interceptsAll(start, end))
-                return null;
+                                                          boolean strictWithWires) {
+        System.out.println("GEN FROM " + start + " to " + end + ", dir = " + initialDir);
+        PermitList permitList = new PermitList();
+        for (ConnectibleEntity ce : start.getCircuit().getAllEntitiesThatIntercept(end).ofType(ConnectibleEntity.class))
+            permitList.add(new InterceptPermit(ce, end));
+        return genWirePath(start, end, new ArrayList<>(), initialDir, maxLength, 0, end, permitList, strictWithWires);
+    }
+
+    private static ArrayList<TheoreticalWire> genWirePath(CircuitPoint start,
+                                                           CircuitPoint end,
+                                                           ArrayList<TheoreticalWire> currPath,
+                                                           Direction currDirection,
+                                                           int maxLength,
+                                                           int splitNum,
+                                                           CircuitPoint absoluteEnd,
+                                                           PermitList exceptySex,
+                                                           boolean strictWithWires) {
+        System.out.println("gen from " + start + " to " + end);
+        if (currPath.size() == 0)
+            for (Entity e : start.getCircuit().getAllEntitiesThatIntercept(start))
+                exceptySex.add(new InterceptPermit(e, start));
         if (currDirection == null) {
-            Vector vert = Vector.directionVectorFrom(start, end, Direction.VERTICAL);
-            Vector horiz = Vector.directionVectorFrom(start, end, Direction.HORIZONTAL);
-            List<List<TheoreticalWire>> possiblePaths = new ArrayList<>();
-            if (vert != null)
-                possiblePaths.add(generateWirePath(start, end, new ArrayList<>(currPath),
-                        vert, currLength, maxLength, canSplit, absoluteEnd));
-            if (horiz != null)
-                possiblePaths.add(generateWirePath(start, end, new ArrayList<>(currPath),
-                        horiz, currLength, maxLength, canSplit, absoluteEnd));
-            return getShortestPath(possiblePaths);
+            // try shortest between vert and horiz
+            ArrayList<ArrayList<TheoreticalWire>> paths = new ArrayList<>();
+            paths.add(genWirePath(start, end, currPath, Direction.HORIZONTAL, maxLength, splitNum, absoluteEnd,
+                    exceptySex, strictWithWires));
+            paths.add(genWirePath(start, end, currPath, Direction.VERTICAL, maxLength, splitNum, absoluteEnd,
+                    exceptySex, strictWithWires));
+            return getShortestPath(paths);
+        }
+        if (currPath.size() > maxLength)
+            return null;
+        if (start.isInLineWith(end)) {
+      //      System.out.println("en lin");
+            currDirection = directionVecFromInLinePoints(start, end).getGeneralDirection(); // Fix dir potentially
+            CircuitPoint trying = end.clone();
+  //          System.out.println("EN LIN, GET POTENTIALS TO END");
+            ArrayList<TheoreticalWire> potentials = getAllSubWires(start, trying, currPath, exceptySex, strictWithWires);
+            // TODO For efficiency, do getClosestSubWireToEnd(CircuitPoint start, CircuitPoint end)
+      //      LogicGates.debug("POTENTIALS FOR " + start + " to " + trying, potentials);
+            TheoreticalWire potentialWire = potentials.size() > 0 ? potentials.get(0) : null;
+            if (potentialWire != null && potentialWire.getEndLocation().equals(end)) {
+                currPath.add(potentialWire);
+                return currPath;
+            } else if (splitNum++ < 2) {
+      //          System.out.println("SPLIT");
+                Vector[] orthogonals = currDirection == Direction.HORIZONTAL ?
+                        new Vector[] { Vector.UP, Vector.DOWN } : new Vector[] { Vector.LEFT, Vector.RIGHT };
+      //          LogicGates.debug("ORTHOGONALS:", orthogonals);
+                int splitDist = 3;
+                CircuitPoint orthogonalStart = start;
+                if (potentialWire != null) {
+                    currPath.add(potentialWire);
+                    orthogonalStart = potentialWire.getEndLocation();
+                    exceptySex.add(new InterceptPermit(potentialWire, orthogonalStart));
+                }
+
+                potentials = new ArrayList<>();
+                for (Vector v : orthogonals) {
+                    CircuitPoint orthogonalEnd = v.getMultiplied(splitDist).addedTo(orthogonalStart);
+                    ArrayList<TheoreticalWire> subWires = getAllSubWires(orthogonalStart, orthogonalEnd,
+                            currPath, exceptySex, strictWithWires);
+                    potentials.addAll(subWires);
+                }
+                ArrayList<ArrayList<TheoreticalWire>> paths = new ArrayList<>();
+                for (TheoreticalWire theo : potentials) {
+                    ArrayList<TheoreticalWire> currPathClone = new ArrayList<>(currPath);
+                    currPathClone.add(theo);
+                    PermitList exceptionsClone = new PermitList(exceptySex);
+                    exceptionsClone.add(new InterceptPermit(theo, theo.getEndLocation()));
+                    ArrayList<TheoreticalWire> generated = genWirePath(theo.getEndLocation(), end,
+                            currPathClone, currDirection, maxLength, splitNum, absoluteEnd,
+                            exceptionsClone, strictWithWires); // Dont switch dir because we already did perpendicular
+                    if (generated != null)
+                        paths.add(generated);
+
+                }
+                return getShortestPath(paths);
+            } else
+                return null;
         } else {
-            if (start.isInLineWith(end)) {
-                CircuitPoint trying = end.clone();
-                Vector oppositeDir = currDirection.getMultiplied(-1);
-                TheoreticalWire chosenWire = null;
-                while (!trying.equals(start)) {
-                    TheoreticalWire potentialWire = new TheoreticalWire(start, trying);
-                    if (Wire.canPlaceWireWithoutInterceptingAnything(potentialWire, currPath, start, absoluteEnd)) {
-                        chosenWire = potentialWire;
-                        break;
+            CircuitPoint trying = getPointInLineWith(start, end, currDirection);
+            ArrayList<TheoreticalWire> potentials = getAllSubWires(start, trying, currPath, exceptySex, strictWithWires);
+  //          LogicGates.debug("POTENTIALS FOR " + start + " to " + trying, potentials);
+            if (currPath.size() == 0) { // First 2 iterations, overshoot and try the 15 sub paths that are closest to 'end'
+                final int overShoot = 4;
+                Vector overShootVec = directionVecFromInLinePoints(start, trying).getMultiplied(overShoot);
+    //            System.out.println("Overshoot Point: " + overShootVec.addedTo(trying));
+                ArrayList<TheoreticalWire> overShootPotentials = getAllSubWires(start, overShootVec.addedTo(trying), trying,
+                        currPath, exceptySex, strictWithWires);
+                ArrayList<TheoreticalWire> overShootThenPotentials = new ArrayList<>(overShootPotentials);
+                overShootThenPotentials.addAll(potentials);
+   //             LogicGates.debug("POTENTIALS FOR (WITH OVERSHOOT) " + start + " to " + trying, overShootThenPotentials);
+                ArrayList<ArrayList<TheoreticalWire>> paths = new ArrayList<>();
+                int lastN = 30;
+                for (TheoreticalWire theo : overShootThenPotentials) {
+                    if (lastN-- > 0) {
+                        ArrayList<TheoreticalWire> currPathClone = new ArrayList<>(currPath);
+                        currPathClone.add(theo);
+                        PermitList exceptionsClone = new PermitList(exceptySex);
+                        exceptionsClone.add(new InterceptPermit(theo, theo.getEndLocation()));
+                        Direction nextDir = currDirection.getPerpendicular();
+      //                  System.out.println("POTENTIAL SHORT PATH GEN FROM " + theo.getEndLocation() + " to " + end + ", dir = " + nextDir);
+                        ArrayList<TheoreticalWire> generated = genWirePath(theo.getEndLocation(), end, currPathClone, nextDir,
+                                maxLength, splitNum, absoluteEnd, exceptionsClone, strictWithWires);
+                        if (generated != null)
+                            paths.add(generated);
                     }
-                    trying = oppositeDir.addedTo(trying);
                 }
-                if (chosenWire == null) {
-                    return null;
-                } else if (chosenWire.getEndLocation().equals(end)) {
-                    currPath.add(chosenWire);
-                    return currPath;
-                } else if (canSplit) {
-                    return null;
-                    // Do split shit
-                } else
-                    return null;
-            } else {
-                CircuitPoint trying;
-                if (Vector.getGeneralDirection(currDirection) == Direction.HORIZONTAL)
-                    trying = new CircuitPoint(end.x, start.y, start.getCircuit());
-                else
-                    trying = new CircuitPoint(start.x, end.y, start.getCircuit());
-                // Overshoot 'trying' a little bit
-                if (currLength < 3) {
-                    int overShoot = 5;
-                    Vector overShootVec = new Vector(currDirection.x * overShoot, currDirection.y * overShoot);
-                    trying = overShootVec.addedTo(trying);
+                return getShortestPath(paths);
+            } else if (!potentials.isEmpty()) {
+    //            System.out.println("Potentials Wasn't Empty, Go In Perpendic Dir Towards End From End Of Potential");
+                currPath.add(potentials.get(0));
+                Direction nextDirection = currDirection.getPerpendicular();
+                PermitList exceptionsClone = new PermitList(exceptySex);
+                exceptionsClone.add(new InterceptPermit(potentials.get(0), potentials.get(0).getEndLocation()));
+                return genWirePath(potentials.get(0).getEndLocation(), end, currPath, nextDirection, maxLength, splitNum, absoluteEnd,
+                        exceptionsClone, strictWithWires);
+            }
+            else
+                return null;
+        }
+    }
+
+
+    public static TheoreticalWire getClosestSubWire(CircuitPoint start,
+                                                               CircuitPoint end,
+                                                               List<TheoreticalWire> alsoCantIntercept,
+                                                               PermitList exceptions,
+                                                               boolean strictWithWires) {
+        return getClosestSubWire(start, end, start, alsoCantIntercept, exceptions, strictWithWires);
+    }
+
+    public static TheoreticalWire getClosestSubWire(CircuitPoint start,
+                                                               CircuitPoint end,
+                                                               CircuitPoint stop,
+                                                               List<TheoreticalWire> alsoCantIntercept,
+                                                               PermitList exceptions,
+                                                               boolean strictWithWires) {
+        ArrayList<TheoreticalWire> subWires = getSubWires(start, end, stop, alsoCantIntercept,
+                exceptions, strictWithWires, true);
+        return subWires.size() == 0 ? null : subWires.get(0);
+    }
+
+    public static ArrayList<TheoreticalWire> getAllSubWires(CircuitPoint start,
+                                                         CircuitPoint end,
+                                                         List<TheoreticalWire> alsoCantIntercept,
+                                                         PermitList exceptions,
+                                                         boolean strictWithWires) {
+        return getAllSubWires(start, end, start, alsoCantIntercept, exceptions, strictWithWires);
+    }
+
+    public static ArrayList<TheoreticalWire> getAllSubWires(CircuitPoint start,
+                                                            CircuitPoint end,
+                                                            CircuitPoint stop,
+                                                            List<TheoreticalWire> alsoCantIntercept,
+                                                            PermitList exceptions,
+                                                            boolean strictWithWires) {
+        return getSubWires(start, end, stop, alsoCantIntercept, exceptions, strictWithWires, false);
+    }
+
+    public static ArrayList<TheoreticalWire> getSubWires(CircuitPoint start,
+                                                          CircuitPoint end,
+                                                          CircuitPoint stop,
+                                                          List<TheoreticalWire> cantIntercept,
+                                                          PermitList exceptions,
+                                                          boolean strictWithWires,
+                                                          boolean stopAtFirst) {
+        if (!start.isInLineWith(end) || start.equals(end))
+            throw new RuntimeException("Invalid sub-wire Points " + start + " and " + end);
+        Vector dir = Vector.directionVectorFrom(end, start, start.x == end.x ? Direction.VERTICAL : Direction.HORIZONTAL);
+        ArrayList<TheoreticalWire> potentials = new ArrayList<>();
+        while (!end.equals(stop)) {
+            TheoreticalWire potentialWire = new TheoreticalWire(start, end);
+            boolean canPlace = Wire.canPlaceWireWithoutInterceptingAnything(potentialWire, cantIntercept, exceptions, strictWithWires);
+            if (canPlace) {
+                potentials.add(potentialWire);
+                if (stopAtFirst)
+                    return potentials;
+            }
+            assert dir != null;
+            end = dir.addedTo(end);
+        }
+        return potentials;
+    }
+
+
+    public static boolean canPlaceWireWithoutInterceptingAnything(TheoreticalWire wire,
+                                                                  List<? extends Entity> alsoCantIntercept,
+                                                                  PermitList exceptions,
+                                                                  boolean strictWithWires) {
+        EntityList<Entity> checkingForInterceptions = wire.getCircuit().getAllEntities();
+        checkingForInterceptions.addAll(alsoCantIntercept);
+        for (Entity e : checkingForInterceptions)
+            if (e.doesGenWireInvalidlyInterceptThis(wire, exceptions, strictWithWires))
+                return false;
+        return true;
+    }
+
+
+    // If u dont want a wire to intercept a wire in a way where it will connect to it, use this method
+    @Override
+    public boolean doesGenWireInvalidlyInterceptThis(TheoreticalWire theo, PermitList exceptions, boolean strictWithWires) {
+        exceptions = new PermitList(exceptions); // Clone exceptions
+   //     System.out.println("Does theo " + theo + " invalidlyIntercept " + this + " ? STRICT WITH WIRES: " + strictWithWires);
+        if (!strictWithWires)
+            if (getDirection() != theo.getDirection())
+                for (CircuitPoint p : theo.getPointsExcludingEndpoints())
+                    exceptions.add(new InterceptPermit(this, p));
+ //       LogicGates.debug("Exceptions:",  exceptions);
+        if (theo.invalidlyIntercepts(this)) {
+ //           System.out.println("invalidly intercepts");
+            return true;
+        }
+        else {
+    //        LogicGates.debug("InterceptPoints", theo.getInterceptPoints(this));
+            for (CircuitPoint p : theo.getInterceptPoints(this)) {
+                InterceptPermit requiredExceptin = new InterceptPermit(this, p);
+                if (!exceptions.contains(requiredExceptin)) {
+       //             System.out.println("exceptions didn't contain an exception similar to " + requiredExceptin);
+                    return true;
                 }
-                Vector oppositeDir = currDirection.getMultiplied(-1);
-                ArrayList<TheoreticalWire> potentials = new ArrayList<>();
-                while (!trying.equals(start)) {
-                    TheoreticalWire potentialWire = new TheoreticalWire(start, trying);
-                    boolean canPlace = Wire.canPlaceWireWithoutInterceptingAnything(potentialWire, currPath, start, absoluteEnd);
-                    if (canPlace)
-                        potentials.add(potentialWire);
-                    trying = oppositeDir.addedTo(trying);
-                }
-                if (currLength < 3) { // For the first 2 iterations, try the 10 sub paths that are closest to 'end'
-                    List<List<TheoreticalWire>> paths = new ArrayList<>();
-                    currLength++;
-                    int lastN = 15;
-                    for (TheoreticalWire theo : potentials) {
-                        if (lastN-- > 0) {
-                            ArrayList<TheoreticalWire> currPathClone = new ArrayList<>(currPath);
-                            currPathClone.add(theo);
-                            paths.add(generateWirePath(theo.getEndLocation(),
-                                    end, currPathClone, null, currLength, maxLength, canSplit, absoluteEnd));
-                        }
-                    }
-                    return getShortestPath(paths);
-                } else if (!potentials.isEmpty()) {
-                    currPath.add(potentials.get(0));
-                    return generateWirePath(potentials.get(0).getEndLocation(),
-                            end, currPath, null, ++currLength, maxLength, canSplit, absoluteEnd);
-                }
-                else
-                    return null;
             }
         }
+        return false;
     }
 
-    public void set(CircuitPoint edgePoint, CircuitPoint to) {
-        if (!isEdgePoint(edgePoint))
-            throw new RuntimeException("Set must be called on the edgePoint of a wire");
-        if (to.equals(getOppositeEdgePoint(edgePoint))) {
-            delete();
-        }
-        else if (whichEdgePoint(edgePoint).equals("start")) {
-            startLocation = to;
-        }
-        else if (whichEdgePoint(edgePoint).equals("end"))
-            endLocation = to;
-
-        if (!deleted)
-            ConnectibleEntity.checkEntities(edgePoint, startLocation, endLocation);
-    }
-
-    @Override
-    public void onDelete() {
-        disconnectAll();
-        deleted = true;
-        ConnectibleEntity.checkEntities(startLocation, endLocation);
-        c.refreshTransmissions();
-    }
-
-    public boolean isEdgePoint(CircuitPoint location) {
-        return !whichEdgePoint(location).equals("none");
-    }
-
-    public CircuitPoint getOppositeEdgePoint(CircuitPoint p) {
-        if (!isEdgePoint(p))
-            throw new RuntimeException();
-        if (whichEdgePoint(p).equals("start"))
-            return endLocation;
-        else
-            return startLocation;
-
-    }
-
-    public String whichEdgePoint(CircuitPoint p) {
-        return p.equals(startLocation) ? "start" : (p.equals(endLocation) ? "end" : "none");
+    public static int getNumUnitsCovered(ArrayList<TheoreticalWire> path) {
+        int units = 0;
+        for (TheoreticalWire w : path)
+            units += w.getInterceptPoints().size();
+        return units;
     }
 
     public static boolean invalidDirectionForPath(Vector dir, CircuitPoint start, CircuitPoint end) {
@@ -437,113 +648,32 @@ public class Wire extends ConnectibleEntity {
                 || dir.equals(Vector.UP) && start.y <= end.y);
     }
 
-    public static Vector findValidDirectionForPath(CircuitPoint start, CircuitPoint end) {
-        for (Vector v : Vector.getDirectionVecs())
-            if (!invalidDirectionForPath(v, start, end) && generateWirePath(start, end, v, 8) != null)
-                return v;
-        return null;
-    }
-
-    public static List<TheoreticalWire> getShortestPath(List<List<TheoreticalWire>> pathList) {
+    public static ArrayList<TheoreticalWire> getShortestPath(ArrayList<ArrayList<TheoreticalWire>> pathArrayList) {
         int shortestIndex = -1;
         int shortestLength = Integer.MAX_VALUE;
         int shortestUnits = Integer.MAX_VALUE;
-        for (int i = 0; i < pathList.size(); i++) {
-            List<TheoreticalWire> path = pathList.get(i);
+        for (int i = 0; i < pathArrayList.size(); i++) {
+            ArrayList<TheoreticalWire> path = pathArrayList.get(i);
             if (path != null) {
                 int units = getNumUnitsCovered(path);
                 if (path.size() < shortestLength || (path.size() == shortestLength && units < shortestUnits)) {
                     shortestLength = path.size();
                     shortestIndex = i;
-                    shortestUnits = getNumUnitsCovered(path);
+                    shortestUnits = units;
                 }
             }
 
         }
-        return shortestIndex == -1 ? null : pathList.get(shortestIndex);
+        //    System.out.println("SHORTEST INDEX = " + shortestIndex);
+        return shortestIndex == -1 ? null : pathArrayList.get(shortestIndex);
     }
 
-    public static int getNumUnitsCovered(List<TheoreticalWire> path) {
-        int units = 0;
-        for (TheoreticalWire w : path)
-            units += w.getInterceptPoints().size();
-        return units;
-    }
-
-    public static boolean canPlaceWireWithoutInterceptingAnything(TheoreticalWire wire,
-                                                                  List<? extends Entity> alsoCantIntercept,
-                                                                  CircuitPoint... exceptionsForList) {
-        ArrayList<Entity> checkingForInterceptions = wire.getCircuit().getAllEntities();
-        checkingForInterceptions.addAll(alsoCantIntercept);
-        for (Entity e : wire.getCircuit().getAllEntities())
-            if (e.doesGenWireInvalidlyInterceptThis(wire, exceptionsForList))
-                return false;
-        return true;
-    }
-
-
-    public CircuitPoint[] getEdgePoints() {
-        return new CircuitPoint[] {startLocation,endLocation};
-    }
-
-    // If u dont want a wire to intercept a wire in a way where it will connect to it, use this method
-    @Override
-    public boolean doesGenWireInvalidlyInterceptThis(Wire theo, CircuitPoint... exceptions) {
-        ArrayList<CircuitPoint> interceptPoints = new ArrayList<>();
-        if (theo.getDirection() == getDirection()) { // Can't intercept any point on any wire going in the same dir
-            for (CircuitPoint cp : getInterceptPoints()) {
-                for (CircuitPoint cp2 : theo.getInterceptPoints()) {
-                    if (cp.equals(cp2))
-                        interceptPoints.add(cp);
-                }
-            }
-        } else {
-            // THE GENERATED WIRE IS ALLOWED TO TOUCH THE ENDPOINT OF A NON GENERATED WIRE
-            // BUT THE NON GENERATED WIRE IS NOT ALLOWED TO TOUCH THE ENDPOINT OF A GEND WIRE
-            for (CircuitPoint edgePoint : theo.getEdgePoints())
-                if (this.intercepts(edgePoint))
-                    interceptPoints.add(edgePoint);
-
-
-            // FOR THE SECOND AUTO PATHT HING IM DOING LATER WHERE WE DONT WANT IT TO CONNECT TO
-            // ANNNNNNNNNNNNYTHING AT ALL BELOW:
-            // Endpoints of each wire cant touch any of the points on the other wire if diff direction
-           /* for (CircuitPoint cp : w.getPoints())
-                if (startLocation.equals(cp) || endLocation.equals(cp))
-                    interceptPoints.add(cp);
-            for (CircuitPoint cp : getPoints())
-                if (w.getStartLocation().equals(cp) || w.getEndLocation().equals(cp))
-                    interceptPoints.add(cp);*/
-        }
-        if (interceptPoints.size() != 0) {
-            for (CircuitPoint interceptPoint : interceptPoints) {
-                boolean exceptionsContainsPoint = false;
-                for (CircuitPoint p : exceptions) {
-                    if (p.equals(interceptPoint)) {
-                        exceptionsContainsPoint = true;
-                        break;
-                    }
-                }
-                if (!exceptionsContainsPoint)
-                    return true;
-            }
-        }
-        return false;
-    }
-
-    public CircuitPoint getStartLocation() {
-        return startLocation;
-    }
-
-    public CircuitPoint getEndLocation() {
-        return endLocation;
-    }
 
     public static class TheoreticalWire extends Wire {
         public TheoreticalWire(CircuitPoint start, CircuitPoint end) {
             super(start.getCircuit());
             if (end == null || (start.x != end.x && start.y != end.y) || start.equals(end))
-                throw new RuntimeException("Invalid Theoretical Wire");
+                throw new RuntimeException("Invalid Theoretical Wire " + start + " to " + end);
             this.startLocation = start;
             this.endLocation = end;
         }
@@ -561,7 +691,7 @@ public class Wire extends ConnectibleEntity {
 
         @Override
         public String toString() {
-            return "THEOTHEOTHEO" + super.toString();
+            return "Theoretical" + super.toString();
         }
 
         public static boolean doesAnyWireIntercept(CircuitPoint p) {
