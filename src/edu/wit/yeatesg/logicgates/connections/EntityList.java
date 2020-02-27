@@ -1,12 +1,14 @@
 package edu.wit.yeatesg.logicgates.connections;
 
+import edu.wit.yeatesg.logicgates.def.BoundingBox;
 import edu.wit.yeatesg.logicgates.def.Entity;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 
-import java.lang.reflect.Array;
 import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.function.Consumer;
 
-public class EntityList<T extends Entity> extends ArrayList<T> {
+public class EntityList<E extends Entity> extends ArrayList<E> {
 
     public EntityList(int size) {
         super(size);
@@ -17,12 +19,12 @@ public class EntityList<T extends Entity> extends ArrayList<T> {
     }
 
     @SuppressWarnings("unchecked")
-    public <E extends Entity> EntityList<E> ofType(Class<E> type, boolean loopThruClone) {
-        EntityList<E> list = new EntityList<>(size());
-        EntityList<T> iteratingThru = loopThruClone ? clone() : this;
+    public <T extends Entity> EntityList<T> ofType(Class<T> type, boolean loopThruClone) {
+        EntityList<T> list = new EntityList<>(size());
+        EntityList<E> iteratingThru = loopThruClone ? clone() : this;
         for (Entity e : iteratingThru) {
             if (e.getClass().equals(type)) {
-                list.add((E) e);
+                list.add((T) e);
             } else {
                 ArrayList<Class<?>> classes = new ArrayList<>();
                 Class<?> curr = e.getClass();
@@ -31,55 +33,67 @@ public class EntityList<T extends Entity> extends ArrayList<T> {
                     curr = curr.getSuperclass();
                 }
                 if (classes.contains(type))
-                    list.add((E) e);
+                    list.add((T) e);
             }
         }
         return list;
     }
 
-    public <E extends Entity> EntityList<E> ofType(Class<E> type) {
-        return ofType(type, true);
+    public <T extends Entity> EntityList<T> ofType(Class<T> type) {
+        return ofType(type, false);
     }
 
     @SuppressWarnings("unchecked")
-    public EntityList<T> thatInterceptAll(CircuitPoint... allOfThese) {
-        EntityList<T> interceptors = new EntityList<>();
+    public EntityList<E> thatInterceptAll(CircuitPoint... allOfThese) {
+        EntityList<E> interceptors = new EntityList<>();
         for (Entity e : this)
             if (e.interceptsAll(allOfThese))
-                interceptors.add((T) e);
+                interceptors.add((E) e);
         return interceptors;
     }
 
-    public EntityList<T> thatAreNotDeleted() {
-        EntityList<T> list = new EntityList<>();
-        for (T entity : this)
+    public EntityList<E> thatAreNotDeleted() {
+        EntityList<E> list = new EntityList<>();
+        for (E entity : this)
             if (!entity.isDeleted())
                 list.add(entity);
         return list;
     }
 
-    public EntityList<T> thatAreDeleted() {
-        EntityList<T> list = new EntityList<>();
-        for (T entity : this)
+    public EntityList<E> thatAreDeleted() {
+        EntityList<E> list = new EntityList<>();
+        for (E entity : this)
             if (entity.isDeleted())
                 list.add(entity);
         return list;
     }
 
-    public EntityList<T> thatInterceptNone(CircuitPoint... noneOfThese) {
-        EntityList<T> thatInterceptNone = this.clone();
-        for (T entity : this)
+    public EntityList<E> thatInterceptNone(CircuitPoint... noneOfThese) {
+        EntityList<E> thatInterceptNone = this.clone();
+        for (E entity : this)
             if (entity.interceptsNone(noneOfThese))
                 thatInterceptNone.add(entity);
-        return null;
+        return thatInterceptNone;
     }
 
-    public EntityList<T> thatInterceptAny(CircuitPoint... points) {
-        EntityList<T> thatInterceptAny = this.clone();
-        for (T entity : this)
+    public EntityList<E> thatInterceptAny(CircuitPoint... points) {
+        EntityList<E> thatInterceptAny = this.clone();
+        for (E entity : this)
             if (entity.interceptsAny(points))
                 thatInterceptAny.add(entity);
-        return null;
+        return thatInterceptAny;
+    }
+
+    public EntityList<E> thatIntercept(CircuitPoint p) {
+        return thatInterceptAll(p);
+    }
+
+    public EntityList<E> thatIntercept(BoundingBox b) {
+        EntityList<E> interceptList = new EntityList<>();
+        for (E e : this)
+            if (b.intercepts(e))
+                interceptList.add(e);
+        return interceptList;
     }
 
     public EntityList<Wire> getWiresGoingInDirection(Direction dir) {
@@ -106,18 +120,72 @@ public class EntityList<T extends Entity> extends ArrayList<T> {
         return getWiresGoingInDirection(w.getDirection());
     }
 
-    public EntityList<T> except(Entity e) {
+    public EntityList<E> except(Entity e) {
         remove(e);
         return this;
     }
 
+    /**
+     * Represents an Iterable interval [start,end) where start is inclusive and end is exclusive
+     */
+    private static class Interval implements Iterable<Integer> {
 
-    public EntityList<T> thatIntercept(CircuitPoint p) {
-        return thatInterceptAll(p);
+        int start;
+        int end;
+
+        public Interval(int start, int end) {
+            this.start = start;
+            this.end = end;
+        }
+
+        public static Interval[] splitIntoIntervals(int range, int numIntervals) {
+            Interval[] intervals = new Interval[numIntervals];
+            for (int i = 0, j = 1; i < numIntervals; i++, j++)
+                intervals[i] = new Interval((i / numIntervals) * range, (j / numIntervals) * range);
+            return intervals;
+        }
+
+        @Override
+        public Iterator<Integer> iterator() {
+            return new IntervalIterator();
+        }
+
+        public class IntervalIterator implements Iterator<Integer> {
+            int curr = start;
+
+            @Override
+            public boolean hasNext() {
+                return curr < end;
+            }
+
+            @Override
+            public Integer next() {
+                return curr++;
+            }
+        }
     }
 
+    public void multiThreadForEach(Consumer<E> consumer, int numThreads) {
+        Thread[] threads = new Thread[numThreads];
+        Interval[] intervals = Interval.splitIntoIntervals(size(), numThreads);
+        for (int i = 0; i < intervals.length; i++) {
+            Interval interval = intervals[i];
+            threads[i] = new Thread(() -> {
+                interval.iterator().forEachRemaining((index) -> {
+                    consumer.accept(get(index));
+                });
+            });
+            threads[i].start();
+        }
+        for (Thread t : threads)
+            try { t.join(); } catch (InterruptedException ignored) { }
+    }
+
+
+
+
     @SuppressWarnings("unchecked")
-    public EntityList<T> clone() {
-        return (EntityList<T>) super.clone();
+    public EntityList<E> clone() {
+        return (EntityList<E>) super.clone();
     }
 }

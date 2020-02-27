@@ -78,6 +78,10 @@ public abstract class Entity {
         return c.removeEntity(this);
     }
 
+    public boolean intercepts(BoundingBox b) {
+        return b.intercepts(this);
+    }
+
     public boolean isDeleted() {
         return deleted;
     }

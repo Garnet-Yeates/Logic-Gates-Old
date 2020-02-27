@@ -448,13 +448,15 @@ public class EditorPanel extends JPanel implements MouseListener, MouseMotionLis
         if (pullDir == null) { // If a preferred pull dir hasn't been chosen by the user yet, set it
             Vector dir = new Vector(pullPoint, gridAtMouse);
             if ((!dir.equals(Vector.ZERO_VECTOR)) && Vector.getDirectionVecs().contains(dir)) {
-                if (dir == Vector.LEFT || dir == Vector.RIGHT)
+                System.out.println("b4 pull dir dir = " + dir);
+                if (dir.equals(Vector.LEFT) || dir.equals(Vector.RIGHT))
                     pullDir = Direction.HORIZONTAL;
                 else
                     pullDir = Direction.VERTICAL;
             }
 
         }
+        System.out.println(pullDir + " FIKE");
 
         // Whether or not the mouse pos is on the same entity that the pull point is on
         boolean isSameEntity = currentCircuit.getAllEntities().thatInterceptAll(gridAtMouse, pullPoint).size() > 0;
@@ -487,9 +489,9 @@ public class EditorPanel extends JPanel implements MouseListener, MouseMotionLis
 
         // If they aren't shortening wire and the mouse isn't on the same entity, display theoretical creations
         if (wireBeingShortened == null && !isSameEntity) {
-            theoreticalCreations = Wire.genWirePath(pullPoint, gridAtMouse, pullDir, 8, false);
+            theoreticalCreations = Wire.genWirePathLenient(pullPoint, gridAtMouse, pullDir, 8);
             if (theoreticalCreations == null && pullDir != null) // If we couldn't do it in their preferred dir, try the other
-                theoreticalCreations = Wire.genWirePath(pullPoint, gridAtMouse, pullDir.getPerpendicular(), 8, false);
+                theoreticalCreations = Wire.genWirePathLenient(pullPoint, gridAtMouse, pullDir.getPerpendicular(), 8);
             theoreticalCreations = theoreticalCreations == null ? new ArrayList<>() : theoreticalCreations;
         } else if (wireBeingShortened == null) {
             theoreticalCreations.clear();

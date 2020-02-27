@@ -1,6 +1,8 @@
 package edu.wit.yeatesg.logicgates.def;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 
 public class LogicGates {
 
@@ -27,6 +29,5 @@ public class LogicGates {
                     System.out.println("  " + args[i]);
             }
         }
-
     }
 }

@@ -64,7 +64,7 @@ public class LogicGate extends ConnectibleEntity implements Pokable, Rotatable {
 
     @Override
     public PointSet getInterceptPoints() {
-        return null;
+        return new PointSet();
     }
 
     @Override

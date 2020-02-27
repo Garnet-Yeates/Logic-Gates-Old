@@ -25,7 +25,7 @@ public class GateAND extends Entity implements Rotatable {
 
     @Override
     public PointSet getInterceptPoints() {
-        return null;
+        return new PointSet();
     }
 
     @Override

@@ -1,5 +1,6 @@
 package edu.wit.yeatesg.logicgates.def;
 
+import edu.wit.yeatesg.logicgates.connections.EntityList;
 import edu.wit.yeatesg.logicgates.connections.PointSet;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 import edu.wit.yeatesg.logicgates.points.PanelDrawPoint;
@@ -56,6 +57,13 @@ public class BoundingBox {
         this(corner1.toCircuitPoint(), corner2.toCircuitPoint(), owner);
     }
 
+    public BoundingBox getExpandedBy(int amount) {
+        if (amount < 1)
+            throw new RuntimeException("Invalid Expansion");
+        return new BoundingBox(new CircuitPoint(p1.x - amount, p1.y - amount, p1.getCircuit()),
+                new CircuitPoint(p4.x + amount, p4.y + amount, p1.getCircuit()), owner);
+    }
+
     public PointSet getGridPointsWithin() {
         return gridPointsWithin;
     }
@@ -78,6 +86,17 @@ public class BoundingBox {
                     new PanelDrawPoint(p4.x + thresh, p4.y + thresh, p4.getCircuit()),
                     owner).intercepts(p);
         return p.x >= p1.x && p.x <= p4.x && p.y >= p1.y && p.y <= p4.y;
+    }
+
+    public boolean intercepts(Entity e) {
+        for (CircuitPoint intPoint : e.getInterceptPoints())
+            if (intercepts(intPoint))
+                return true;
+        return false;
+    }
+
+    public EntityList<Entity> getInterceptingEntities( ) {
+        return p1.getCircuit().getAllEntities().thatIntercept(this);
     }
 
     public BoundingBox clone() {

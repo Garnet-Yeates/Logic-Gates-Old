@@ -37,16 +37,18 @@ public class ddd {
 
             //   new Wire(new CircuitPoint(3, 5, c), new CircuitPoint(3, -5, c));
             boolean canPlaceT = Wire.canPlaceWireWithoutInterceptingAnything(new Wire.TheoreticalWire(new CircuitPoint(3, 5, c),
-                            new CircuitPoint(3, -5, c)), new LinkedList<>(), new Entity.PermitList(),
+                            new CircuitPoint(3, -5, c)), new LinkedList<>(), c.getAllEntities(), new Entity.PermitList(),
                     false);
             System.out.println("CanPlaceT? " + canPlaceT);
 
             boolean canPlaceL = Wire.canPlaceWireWithoutInterceptingAnything(new Wire.TheoreticalWire(new CircuitPoint(10, 5, c),
-                            new CircuitPoint(-1, 5, c)), new LinkedList<>(), new Entity.PermitList(),
+                            new CircuitPoint(-1, 5, c)), new LinkedList<>(), c.getAllEntities(), new Entity.PermitList(),
                     false);
             System.out.println("CanPlaceL? " + canPlaceL);
 
             //   boolean canPlaceL =
+
+
 
 //        Wire.genWirePath(new CircuitPoint(0, 0, c), new CircuitPoint(-5, -5, c), Direction.HORIZONTAL, 20, false);
 
