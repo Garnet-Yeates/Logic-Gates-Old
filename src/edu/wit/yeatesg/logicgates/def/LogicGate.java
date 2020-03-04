@@ -1,15 +1,17 @@
 package edu.wit.yeatesg.logicgates.def;
 
-import edu.wit.yeatesg.logicgates.connections.*;
+import edu.wit.yeatesg.logicgates.entity.*;
+import edu.wit.yeatesg.logicgates.entity.connectible.ConnectibleEntity;
+import edu.wit.yeatesg.logicgates.entity.connectible.Wire;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
-
-import java.awt.*;
+import javafx.beans.value.ObservableValue;
+import javafx.scene.canvas.GraphicsContext;
 
 public class LogicGate extends ConnectibleEntity implements Pokable, Rotatable {
 
 
-    public LogicGate(Circuit c) {
-        super(c);
+    public LogicGate(Circuit c, boolean isPreview) {
+        super(c, isPreview);
     }
 
     @Override
@@ -58,7 +60,7 @@ public class LogicGate extends ConnectibleEntity implements Pokable, Rotatable {
     }
 
     @Override
-    public int getStrokeSize() {
+    public int getLineWidth() {
         return 0;
     }
 
@@ -77,14 +79,15 @@ public class LogicGate extends ConnectibleEntity implements Pokable, Rotatable {
         return null;
     }
 
+
     @Override
-    public boolean canMoveBy(Vector vector) {
-        return false;
+    public void draw(GraphicsContext g) {
+
     }
 
     @Override
-    public void draw(Graphics2D g) {
-
+    public String getDisplayName() {
+        return "null";
     }
 
     @Override
@@ -99,6 +102,31 @@ public class LogicGate extends ConnectibleEntity implements Pokable, Rotatable {
 
     @Override
     public boolean doesGenWireInvalidlyInterceptThis(Wire.TheoreticalWire theo, PermitList exceptions, boolean strictWithWires) {
+        return false;
+    }
+
+    @Override
+    public boolean canMove() {
+        return false;
+    }
+
+    @Override
+    public String getPropertyTableHeader() {
+        return null;
+    }
+
+    @Override
+    public PropertyList getPropertyList() {
+        return null;
+    }
+
+    @Override
+    public void onPropertyChange(ObservableValue<? extends String> observableValue, String s, String t1) {
+
+    }
+
+    @Override
+    public boolean hasProperty(String propertyName) {
         return false;
     }
 }

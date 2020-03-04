@@ -2,8 +2,8 @@ package edu.wit.yeatesg.logicgates.def;
 
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 import edu.wit.yeatesg.logicgates.points.PanelDrawPoint;
-
-import java.awt.*;
+import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.paint.Color;
 
 public class BezierCurve {
 
@@ -28,19 +28,19 @@ public class BezierCurve {
         this(new CurvePolygon(points));
     }
 
-    public void draw(Graphics2D g, Stroke stroke) {
-        g.setColor(Color.black);
-        g.setStroke(stroke);
+    public void draw(GraphicsContext g, int lineWidth) {
+        g.setStroke(Color.BLACK);
+        g.setLineWidth(lineWidth);
 
         for (CurvePolygon.Line l : new CurvePolygon(points).lines) {
             PanelDrawPoint p1 = l.startPoint.toPanelDrawPoint();
             PanelDrawPoint p2 = l.endPoint.toPanelDrawPoint();
-            g.drawLine(p1.x, p1.y, p2.x, p2.y);
+            g.strokeLine(p1.x, p1.y, p2.x, p2.y);
         }
     }
 
-    public void draw(Graphics2D g) {
-        draw(g, new BasicStroke(1));
+    public void draw(GraphicsContext g) {
+        draw(g, 1);
     }
 
     private static CircuitPoint getBezierPoint(CurvePolygon shape, double weight) {

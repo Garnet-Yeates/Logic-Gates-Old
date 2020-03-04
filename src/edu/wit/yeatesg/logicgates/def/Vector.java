@@ -1,11 +1,8 @@
 package edu.wit.yeatesg.logicgates.def;
 
-import edu.wit.yeatesg.logicgates.connections.Direction;
-import edu.wit.yeatesg.logicgates.connections.Wire;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 import edu.wit.yeatesg.logicgates.points.PanelDrawPoint;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 

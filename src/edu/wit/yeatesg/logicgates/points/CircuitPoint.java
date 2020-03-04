@@ -92,4 +92,5 @@ public class CircuitPoint {
     public CircuitPoint clone() {
         return new CircuitPoint(x, y, c);
     }
+
 }

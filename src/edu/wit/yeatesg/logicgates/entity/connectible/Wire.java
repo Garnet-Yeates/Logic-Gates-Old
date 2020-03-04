@@ -1,12 +1,18 @@
-package edu.wit.yeatesg.logicgates.connections;
+package edu.wit.yeatesg.logicgates.entity.connectible;
 
+import edu.wit.yeatesg.logicgates.def.Direction;
+import edu.wit.yeatesg.logicgates.entity.Entity;
+import edu.wit.yeatesg.logicgates.entity.EntityList;
+import edu.wit.yeatesg.logicgates.entity.PointSet;
 import edu.wit.yeatesg.logicgates.def.*;
-import edu.wit.yeatesg.logicgates.def.Vector;
+import edu.wit.yeatesg.logicgates.entity.PropertyList;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 import edu.wit.yeatesg.logicgates.points.PanelDrawPoint;
+import javafx.beans.value.ObservableValue;
+import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.paint.Color;
 
-import java.awt.*;
-import java.util.*;
+import java.util.ArrayList;
 import java.util.List;
 
 public class Wire extends ConnectibleEntity {
@@ -14,28 +20,50 @@ public class Wire extends ConnectibleEntity {
     protected CircuitPoint startLocation;
     protected CircuitPoint endLocation;
 
-    public Wire(CircuitPoint startLocation, CircuitPoint endLocation) {
-        super(startLocation.getCircuit());
+    public Wire(CircuitPoint startLocation, CircuitPoint endLocation, boolean isPreview) {
+        super(startLocation.getCircuit(), isPreview);
         if ((startLocation.x != endLocation.x && startLocation.y != endLocation.y) || startLocation.equals(endLocation))
             throw new RuntimeException("Invalid Wire");
         this.startLocation = startLocation;
         this.endLocation = endLocation;
+        updateInterceptPoints();
         for (Wire w : c.getAllEntitiesOfType(Wire.class))
             if (isSimilar(w))
                 throw new RuntimeException("Duplicate/Similar Wire " + startLocation + " " + endLocation );
-        c.addEntity(this);
-        connectCheck();
-        c.getEditorPanel().repaint();
+        if (!isPreview) {
+            c.addEntity(this);
+            connectCheck();
+            c.getEditorPanel().repaint();
+        }
+    }
+
+    public Wire(CircuitPoint startLocation, CircuitPoint endLocation) {
+        this(startLocation, endLocation, false);
     }
 
     protected Wire(Circuit c) {
-        super(c);
+        super(c, false);
     }
 
 
     @Override
+    public String getDisplayName() {
+        return "Wire";
+    }
+
+    /**
+     * Obtains a direct reference to this Wire's interceptPoints
+     * @return a PointSet representing all of the intercept points of this Wire
+     */
+    @Override
     public PointSet getInterceptPoints() {
-        PointSet interceptPoints = new PointSet();
+        return interceptPoints;
+    }
+
+    private PointSet interceptPoints;
+
+    public void updateInterceptPoints() {
+        interceptPoints = new PointSet();
         if (startLocation.x == endLocation.x) {
             CircuitPoint lower = startLocation.y > endLocation.y ? startLocation : endLocation;
             CircuitPoint higher = lower == startLocation ? endLocation : startLocation;
@@ -47,7 +75,6 @@ public class Wire extends ConnectibleEntity {
             for (int x = (int) lefter.x; x <= righter.x; x++)
                 interceptPoints.add(new CircuitPoint(x, lefter.y, c));
         }
-        return interceptPoints;
     }
 
     @Override
@@ -109,8 +136,8 @@ public class Wire extends ConnectibleEntity {
         return startLocation.x == endLocation.x ? Direction.VERTICAL : Direction.HORIZONTAL;
     }
 
-    public PointSet getPointsExcludingEndpoints() {
-        PointSet pts = getInterceptPoints();
+    public PointSet getPointsExcludingEdgePoints() {
+        PointSet pts = getInterceptPoints().clone();
         pts.remove(0);
         pts.remove(pts.size() - 1);
         return pts;
@@ -118,6 +145,8 @@ public class Wire extends ConnectibleEntity {
 
     @Override
     public void connectCheck(ConnectibleEntity e) {
+        if (isPreview || e.isPreview() || deleted || e.isDeleted())
+            return;
         for (CircuitPoint edgePoint : getEdgePoints())
             if (canConnectTo(e, edgePoint) && e.canConnectTo(this, edgePoint) && !deleted && !e.isDeleted())
                 connect(e, edgePoint);
@@ -125,12 +154,16 @@ public class Wire extends ConnectibleEntity {
 
     @Override
     public void connectCheck() {
+        if (isPreview || deleted || isInvalid())
+            return;
         bisectCheck();
         mergeCheck();
         super.connectCheck();
     }
 
     public void connect(ConnectibleEntity e, CircuitPoint atLocation) {
+        if (isInvalid() || deleted || isPreview || e.isInvalid() || e.isDeleted() || e.isPreview())
+            throw new RuntimeException("Cannot bisect. At least one of these wires is deleted/invalid/preview");
         if (!atLocation.equals(startLocation) && !atLocation.equals(endLocation))
             throw new RuntimeException("Wires can only be connected at end points! (w1)");
         if (hasConnectionTo(e) || e.hasConnectionTo(this))
@@ -153,38 +186,44 @@ public class Wire extends ConnectibleEntity {
     }
 
     public void bisectCheck() {
-        if (!deleted) {
+        if (!deleted && !isPreview && !isInvalid()) {
             ArrayList<Wire> allWires = c.getAllEntitiesOfType(Wire.class, false);
-            for (Wire w : allWires)
-                if (!w.deleted && !w.equals(this))
+            for (Wire w : allWires) {
+                if (!w.deleted && !w.equals(this)) {
                     bisectCheck(w);
+                    w.bisectCheck(this);
+                }
+            }
         }
     }
 
     public void bisectCheck(Wire other) {
-        for (CircuitPoint thisWiresEndpoint : new CircuitPoint[]{startLocation, endLocation})
-            if (other.getPointsExcludingEndpoints().contains(thisWiresEndpoint)
-                    && other.getDirection() != getDirection()
-                    && !(other.deleted || deleted))  // This means it is bisecting the wire
+        if (isInvalid() || deleted || isPreview || other.isInvalid() || other.deleted || other.isPreview)
+            return;
+        for (CircuitPoint thisWiresEndpoint : new CircuitPoint[]{startLocation, endLocation}) {
+            System.out.println("OTHER: "  + other);
+            System.out.println(other.getInterceptPoints() + " <- POINTS");
+            if (other.getPointsExcludingEdgePoints().contains(thisWiresEndpoint)
+                    && other.getDirection() != getDirection()) // This means it is bisecting the wire
                 bisect(other, thisWiresEndpoint);
+        }
     }
 
     public void bisect(Wire other, CircuitPoint endpointOfThisWire) {
+        if (isInvalid() || deleted || isPreview || other.isInvalid() || other.deleted || other.isPreview)
+            throw new RuntimeException("Cannot bisect. At least one of these wires is deleted/invalid/preview");
         System.out.println("\n" + this + "\nBISECT\n" + other + "\nAT\n" + endpointOfThisWire + "\n");
-        if (!other.getPointsExcludingEndpoints().contains(endpointOfThisWire))
+        if (!other.getPointsExcludingEdgePoints().contains(endpointOfThisWire))
             throw new RuntimeException("Invalid Wire Bisect. Can't bisect a wire at its edge points");
         if (!(endpointOfThisWire.equals(startLocation) || endpointOfThisWire.equals(endLocation)))
             throw new RuntimeException("Invalid Wire Bisect. This wire's end point must be between the other wire's" +
                     " endpoints (but cant touch the endpoints) to bisect it");
         CircuitPoint oldStartLoc = other.startLocation;
-        other.startLocation = endpointOfThisWire;
+        other.set(other.startLocation, endpointOfThisWire);
         new Wire(endpointOfThisWire, oldStartLoc);
-        ConnectibleEntity.checkEntities(oldStartLoc, endpointOfThisWire);
         c.refreshTransmissions();
         c.getEditorPanel().repaint();
     }
-
-
 
     public boolean isSimilar(Wire w) {
         return (w.startLocation.equals(startLocation) && w.endLocation.equals(endLocation))
@@ -192,7 +231,7 @@ public class Wire extends ConnectibleEntity {
     }
 
     public void mergeCheck() {
-        if (!deleted) {
+        if (!deleted && !isPreview && !isInvalid()) {
             ArrayList<Wire> allWires = c.getAllEntitiesOfType(Wire.class, false);
             for (Wire w : allWires)
                 if (!w.deleted && !w.equals(this))
@@ -201,6 +240,8 @@ public class Wire extends ConnectibleEntity {
     }
 
     public void mergeCheck(Wire other) {
+        if (isInvalid() || deleted || isPreview || other.isInvalid() || other.deleted || other.isPreview)
+            return;
         for (CircuitPoint edgePoint : new CircuitPoint[]{startLocation, endLocation}) {
             for (CircuitPoint otherEdgePoint : new CircuitPoint[]{other.startLocation, other.endLocation}) {
                 if (edgePoint.equals(otherEdgePoint)
@@ -215,6 +256,8 @@ public class Wire extends ConnectibleEntity {
     }
 
     public void merge(Wire other, CircuitPoint commonEdgePoint) {
+        if (isInvalid() || deleted || isPreview || other.isInvalid() || other.deleted || other.isPreview)
+            throw new RuntimeException("Cannot merge. At least one of these wires is deleted/invalid/preview");
         other.delete(); // Checks done in delete
         set(commonEdgePoint, other.getOppositeEdgePoint(commonEdgePoint)); // Checks done in set
         c.refreshTransmissions();
@@ -305,57 +348,63 @@ public class Wire extends ConnectibleEntity {
             startLocation = to;
         } else if (whichEdgePoint(edgePoint).equals("end"))
             endLocation = to;
-
+        updateInterceptPoints();
         if (!deleted)
-            ConnectibleEntity.checkEntities(edgePoint, startLocation, endLocation);
+            checkEntities(edgePoint, startLocation, endLocation);
     }
 
     @Override
     public void onDelete() {
         disconnectAll();
         deleted = true;
-        ConnectibleEntity.checkEntities(startLocation, endLocation);
+        checkEntities(startLocation, endLocation);
         c.refreshTransmissions();
     }
 
-
-    @Override
-    public boolean canMoveBy(Vector movementVector) {
-        return true;
-    }
-
-    public void draw(Graphics2D g, boolean drawJunctions) {
-        g.setColor(getColor());
-        int wireStroke = (int) (c.getScale() * 0.25);
-        if (wireStroke % 2 == 0) wireStroke++;
-        g.setStroke(new BasicStroke(wireStroke));
+    public void draw(GraphicsContext g, boolean drawJunctions) {
+        g.setStroke(getColor());
+        g.setImageSmoothing(false);
+        g.setLineWidth(getLineWidth());
         PanelDrawPoint p1 = startLocation.toPanelDrawPoint();
         PanelDrawPoint p2 = endLocation.toPanelDrawPoint();
-        g.drawLine(p1.x, p1.y, p2.x, p2.y);
+        g.strokeLine(p1.x, p1.y, p2.x, p2.y);
         if (drawJunctions)
             for (CircuitPoint edgePoint : new CircuitPoint[]{startLocation, endLocation})
                 if (getNumEntitiesConnectedAt(edgePoint) > 1)
                     drawJunction(g, edgePoint);
     }
 
-    public void drawJunction(Graphics2D g, CircuitPoint loc) {
-        g.setColor(getColor());
-        int circleSize = (int) (getStrokeSize() * 2.75);
+    public void drawJunction(GraphicsContext g, CircuitPoint loc) {
+        g.setStroke(getColor());
+        g.setFill(getColor());
+        int circleSize = (int) (getLineWidth() * 2.3);
         if (circleSize % 2 != 0) circleSize++;
         PanelDrawPoint dp = loc.toPanelDrawPoint();
-        g.fillOval(dp.x - circleSize / 2, dp.y - circleSize / 2, circleSize, circleSize);
+        g.fillOval(dp.x - circleSize / 2.00, dp.y - circleSize / 2.00, circleSize, circleSize);
     }
 
     @Override
-    public void draw(Graphics2D g) {
+    public void draw(GraphicsContext g) {
         draw(g, true);
     }
 
     @Override
-    public int getStrokeSize() {
-        int stroke = (int) (c.getScale() * 0.25);
-        if (stroke % 2 == 0) stroke++;
-        return stroke;
+    public int getLineWidth() {
+        return (int) (c.getLineWidth() * 1.8);
+    }
+
+
+    /**
+     * More efficient than doing getPointsExcludingEdgePoints.contains(circuitPoint) because
+     * it doesn't have to clone
+     * @param circuitPoint
+     * @return
+     */
+    public boolean interceptsExcludingEdgePoints(CircuitPoint circuitPoint) {
+        for (int i = 1; i < interceptPoints.size() - 1; i++)
+            if (interceptPoints.get(i).equals(circuitPoint))
+                return true;
+        return false;
     }
 
     @Override
@@ -422,11 +471,11 @@ public class Wire extends ConnectibleEntity {
     }
 
     public static ArrayList<TheoreticalWire> genWirePath(CircuitPoint start,
-                                                          CircuitPoint end,
-                                                          Direction initialDir,
-                                                          int maxLength,
-                                                          int order,
-                                                          boolean strictWithWires) {
+                                                         CircuitPoint end,
+                                                         Direction initialDir,
+                                                         int maxLength,
+                                                         int order,
+                                                         boolean strictWithWires) {
         System.out.println("GEN FROM " + start + " to " + end + ", dir = " + initialDir);
         PermitList permitList = new PermitList();
         int expansion = (SPLIT_DIST + OVERSHOOT_DIST) * order;
@@ -441,16 +490,16 @@ public class Wire extends ConnectibleEntity {
     private static final int MAX_SPLITS = 2;
 
     private static ArrayList<TheoreticalWire> genWirePath(CircuitPoint start,
-                                                           CircuitPoint end,
-                                                           ArrayList<TheoreticalWire> currPath,
-                                                           EntityList<? extends Entity> scope,
-                                                           Direction currDirection,
-                                                           int maxLength,
-                                                           int splitNum,
-                                                           int tryAllTillLength,
-                                                           PermitList permits,
-                                                           boolean strictWithWires) {
-        System.out.println("gen from " + start + " to " + end);
+                                                          CircuitPoint end,
+                                                          ArrayList<TheoreticalWire> currPath,
+                                                          EntityList<? extends Entity> scope,
+                                                          Direction currDirection,
+                                                          int maxLength,
+                                                          int splitNum,
+                                                          int tryAllTillLength,
+                                                          PermitList permits,
+                                                          boolean strictWithWires) {
+      //  System.out.println("gen from " + start + " to " + end);
         if (currPath.size() == 0)
             for (Entity e : start.getCircuit().getAllEntitiesThatIntercept(start).ofType(ConnectibleEntity.class))
                 permits.add(new InterceptPermit(e, start));
@@ -639,14 +688,13 @@ public class Wire extends ConnectibleEntity {
    //     System.out.println("Does theo " + theo + " invalidlyIntercept " + this + " ? STRICT WITH WIRES: " + strictWithWires);
         if (!strictWithWires)
             if (getDirection() != theo.getDirection())
-                for (CircuitPoint p : theo.getPointsExcludingEndpoints())
+                for (CircuitPoint p : theo.getPointsExcludingEdgePoints())
                     exceptions.add(new InterceptPermit(this, p));
  //       LogicGates.debug("Exceptions:",  exceptions);
         if (theo.invalidlyIntercepts(this)) {
  //           System.out.println("invalidly intercepts");
             return true;
-        }
-        else {
+        } else {
     //        LogicGates.debug("InterceptPoints", theo.getInterceptPoints(this));
             for (CircuitPoint p : theo.getInterceptPoints(this)) {
                 InterceptPermit requiredExceptin = new InterceptPermit(this, p);
@@ -656,6 +704,11 @@ public class Wire extends ConnectibleEntity {
                 }
             }
         }
+        return false;
+    }
+
+    @Override
+    public boolean canMove() {
         return false;
     }
 
@@ -692,6 +745,26 @@ public class Wire extends ConnectibleEntity {
         return shortestIndex == -1 ? null : pathArrayList.get(shortestIndex);
     }
 
+    @Override
+    public String getPropertyTableHeader() {
+        return null;
+    }
+
+    @Override
+    public PropertyList getPropertyList() {
+        return null;
+    }
+
+    @Override
+    public void onPropertyChange(ObservableValue<? extends String> observableValue, String s, String t1) {
+
+    }
+
+    @Override
+    public boolean hasProperty(String propertyName) {
+        return false;
+    }
+
     public static class TheoreticalWire extends Wire {
         public TheoreticalWire(CircuitPoint start, CircuitPoint end) {
             super(start.getCircuit());
@@ -699,9 +772,10 @@ public class Wire extends ConnectibleEntity {
                 throw new RuntimeException("Invalid Theoretical Wire " + start + " to " + end);
             this.startLocation = start;
             this.endLocation = end;
+            updateInterceptPoints();
         }
 
-        private Color color = Color.orange;
+        private Color color = Color.ORANGE;
 
         @Override
         public Color getColor() {

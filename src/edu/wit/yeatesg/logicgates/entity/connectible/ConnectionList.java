@@ -1,4 +1,4 @@
-package edu.wit.yeatesg.logicgates.connections;
+package edu.wit.yeatesg.logicgates.entity.connectible;
 
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 

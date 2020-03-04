@@ -1,30 +1,42 @@
 package edu.wit.yeatesg.logicgates.def;
 
-import edu.wit.yeatesg.logicgates.connections.ConnectibleEntity;
-import edu.wit.yeatesg.logicgates.connections.EntityList;
+import edu.wit.yeatesg.logicgates.entity.*;
+import edu.wit.yeatesg.logicgates.entity.connectible.ConnectibleEntity;
+import edu.wit.yeatesg.logicgates.gui.EditorPanel;
+import edu.wit.yeatesg.logicgates.gui.Project;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 import edu.wit.yeatesg.logicgates.points.PanelDrawPoint;
+import javafx.beans.value.ObservableValue;
+import javafx.scene.paint.Color;
 
-import java.awt.*;
-import java.lang.reflect.Array;
-import java.util.ArrayList;
+import java.util.Arrays;
 
-import static java.awt.event.KeyEvent.VK_CONTROL;
 
-public class Circuit {
+public class Circuit implements Dynamic {
 
-    public static final Color COL_BG = Color.white;
-    public static final Color COL_GRID = Color.darkGray;
-    public static final Color COL_ORIGIN = Color.red;
+    public static final Color COL_BG = Color.WHITE;
+    public static final Color COL_GRID = Color.DARKGREY;
+    public static final Color COL_ORIGIN = Color.RED;
 
-    private EditorPanel editorPanel;
+    private Project project;
 
-    public EditorPanel getEditorPanel() {
-        return editorPanel;
+    public Circuit(Project p, String circuitName) {
+        this.circuitName = circuitName;
+        project = p;
+        for (Circuit c : project.getCircuits())
+            if (c.getCircuitName().equalsIgnoreCase(circuitName))
+                throw new RuntimeException("Duplicate Circuit On Project \"" + project.getProjectName() + "\"");
+        project.addCircuit(this);
     }
 
-    public void setEditorPanel(EditorPanel editorPanel) {
-        this.editorPanel = editorPanel;
+    private String circuitName;
+
+    public String getCircuitName() {
+        return circuitName;
+    }
+
+    public EditorPanel getEditorPanel() {
+        return project.getEditorPanel();
     }
 
     // Pressing left arrow key on the panel shud shift the origin to the right
@@ -68,34 +80,30 @@ public class Circuit {
         scale -= canScaleDown() ? SCALE_INC : 0;
     }
 
-    public int getStrokeSize() {
+    public int getLineWidth() {
         switch (scale) {
-            case 10: return 3;
+            case 10:
+                return 2;
             case 20:
             case 30:
-                return 5;
+                return 3;
             case 40:
             case 50:
-                return 7;
+                return 5;
             case 60:
             case 70:
-                return 9;
+                return 7;
             case 80:
             case 90:
-                return 11;
+                return 9;
             default: return 0;
         }
     }
 
-
-    public Stroke getStroke() {
-        return new BasicStroke(getStrokeSize());
-    }
-
-    public Stroke getGridStroke() {
-        int size = (int) (getStrokeSize() / 2.5);
+    public int getGridLineWidth() {
+        int size = (int) (getLineWidth() / 1.5);
         if (size == 0) size++;
-        return new BasicStroke(size);
+        return size;
     }
 
     /** def.Circuit Draw x to Panel draw x
@@ -154,6 +162,10 @@ public class Circuit {
         return getAllEntities(true);
     }
 
+    public EntityList<Entity> getEntitiesWithinScope(BoundingBox scope) {
+        return scope.getInterceptingEntities();
+    }
+
     public EntityList<Entity> getAllEntitiesThatIntercept(CircuitPoint p) {
         EntityList<Entity> list = new EntityList<>();
         for (Entity e : getAllEntities())
@@ -195,4 +207,27 @@ public class Circuit {
         return getAllEntitiesOfType(type, true);
     }
 
+    @Override
+    public String getPropertyTableHeader() {
+        return "Properties For: Circuit";
+    }
+
+    @Override
+    public PropertyList getPropertyList() {
+        PropertyList propList = new PropertyList(this);
+        propList.add(new Property("Circuit Name", "", ""));
+        return propList;
+    }
+
+    @Override
+    public void onPropertyChange(ObservableValue<? extends String> observableValue, String s, String t1) {
+        System.out.println("OBS VAL " + observableValue + " CHANGED FROM " + s + " TO " + t1);
+    }
+
+    private static final String[] properties = new String[] { "Circuit Name" };
+
+    @Override
+    public boolean hasProperty(String propertyName) {
+        return Arrays.asList(properties).contains(propertyName);
+    }
 }

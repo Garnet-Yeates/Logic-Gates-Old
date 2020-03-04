@@ -1,8 +1,8 @@
 package edu.wit.yeatesg.logicgates.def;
 
-import java.util.ArrayList;
+import edu.wit.yeatesg.logicgates.gui.MainGUI;
+
 import java.util.List;
-import java.util.function.Consumer;
 
 public class LogicGates {
 

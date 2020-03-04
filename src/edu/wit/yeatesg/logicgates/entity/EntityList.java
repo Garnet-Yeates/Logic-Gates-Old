@@ -1,7 +1,8 @@
-package edu.wit.yeatesg.logicgates.connections;
+package edu.wit.yeatesg.logicgates.entity;
 
+import edu.wit.yeatesg.logicgates.def.Direction;
 import edu.wit.yeatesg.logicgates.def.BoundingBox;
-import edu.wit.yeatesg.logicgates.def.Entity;
+import edu.wit.yeatesg.logicgates.entity.connectible.Wire;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 
 import java.util.ArrayList;

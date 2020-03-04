@@ -1,18 +1,18 @@
-package edu.wit.yeatesg.logicgates.connections;
+package edu.wit.yeatesg.logicgates.entity.connectible;
 
 import edu.wit.yeatesg.logicgates.def.Circuit;
-import edu.wit.yeatesg.logicgates.def.Entity;
+import edu.wit.yeatesg.logicgates.entity.Entity;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
+import javafx.scene.paint.Color;
 
-import java.awt.*;
 import java.util.ArrayList;
 
 public abstract class ConnectibleEntity extends Entity {
 
     protected ConnectionList connections;
 
-    public ConnectibleEntity(Circuit c) {
-        super(c);
+    public ConnectibleEntity(Circuit c, boolean isPreview) {
+        super(c, isPreview);
         connections = new ConnectionList();
     }
 
@@ -22,6 +22,14 @@ public abstract class ConnectibleEntity extends Entity {
 
     public abstract void disconnect(ConnectibleEntity e);
 
+    /**
+     * This method shouldn't care about whether any of the entities are preview entities, deleted entities,
+     * or invalid intercepting entities. It assumes that any auto-connecting methods in my code will check
+     * those variables on their own.
+     * @param e the Entity that is potentially going to be connected to this
+     * @param at the CircuitPoint location that the connection is at
+     * @return true if these entities can connect
+     */
     public abstract boolean canConnectTo(ConnectibleEntity e, CircuitPoint at);
 
     public void disconnectAll() {
@@ -34,6 +42,8 @@ public abstract class ConnectibleEntity extends Entity {
     protected abstract void connectCheck(ConnectibleEntity e);
 
     public void connectCheck() {
+        if (isInvalid() || isPreview || isDeleted())
+            return;
         disconnectAll();
         for (ConnectibleEntity e : c.getAllEntitiesOfType(ConnectibleEntity.class)
                 .thatAreNotDeleted()
@@ -49,9 +59,8 @@ public abstract class ConnectibleEntity extends Entity {
 
     protected boolean receivedPowerThisUpdate;
     protected boolean powered;
-
-    public static final Color POWER = new Color(50, 199, 0);
-    public static final Color NO_POWER = new Color(34, 99, 0);
+    public static final Color POWER = Color.rgb(50, 199, 0, 1);
+    public static final Color NO_POWER = Color.rgb(34, 99, 0, 1);
 
     public void onPowerReceive() {
         receivedPowerThisUpdate = true;
@@ -69,6 +78,7 @@ public abstract class ConnectibleEntity extends Entity {
     }
 
     private Color overrideColor;
+
     public void setOverrideColor(Color color) {
         overrideColor = color;
     }

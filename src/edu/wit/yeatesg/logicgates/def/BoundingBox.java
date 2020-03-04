@@ -1,11 +1,12 @@
 package edu.wit.yeatesg.logicgates.def;
 
-import edu.wit.yeatesg.logicgates.connections.EntityList;
-import edu.wit.yeatesg.logicgates.connections.PointSet;
+import edu.wit.yeatesg.logicgates.entity.Entity;
+import edu.wit.yeatesg.logicgates.entity.EntityList;
+import edu.wit.yeatesg.logicgates.entity.PointSet;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 import edu.wit.yeatesg.logicgates.points.PanelDrawPoint;
-
-import java.awt.*;
+import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.paint.Color;
 
 public class BoundingBox {
 
@@ -53,6 +54,23 @@ public class BoundingBox {
 
     }
 
+    public int getDrawWidth() {
+        return (int) (getWidth() * p1.getCircuit().getScale());
+    }
+
+    public int getDrawHeight() {
+        return (int) (getHeight() * p1.getCircuit().getScale());
+    }
+
+    public double getWidth() {
+        return p4.x - p1.x;
+    }
+
+    public double getHeight() {
+        return p4.y - p1.y;
+
+    }
+
     public BoundingBox(PanelDrawPoint corner1, PanelDrawPoint corner2, Entity owner) {
         this(corner1.toCircuitPoint(), corner2.toCircuitPoint(), owner);
     }
@@ -79,7 +97,7 @@ public class BoundingBox {
     public boolean intercepts(PanelDrawPoint p, boolean fuzzy) {
         PanelDrawPoint p1 = this.p1.toPanelDrawPoint();
         PanelDrawPoint p4 = this.p4.toPanelDrawPoint();
-        int thresh = (int) (p1.getCircuit().getScale()*0.4);
+        int thresh = (int) (p1.getCircuit().getScale()*0.5);
         if ((p1.x == p4.x || p1.y == p4.y) && fuzzy)
             return new BoundingBox(
                     new PanelDrawPoint(p1.x - thresh, p1.y - thresh, p1.getCircuit()),
@@ -103,10 +121,10 @@ public class BoundingBox {
         return new BoundingBox(p1.clone(), p4.clone(), owner);
     }
 
-    public static final Color BOX_COL = new Color(255, 249, 230);
-    public static final Color BORDER_COL = Color.black;
+    public static final Color BOX_COL = Color.rgb(255, 249, 230, 1);
+    public static final Color OUTLINE_COL = Color.BLACK;
 
-    public void paint(Graphics2D g) {
+    public void paint(GraphicsContext g) {
         Circuit c = p1.getCircuit();
         int strokeSize = (int) (c.getScale() * 0.6);
         if (strokeSize % 2 == 0) strokeSize++;
@@ -115,31 +133,32 @@ public class BoundingBox {
         if (innerStrokeSize % 2 == 0) innerStrokeSize++;
         for (CircuitPoint p : new CircuitPoint[] { p1, p2, p3, p4 }) {
             PanelDrawPoint pp = p.toPanelDrawPoint();
-            g.setColor(BORDER_COL);
-            g.setStroke(new BasicStroke(strokeSize));
-            g.drawLine(pp.x, pp.y, pp.x, pp.y);
-            g.setColor(BOX_COL);
-            g.setStroke(new BasicStroke(innerStrokeSize));
-            g.drawLine(pp.x, pp.y, pp.x, pp.y);
+            g.setStroke(OUTLINE_COL);
+            g.setLineWidth(strokeSize);
+            g.strokeLine(pp.x, pp.y, pp.x, pp.y);
+            g.setStroke(BOX_COL);
+            g.setLineWidth(innerStrokeSize);
+            g.strokeLine(pp.x, pp.y, pp.x, pp.y);
         }
     }
 
-    public void drawBorder(Graphics2D g) {
-        g.setColor(BOX_COL);
-        g.setColor(Color.orange);
-        int ownerStroke = owner == null ? 1 : owner.getStrokeSize();
+    public Color HIGHLIGHT_COL = Color.ORANGE;
+
+    public void drawBorder(GraphicsContext g) {
+        g.setStroke(HIGHLIGHT_COL);
+        int ownerStroke = owner == null ? 1 : owner.getLineWidth();
         int stroke = (int) (ownerStroke * 0.55);
         if (stroke % 2 == 0) stroke++;
         stroke = Math.min(ownerStroke - 2, stroke);
         stroke = Math.max(1, stroke);
-        g.setStroke(new BasicStroke(stroke));
+        g.setLineWidth(stroke);
         PanelDrawPoint p1 = this.p1.toPanelDrawPoint();
         PanelDrawPoint p2 = this.p2.toPanelDrawPoint();
         PanelDrawPoint p3 = this.p3.toPanelDrawPoint();
         PanelDrawPoint p4 = this.p4.toPanelDrawPoint();
-        g.drawLine(p1.x, p1.y, p2.x, p2.y);
-        g.drawLine(p2.x, p2.y, p4.x, p4.y);
-        g.drawLine(p4.x, p4.y, p3.x, p3.y);
-        g.drawLine(p3.x, p3.y, p1.x, p1.y);
+        g.strokeLine(p1.x, p1.y, p2.x, p2.y);
+        g.strokeLine(p2.x, p2.y, p4.x, p4.y);
+        g.strokeLine(p4.x, p4.y, p3.x, p3.y);
+        g.strokeLine(p3.x, p3.y, p1.x, p1.y);
     }
 }

@@ -1,24 +1,36 @@
-package edu.wit.yeatesg.logicgates.connections;
+package edu.wit.yeatesg.logicgates.entity.connectible;
 
+import edu.wit.yeatesg.logicgates.def.Direction;
+import edu.wit.yeatesg.logicgates.entity.*;
 import edu.wit.yeatesg.logicgates.def.BoundingBox;
-import edu.wit.yeatesg.logicgates.def.Entity;
 import edu.wit.yeatesg.logicgates.def.Vector;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 import edu.wit.yeatesg.logicgates.points.PanelDrawPoint;
+import javafx.beans.value.ObservableValue;
+import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.paint.Color;
 
-import java.awt.*;
+import java.util.Arrays;
 
 public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable {
 
     private CircuitPoint origin;
 
-    public InputBlock(CircuitPoint origin, int rotation) {
-        super(origin.getCircuit());
-        c.addEntity(this);
+    public InputBlock(CircuitPoint origin, int rotation, boolean preview) {
+        super(origin.getCircuit(), preview);
         this.origin = origin;
         drawPoints = getRelativePointSet().applyToOrigin(origin, rotation);
         establishConnectionNode(drawPoints.get(0));
-        c.getEditorPanel().repaint();
+        updateInvalidInterceptPoints();
+        if (!preview) {
+            c.addEntity(this);
+            connectCheck();
+            c.getEditorPanel().repaint();
+        }
+    }
+
+    public InputBlock(CircuitPoint origin, int rotation) {
+        this(origin, rotation, false);
     }
 
     // Rotatable Interface Methods
@@ -57,43 +69,46 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
     }
 
     @Override
-    public void draw(Graphics2D g) {
+    public void draw(GraphicsContext g) {
         PanelDrawPoint drawPoint;
         PointSet pts = drawPoints;
-        g.setStroke(getStroke());
+        g.setLineWidth(getLineWidth());
 
         // Draw Border
-        g.setColor(Color.black);
+        g.setStroke(Color.BLACK);
         PanelDrawPoint bL = pts.get(1).toPanelDrawPoint();
         PanelDrawPoint tL = pts.get(2).toPanelDrawPoint();
         PanelDrawPoint tR = pts.get(3).toPanelDrawPoint();
         PanelDrawPoint bR = pts.get(4).toPanelDrawPoint();
-        g.drawLine(bL.x, bL.y, tL.x, tL.y);
-        g.drawLine(tL.x, tL.y, tR.x, tR.y);
-        g.drawLine(tR.x, tR.y, bR.x, bR.y);
-        g.drawLine(bR.x, bR.y, bL.x, bL.y);
+        g.strokeLine(bL.x, bL.y, tL.x, tL.y);
+        g.strokeLine(tL.x, tL.y, tR.x, tR.y);
+        g.strokeLine(tR.x, tR.y, bR.x, bR.y);
+        g.strokeLine(bR.x, bR.y, bL.x, bL.y);
 
         // Draw Connection Thingy
 
         ConnectionNode connectNode = getNodeAt(pts.get(0));
-        g.setColor(getColor());
+        g.setStroke(getColor());
+        g.setFill(getColor());
         int circleSize = (int) (c.getScale() * 0.3);
         if (circleSize % 2 != 0) circleSize++;
         drawPoint = connectNode.getLocation().toPanelDrawPoint();
-        g.fillOval(drawPoint.x - circleSize/2, drawPoint.y - circleSize/2, circleSize, circleSize);
+        g.fillOval(drawPoint.x - circleSize/2.00, drawPoint.y - circleSize/2.00, circleSize, circleSize);
 
         // Draw Circle Inside
         CircuitPoint centerPoint = pts.get(5);
-        g.setColor(getColor());
+        g.setStroke(getColor());
         circleSize = (int) (c.getScale() * 1.35);
         if (circleSize % 2 != 0) circleSize++;
         drawPoint = centerPoint.toPanelDrawPoint();
-        g.fillOval(drawPoint.x - circleSize/2, drawPoint.y - circleSize/2, circleSize, circleSize);
+        g.fillOval(drawPoint.x - circleSize/2.00, drawPoint.y - circleSize/2.00, circleSize, circleSize);
     }
 
     @Override
-    public int getStrokeSize() {
-        return c.getStrokeSize();
+    public int getLineWidth() {
+        return c.getLineWidth();
+
+     //   return (int) (c.getLineWidth() * 0.8);
     }
 
     @Override
@@ -104,7 +119,7 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
     @Override
     public PointSet getInvalidInterceptPoints(Entity e) {
         if (e instanceof Wire)
-            return e.getInvalidInterceptPoints(this); // Wire covers this case for us (obv casting not necessary but i did)
+            return e.getInvalidInterceptPoints(this);
         return getInterceptPoints(e); // If it's not a wire, any intersect point is invalid
     }
 
@@ -152,31 +167,56 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
 
     @Override
     public void connectCheck(ConnectibleEntity e) {
+        if (isPreview || e.isPreview() || deleted || e.isDeleted() || isInvalid() || e.isInvalid())
+            return;
         CircuitPoint nodeLoc = drawPoints.get(0);
         if (canConnectTo(e, nodeLoc) && e.canConnectTo(this, nodeLoc) && !deleted && !e.isDeleted())
                 connect(e, nodeLoc);
     }
 
     @Override
-    public boolean canMoveBy(Vector vector) {
-        return false;
+    public String getDisplayName() {
+        return "Input Block";
     }
-
 
     @Override
-    public void onDelete() {
-
-    }
+    public void onDelete() { }
 
     @Override
     public boolean intercepts(CircuitPoint p) {
         return getBoundingBox().intercepts(p);
     }
 
-
    @Override
     public boolean equals(Object other) {
         return (other instanceof InputBlock && ((InputBlock) other).origin.equals(origin));
+    }
+
+    @Override
+    public String getPropertyTableHeader() {
+        return "Properties For: " + getDisplayName();
+    }
+
+    private static final String[] properties = new String[] { "Facing", "Label" };
+
+    @Override
+    public boolean hasProperty(String propertyName) {
+        return Arrays.asList(properties).contains(propertyName);
+    }
+
+    // TODO implement
+    @Override
+    public PropertyList getPropertyList() {
+        PropertyList list = new PropertyList();
+        list.add(new Property("Facing", Direction.cardinalFromRotation(rotation), "NORTH", "SOUTH", "EAST", "WEST"));
+        list.add(new Property("Label", "", ""));
+        return list;
+    }
+
+    // TODO implement
+    @Override
+    public void onPropertyChange(ObservableValue<? extends String> observableValue, String s, String t1) {
+
     }
 
     @Override
@@ -189,5 +229,25 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
                 if (!permit.contains(new InterceptPermit(this, p)))
                     return true;
         return false;
+    }
+
+    @Override
+    public boolean canMove() {
+        return true;
+    }
+
+    @Override
+    public Entity onDragMove(CircuitPoint newLocation) {
+        super.onDragMove(newLocation);
+        if (!newLocation.equals(origin)) {
+            InputBlock preview = new InputBlock(newLocation, rotation, true);
+            return preview;
+        }
+        return null;
+    }
+
+    @Override
+    public void onDragMoveRelease(CircuitPoint newLocation) {
+        super.onDragMoveRelease(newLocation);
     }
 }
