@@ -89,8 +89,6 @@ public class ConnectionNode {
     public String toString() {
         return getClass().getSimpleName() +
                 "location=" + location +
-                ", connectedTo=" + connectedTo +
-                ", parent=" + parent +
                 ", state=" + state +
                 '}';
     }

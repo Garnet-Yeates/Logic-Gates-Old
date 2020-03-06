@@ -248,4 +248,11 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
     public void onDragMoveRelease(CircuitPoint newLocation) {
         super.onDragMoveRelease(newLocation);
     }
+
+    @Override
+    public String toString() {
+        return "InputBlock{" +
+                "origin=" + origin +
+                '}';
+    }
 }

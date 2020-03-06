@@ -48,9 +48,9 @@ public class Wire extends ConnectibleEntity {
 
     @Override
     public void determinePowerState() {
-        super.determinePowerState();
         if (state == State.OFF) {
-            ConnectibleEntity dependentOn = dependencies.keySet().iterator().next();
+            super.determinePowerState();
+            ConnectibleEntity dependentOn = dependencies.get(0);
             state = dependentOn.state;
         }
     }
@@ -154,15 +154,12 @@ public class Wire extends ConnectibleEntity {
 
     @Override
     public void connectCheck(ConnectibleEntity e) {
-        System.out.println("ConnectCheck between " + this + " and " + e);
         if (isPreview || e.isPreview() || deleted || e.isDeleted())
             return;
         for (CircuitPoint edgePoint : getEdgePoints()) {
             if (canConnectTo(e, edgePoint) && e.canConnectTo(this, edgePoint) && !deleted && !e.isDeleted()) {
                 System.out.println("  e.canConnectToThis and this.canConnectToE! leggo");
                 connect(e, edgePoint);
-            } else {
-                System.out.println("DOH!");
             }
         }
     }
@@ -299,24 +296,15 @@ public class Wire extends ConnectibleEntity {
         return getNumEntitiesConnectedAt(locationOnThisEntity) < 3;
     }
 
-    public void determineIllogicies() {
-        LogicGates.debug("\n\nThis Wires Direct Dependencies:", getDependencies().keySet());
-        LinkedList<ConnectibleEntity> superDependencies = getSuperDependencies();
-        System.out.println("GET SUPERDEPENDENCIES FOR " + this);
-        LogicGates.debug("This Wire's SUPA Dependencies:", superDependencies);
-
-        if (superDependencies == null)
-            setState(State.ILLOGICAL);
-        else if (getDependencies().size() > 1)
-            setState(State.ILLOGICAL);
-        else if (superDependencies.size() > 0)
+    public void calculateDependencies() {
+        if (getState() != State.ILLOGICAL && !hasSuperDependencies()) {
+            if (getDependencies().size() > 0)
+                setState(State.PARTIALLY_DEPENDENT);
+            else
+                setState(State.NO_DEPENDENT);
+        }
+        if (getState() == null)
             setState(State.OFF);
-        else if (getDependencies().size() > 0)
-            setState(State.PARTIALLY_DEPENDENT);
-        else
-            setState(State.NO_DEPENDENT);
-
-        System.out.println("DONE WIRE ILLOGICS");
     }
 
     @Override

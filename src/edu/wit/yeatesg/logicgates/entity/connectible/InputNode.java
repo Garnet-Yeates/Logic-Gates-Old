@@ -3,6 +3,7 @@ package edu.wit.yeatesg.logicgates.entity.connectible;
 import edu.wit.yeatesg.logicgates.def.LogicGates;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
 
@@ -16,14 +17,18 @@ public class InputNode extends ConnectionNode {
         this(location, connectingFrom, null);
     }
 
-    protected HashMap<OutputNode, LinkedList<Wire>> dependencies = new HashMap<>();
+    protected LinkedList<OutputNode> dependencies = new LinkedList<>();
 
     public boolean hasDependencies() {
         return !dependencies.isEmpty();
     }
 
-    public HashMap<OutputNode, LinkedList<Wire>> getDependencies() {
+    public LinkedList<OutputNode> getDependencies() {
         return dependencies;
+    }
+
+    public boolean hasPartialDependencies() {
+        return getDependencies().size() > 0;
     }
 
     // Prob wont need to cache because this is prob only gonna be called once on nodes, during the determine
@@ -31,7 +36,7 @@ public class InputNode extends ConnectionNode {
 
     public LinkedList<ConnectibleEntity> getSuperDependencies() {
         LinkedList<ConnectibleEntity> superDependencies = new LinkedList<>();
-        for (OutputNode outDependentOn : dependencies.keySet()) {
+        for (OutputNode outDependentOn : dependencies) {
             if (outDependentOn.parent.getSuperDependencies() == null)
                 return null;
             else if (outDependentOn.parent.isIndependent())
@@ -47,18 +52,29 @@ public class InputNode extends ConnectionNode {
         return superDependencies;
     }
 
-
+    public boolean hasSuperDependencies() {
+        return getSuperDependencies().size() > 0;
+    }
 
     public void determineIllogical() {
-        LinkedList<ConnectibleEntity> superDependencies = getSuperDependencies();
-        LogicGates.debug("This InputNode's superDependencies: ", superDependencies);
-        if (superDependencies == null || getDependencies().size() > 1)
+        if (getSuperDependencies() == null) // If circular
             setState(State.ILLOGICAL);
-        else if (superDependencies.size() > 0)
-            setState(State.OFF); // Setting it to OFF state basically flags it as a logical (not illogical) entity
-        else if (getDependencies().size() > 0)
-            setState(State.PARTIALLY_DEPENDENT);
-        else
-            setState(State.NO_DEPENDENT);
+        if (getDependencies().size() > 1) {
+            setState(State.ILLOGICAL);
+            for (OutputNode dependsOnOut : getDependencies())
+                dependsOnOut.setState(State.ILLOGICAL);
+        }
     }
+
+    public void calculateDependencies() {
+        if (getState() != State.ILLOGICAL && !hasSuperDependencies()) {
+            if (getDependencies().size() > 0)
+                setState(State.PARTIALLY_DEPENDENT);
+            else
+                setState(State.NO_DEPENDENT);
+        }
+        if (getState() == null)
+            setState(State.OFF);
+    }
+
 }

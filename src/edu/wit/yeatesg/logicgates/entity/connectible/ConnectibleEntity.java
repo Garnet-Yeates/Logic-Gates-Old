@@ -20,6 +20,17 @@ public abstract class ConnectibleEntity extends Entity {
     }
 
 
+    public void determineIllogical() {
+        if (getSuperDependencies() == null)
+            setState(State.ILLOGICAL); // TODO ANYTHING ELSE BESIDES WIRES THAT CANT HAVE MORE THAN ONE DEPENDENCE
+        if (this instanceof Wire && getDependencies().size() > 1) { // TODO MUST BE ADDED TO THIS IF BLOCK
+            setState(State.ILLOGICAL);
+            for (ConnectibleEntity ce : getDependencies())
+                ce.setState(State.ILLOGICAL);
+        }
+    }
+
+
 
     // State stuff. All connectible entities will have a state, even entities that don't have output nodes.
     // an example of this is an output block, because it doesn't have an output node but still needs to have a state
@@ -51,12 +62,10 @@ public abstract class ConnectibleEntity extends Entity {
      */
     public void determinePowerState() {
         if (!powerStateDetermined)
-            for (ConnectibleEntity dependingOn : dependencies.keySet())
+            for (ConnectibleEntity dependingOn : dependencies)
                 if (!dependingOn.powerStateDetermined)
                     dependingOn.determinePowerState();
     }
-
-
 
     // Specific Output Entities (entities that can send power)
 
@@ -99,9 +108,9 @@ public abstract class ConnectibleEntity extends Entity {
         return connections.hasInputNodes();
     }
 
-    protected HashMap<ConnectibleEntity, LinkedList<Wire>> dependencies = new HashMap<>();
+    protected LinkedList<ConnectibleEntity> dependencies = new LinkedList<>();
 
-    public HashMap<ConnectibleEntity, LinkedList<Wire>> getDependencies() {
+    public LinkedList<ConnectibleEntity> getDependencies() {
         return dependencies;
     }
 
@@ -111,7 +120,7 @@ public abstract class ConnectibleEntity extends Entity {
         superDependenciesCache = null;
     }
 
-    public LinkedList<ConnectibleEntity> getSuperDependencies() {
+    public SuperDependencyCache getSuperDependencies() {
         if (superDependenciesCache == null) {
             LinkedList<ConnectibleEntity> roots = new LinkedList<>();
             roots.add(this);
@@ -120,8 +129,8 @@ public abstract class ConnectibleEntity extends Entity {
         return superDependenciesCache.isCircular ? null : superDependenciesCache;
     }
 
-    private SuperDependencyCache getSuperDependencies(SuperDependencyCache superDependencies, List<ConnectibleEntity> roots) {
-        for (ConnectibleEntity dependsOn : dependencies.keySet()) {
+    private SuperDependencyCache getSuperDependencies(SuperDependencyCache superDependencies, LinkedList<ConnectibleEntity> roots) {
+        for (ConnectibleEntity dependsOn : dependencies) {
             if (roots.contains(dependsOn)) {
                 superDependencies.isCircular = true;
             }
@@ -139,6 +148,13 @@ public abstract class ConnectibleEntity extends Entity {
         return superDependencies;
     }
 
+    public boolean hasSuperDependencies() {
+        return getSuperDependencies().size() > 0;
+    }
+
+    public boolean hasPartialDependencies() {
+        return getDependencies().size() > 0;
+    }
 
 
     // General Connecting, Disconnecting, Pulling Wires
@@ -279,7 +295,7 @@ public abstract class ConnectibleEntity extends Entity {
         return connections.hasConnectionTo(potentiallyConnectedEntity);
     }
 
-    static class SuperDependencyCache extends LinkedList<ConnectibleEntity> {
+    public static class SuperDependencyCache extends LinkedList<ConnectibleEntity> {
         boolean isCircular;
     }
 }

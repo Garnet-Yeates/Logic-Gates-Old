@@ -52,7 +52,7 @@ public class SimpleGateAND extends ConnectibleEntity implements Rotatable {
         state = State.ON;
 
         for (InputNode relevant : getRelevantInputs()) {
-            ConnectibleEntity inputDependsOn = relevant.getDependencies().keySet().iterator().next().getParent();
+            ConnectibleEntity inputDependsOn = relevant.getDependencies().get(0).getParent();
             boolean on = inputDependsOn.getState() == State.ON;
             if (!on) {
                 state = State.OFF;
@@ -228,11 +228,13 @@ public class SimpleGateAND extends ConnectibleEntity implements Rotatable {
                 System.out.println("  e.canConnectToThis and this.canConnectToE! leggo");
                 connect(e, nodeLoc);
             } else {
-                System.out.println("  DOH!");
             }
         }
 
     }
 
-
+    @Override
+    public String toString() {
+        return "SimpleGateAND{" + origin + "}";
+    }
 }

@@ -2,9 +2,7 @@ package edu.wit.yeatesg.logicgates.gui;
 
 import edu.wit.yeatesg.logicgates.def.*;
 import edu.wit.yeatesg.logicgates.entity.Entity;
-import edu.wit.yeatesg.logicgates.entity.connectible.ConnectibleEntity;
-import edu.wit.yeatesg.logicgates.entity.connectible.ConnectionNode;
-import edu.wit.yeatesg.logicgates.entity.connectible.Wire;
+import edu.wit.yeatesg.logicgates.entity.connectible.*;
 import edu.wit.yeatesg.logicgates.entity.Pokable;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 import edu.wit.yeatesg.logicgates.points.PanelDrawPoint;
@@ -100,7 +98,7 @@ public class EditorPanel extends Pane {
         pressedOnSelectedEntity = currSelection.intercepts(panelDrawPointAtMouse());
         determineIfPullingWire();
         determineSelecting();
-      //  System.out.println("PRESSED END? " + pressedOnEndpoint);
+        //  System.out.println("PRESSED END? " + pressedOnEndpoint);
         repaint();
     }
 
@@ -380,14 +378,12 @@ public class EditorPanel extends Pane {
                         }
                     }
                 } else { // Might not need the '!ctrl' boolean check
-                    System.out.println("asscunt");
                     selectionBoxStartPoint = circuitPointAtMouse(false);
                 }
             }
 
             if (!currSelection.isEmpty() && currSelection.intercepts(atMouse) && !ctrl) {
                 movingSelection = true;
-                System.out.println("moving selection");
             }
 
             if (currSelection.size() != 1)
@@ -397,10 +393,23 @@ public class EditorPanel extends Pane {
                     && currConnectionView.isEmpty()
                     && currSelection.get(0) instanceof ConnectibleEntity) {
                 ConnectibleEntity selectedConnectible = (ConnectibleEntity) currSelection.get(0);
-                if (selectedConnectible instanceof Wire) {
-                    System.out.println("");
-
-                }
+                System.out.println("STATE OF SELECTED " + selectedConnectible.getState());
+                System.out.println("DEPENDENCIES OF SELECTED: ");
+                for (ConnectibleEntity ce : selectedConnectible.getDependencies())
+                    System.out.println(ce);
+                System.out.println("SUPER DEPENDENCIES OF SELECTED: ");
+                for (ConnectibleEntity ce : selectedConnectible.getSuperDependencies())
+                    System.out.println(ce);
+                System.out.println("DEPENDENCIES OF INPUT NODES: ");
+                for (InputNode in : selectedConnectible.getInputNodes())
+                    for (OutputNode o : in.getDependencies())
+                        System.out.println(in + " depends on " + o);
+                System.out.println("SUPER DEPENDENCIES INPUT NODES: ");
+                for (InputNode in : selectedConnectible.getInputNodes())
+                    for (ConnectibleEntity ce : in.getSuperDependencies())
+                        System.out.println(in + " depends on " + ce);
+                for (ConnectibleEntity ce : selectedConnectible.getSuperDependencies())
+                    System.out.println(ce);
                 currConnectionView.addAll(selectedConnectible.getConnectedEntities());
                 currConnectionView.resetTimer();
             }
@@ -422,7 +431,7 @@ public class EditorPanel extends Pane {
             PanelDrawPoint p1 = this.p1.toPanelDrawPoint();
             g.fillRect(p1.x, p1.y, getDrawWidth(), getDrawHeight());
             g.strokeRect(p1.x, p1.y, getDrawWidth(), getDrawHeight());
-           // super.paint(g);
+            // super.paint(g);
         }
 
         public void selectEntities() {
