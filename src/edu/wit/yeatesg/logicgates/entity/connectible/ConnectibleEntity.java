@@ -1,11 +1,14 @@
 package edu.wit.yeatesg.logicgates.entity.connectible;
 
 import edu.wit.yeatesg.logicgates.def.Circuit;
+import edu.wit.yeatesg.logicgates.def.LogicGates;
 import edu.wit.yeatesg.logicgates.entity.Entity;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
-import javafx.scene.paint.Color;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
 
 public abstract class ConnectibleEntity extends Entity {
 
@@ -14,6 +17,134 @@ public abstract class ConnectibleEntity extends Entity {
     public ConnectibleEntity(Circuit c, boolean isPreview) {
         super(c, isPreview);
         connections = new ConnectionList();
+    }
+
+
+
+    // State stuff. All connectible entities will have a state, even entities that don't have output nodes.
+    // an example of this is an output block, because it doesn't have an output node but still needs to have a state
+    // to display output
+
+    protected State state;
+
+    public State getState() {
+        return state;
+    }
+
+    public void setState(State state) {
+        this.state = state;
+    }
+
+    private boolean powerStateDetermined = false;
+
+    public final void resetPowerState() {
+        powerStateDetermined = false;
+        state = null;
+    }
+
+    public boolean isPowerStateDetermined() {
+        return powerStateDetermined;
+    }
+
+    /**
+     * MAKE SURE YOU CALL SUPER FIRST WHEN OVERRIDING THIS
+     */
+    public void determinePowerState() {
+        if (!powerStateDetermined)
+            for (ConnectibleEntity dependingOn : dependencies.keySet())
+                if (!dependingOn.powerStateDetermined)
+                    dependingOn.determinePowerState();
+    }
+
+
+
+    // Specific Output Entities (entities that can send power)
+
+    public void establishOutputNode(CircuitPoint location) {
+        connections.add(new OutputNode(location, this));
+    }
+
+    public ArrayList<OutputNode> getOutputNodes() {
+        return connections.getOutputNodes();
+    }
+
+    public boolean hasOutputNodes() {
+        return connections.hasOutputNodes();
+    }
+
+    public boolean isIndependent() {
+        return (hasOutputNodes() && !hasInputNodes());
+    }
+
+    public void calculateDependedBy() {
+        for (ConnectionNode node : connections)
+            if (node instanceof OutputNode)
+                ((OutputNode) node).calculateDependedBy();
+    }
+
+
+
+    // Input Entities (entities that receive power)
+    // Input entities depend on output entities. Input nodes depend on output nodes
+
+    public void establishInputNode(CircuitPoint location) {
+        connections.add(new InputNode(location, this));
+    }
+
+    public ArrayList<InputNode> getInputNodes() {
+        return connections.getInputNodes();
+    }
+
+    public boolean hasInputNodes() {
+        return connections.hasInputNodes();
+    }
+
+    protected HashMap<ConnectibleEntity, LinkedList<Wire>> dependencies = new HashMap<>();
+
+    public HashMap<ConnectibleEntity, LinkedList<Wire>> getDependencies() {
+        return dependencies;
+    }
+
+    public SuperDependencyCache superDependenciesCache = null;
+
+    public void resetSuperdependencyCache() {
+        superDependenciesCache = null;
+    }
+
+    public LinkedList<ConnectibleEntity> getSuperDependencies() {
+        if (superDependenciesCache == null) {
+            LinkedList<ConnectibleEntity> roots = new LinkedList<>();
+            roots.add(this);
+            superDependenciesCache = getSuperDependencies(new SuperDependencyCache(), roots);
+        }
+        return superDependenciesCache.isCircular ? null : superDependenciesCache;
+    }
+
+    private SuperDependencyCache getSuperDependencies(SuperDependencyCache superDependencies, List<ConnectibleEntity> roots) {
+        for (ConnectibleEntity dependsOn : dependencies.keySet()) {
+            if (roots.contains(dependsOn)) {
+                superDependencies.isCircular = true;
+            }
+            if (superDependencies.isCircular) // dont merge with the above if, needs to be checked because sub calls
+                return superDependencies;
+            else if (dependsOn.isIndependent())
+                superDependencies.add(dependsOn);
+            else {
+                roots.add(dependsOn); // All sub method calls share the same roots ref
+                dependsOn.getSuperDependencies(superDependencies, roots);
+                if (superDependencies.isCircular)
+                    return superDependencies; // If ANY path hits ANY of the shared roots, it is circular and therefore illogical
+            }
+        }
+        return superDependencies;
+    }
+
+
+
+    // General Connecting, Disconnecting, Pulling Wires
+
+    public void establishVolatileNode(CircuitPoint location) {
+        connections.add(new ConnectionNode(location, this));
     }
 
     public abstract void connect(ConnectibleEntity e, CircuitPoint atLocation);
@@ -53,54 +184,17 @@ public abstract class ConnectibleEntity extends Entity {
         c.getEditorPanel().repaint();
     }
 
-    public boolean isPowerSource() {
-        return false;
-    }
+    // Power flow check -> goes from all user inputs / powers / grounds... basically any absolute beginning of
+    // a wire, and flows to the logic gates/power processors. When it hits them, it determines if they should
+    // transmit power (based on back-tracking to the nearest  , then calls power flow check on the output wire. A
 
-    protected boolean receivedPowerThisUpdate;
-    protected boolean powered;
-    public static final Color POWER = Color.rgb(50, 199, 0, 1);
-    public static final Color NO_POWER = Color.rgb(34, 99, 0, 1);
-
-    public void onPowerReceive() {
-        receivedPowerThisUpdate = true;
-        powered = true;
-    }
-
-    public void resetPower() {
-        if (!isPowerSource())
-            powered = false;
-        receivedPowerThisUpdate = false;
-    }
-
-    public Color getColor() {
-        return overrideColor != null ? overrideColor : powered ? POWER : NO_POWER;
-    }
-
-    private Color overrideColor;
-
-    public void setOverrideColor(Color color) {
-        overrideColor = color;
-    }
-
-    public boolean isPowered() {
-        return powered;
-    }
-
-    public boolean hasReceivedPowerThisUpdate() {
-        return receivedPowerThisUpdate;
-    }
 
     public ArrayList<ConnectionNode> getConnections() {
         return connections;
     }
 
-    public void establishConnectionNode(CircuitPoint location) {
-        connections.add(new ConnectionNode(location, this));
-    }
-
     public void clearConnectionNodes() {
-        connections.clear();;
+        connections.clear();
     }
 
     public static void checkEntities(CircuitPoint... checking) {
@@ -183,5 +277,9 @@ public abstract class ConnectibleEntity extends Entity {
 
     public boolean hasConnectionTo(ConnectibleEntity potentiallyConnectedEntity) {
         return connections.hasConnectionTo(potentiallyConnectedEntity);
+    }
+
+    static class SuperDependencyCache extends LinkedList<ConnectibleEntity> {
+        boolean isCircular;
     }
 }

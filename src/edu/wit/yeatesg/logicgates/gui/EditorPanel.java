@@ -106,8 +106,6 @@ public class EditorPanel extends Pane {
 
     public void onMouseReleased(MouseEvent e) {
         updateMousePos(e);
-        for (Wire w : getCurrentCircuit().getAllEntitiesOfType(Wire.class))
-            w.setOverrideColor(null);
         releasePointGrid = circuitPointAtMouse(true);
         selectionBoxStartPoint = null;
         if (currSelectionBox != null)
@@ -255,14 +253,17 @@ public class EditorPanel extends Pane {
             pullPoint = null;
 
             ArrayList<ConnectibleEntity> interceptingConnectibles = new ArrayList<>();
-            for (ConnectibleEntity ce : getCurrentCircuit().getAllEntitiesOfType(ConnectibleEntity.class))
-                if (ce.intercepts(gridSnapAtMouse))
+            for (ConnectibleEntity ce : getCurrentCircuit().getAllEntitiesOfType(ConnectibleEntity.class)) {
+                if (ce.intercepts(gridSnapAtMouse)) {
                     if (ce instanceof Wire)
                         interceptingConnectibles.add(ce);
-                    else
+                    else {
                         for (ConnectionNode node : ce.getConnections())
                             if (node.getLocation().equals(gridSnapAtMouse))
                                 interceptingConnectibles.add(ce);
+                    }
+                }
+            }
 
             for (ConnectibleEntity ce : interceptingConnectibles)
                 if (ce.canPullConnectionFrom(gridSnapAtMouse))
@@ -355,7 +356,6 @@ public class EditorPanel extends Pane {
                             canDeselect = false; // Don't deselect if something isn't selected at where they ctrl clicked
                         }
                     }
-                    System.out.println("CAN DESLECT??? " + canDeselect);
                     for (Entity e : (ArrayList<Entity>) currSelection.clone()) {
                         if (canDeselect && e.getBoundingBox().intercepts(atMouse, true)) {
                             currSelection.remove(e);
@@ -397,6 +397,10 @@ public class EditorPanel extends Pane {
                     && currConnectionView.isEmpty()
                     && currSelection.get(0) instanceof ConnectibleEntity) {
                 ConnectibleEntity selectedConnectible = (ConnectibleEntity) currSelection.get(0);
+                if (selectedConnectible instanceof Wire) {
+                    System.out.println("");
+
+                }
                 currConnectionView.addAll(selectedConnectible.getConnectedEntities());
                 currConnectionView.resetTimer();
             }
@@ -496,7 +500,6 @@ public class EditorPanel extends Pane {
             }
 
         }
-        System.out.println(pullDir + " FIKE");
 
         // Whether or not the mouse pos is on the same entity that the pull point is on
         boolean isSameEntity = getCurrentCircuit().getAllEntities().thatInterceptAll(gridAtMouse, pullPoint).size() > 0;

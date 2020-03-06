@@ -3,7 +3,6 @@ package edu.wit.yeatesg.logicgates.entity.connectible;
 import edu.wit.yeatesg.logicgates.def.Direction;
 import edu.wit.yeatesg.logicgates.entity.*;
 import edu.wit.yeatesg.logicgates.def.BoundingBox;
-import edu.wit.yeatesg.logicgates.def.Vector;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 import edu.wit.yeatesg.logicgates.points.PanelDrawPoint;
 import javafx.beans.value.ObservableValue;
@@ -20,13 +19,14 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
         super(origin.getCircuit(), preview);
         this.origin = origin;
         drawPoints = getRelativePointSet().applyToOrigin(origin, rotation);
-        establishConnectionNode(drawPoints.get(0));
+        establishOutputNode(drawPoints.get(0));
         updateInvalidInterceptPoints();
         if (!preview) {
             c.addEntity(this);
             connectCheck();
             c.getEditorPanel().repaint();
         }
+        c.refreshTransmissions();
     }
 
     public InputBlock(CircuitPoint origin, int rotation) {
@@ -63,6 +63,10 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
 
     // Other stuff
 
+    public Color getColor() {
+        return state.getColor();
+    }
+
     @Override
     public BoundingBox getBoundingBox() {
         return new BoundingBox(drawPoints.get(2), drawPoints.get(4), this);
@@ -88,17 +92,11 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
         // Draw Connection Thingy
 
         ConnectionNode connectNode = getNodeAt(pts.get(0));
-        g.setStroke(getColor());
-        g.setFill(getColor());
-        int circleSize = (int) (c.getScale() * 0.3);
-        if (circleSize % 2 != 0) circleSize++;
-        drawPoint = connectNode.getLocation().toPanelDrawPoint();
-        g.fillOval(drawPoint.x - circleSize/2.00, drawPoint.y - circleSize/2.00, circleSize, circleSize);
-
+        connectNode.draw(g);
         // Draw Circle Inside
         CircuitPoint centerPoint = pts.get(5);
-        g.setStroke(getColor());
-        circleSize = (int) (c.getScale() * 1.35);
+        g.setFill(getColor());
+        int circleSize = (int) (c.getScale() * 1.35);
         if (circleSize % 2 != 0) circleSize++;
         drawPoint = centerPoint.toPanelDrawPoint();
         g.fillOval(drawPoint.x - circleSize/2.00, drawPoint.y - circleSize/2.00, circleSize, circleSize);
@@ -123,31 +121,29 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
         return getInterceptPoints(e); // If it's not a wire, any intersect point is invalid
     }
 
-    @Override
-    public void onPowerReceive() {
-        if (!receivedPowerThisUpdate) {
-            super.onPowerReceive();
-            ConnectionNode connectNode = getNodeAt(drawPoints.get(0));
-            if (connectNode.hasConnectedEntity() && !connectNode.getConnectedTo().receivedPowerThisUpdate)
-                connectNode.getConnectedTo().onPowerReceive();
-        }
-    }
+
+    private boolean powerStatus;
 
     @Override
     public void onPoke() {
-        powered = !powered;
+        powerStatus = !powerStatus;
     }
 
     @Override
-    public boolean isPowerSource() {
-        return powered;
+    public void determinePowerState() {
+        super.determinePowerState();
+        if (state != State.ILLOGICAL)
+            state = powerStatus ? State.ON : State.OFF;
     }
 
     @Override
     public void connect(ConnectibleEntity e, CircuitPoint atLocation) {
+        if (!canConnectTo(e, atLocation))
+            throw new RuntimeException("Cannot connect these 2 entities");
         if (!hasNodeAt(atLocation))
             throw new RuntimeException("Can't connect to InputBlock here, no ConnectionNode at this CircuitPoint");
         getNodeAt(atLocation).connectedTo = e;
+        e.connections.add(new ConnectionNode(atLocation, e, this));
     }
 
     @Override
@@ -162,7 +158,10 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
 
     @Override
     public boolean canConnectTo(ConnectibleEntity e, CircuitPoint at) {
-        return e instanceof Wire && hasNodeAt(at) && getNumEntitiesConnectedAt(at) == 0 && !e.isDeleted();
+        return e instanceof Wire
+                && hasNodeAt(at)
+                && (getNumEntitiesConnectedAt(at) == 0)
+                && !e.isDeleted();
     }
 
     @Override
@@ -182,10 +181,9 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
     @Override
     public void onDelete() { }
 
-    @Override
-    public boolean intercepts(CircuitPoint p) {
-        return getBoundingBox().intercepts(p);
-    }
+    // TODO might have to fix intercepts for inputblock, might have to add a method 'fuzzyIntercepts' which checks
+    // if the bounding box intercepts
+
 
    @Override
     public boolean equals(Object other) {

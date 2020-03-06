@@ -6,6 +6,30 @@ import java.util.ArrayList;
 
 public class ConnectionList extends ArrayList<ConnectionNode> {
 
+    public boolean hasInputNodes() {
+        return getInputNodes().size() > 0;
+    }
+
+    public boolean hasOutputNodes() {
+        return getOutputNodes().size() > 0;
+    }
+
+    public ArrayList<InputNode> getInputNodes() {
+        ArrayList<InputNode> inputNodes = new ArrayList<>();
+        for (ConnectionNode node : this)
+            if (node instanceof InputNode)
+                inputNodes.add((InputNode) node);
+        return inputNodes;
+    }
+
+    public ArrayList<OutputNode> getOutputNodes() {
+        ArrayList<OutputNode> outputNodes = new ArrayList<>();
+        for (ConnectionNode node : this)
+            if (node instanceof OutputNode)
+                outputNodes.add((OutputNode) node);
+        return outputNodes;
+    }
+
     @Override
     public boolean add(ConnectionNode connectionNode) {
         if (hasConnectionTo(connectionNode.getConnectedTo()))
@@ -102,6 +126,13 @@ public class ConnectionList extends ArrayList<ConnectionNode> {
     public CircuitPoint getConnectionLocationOf(ConnectibleEntity potentiallyConnectedTo) {
         ConnectionNode associatedConnection = getConnectionTo(potentiallyConnectedTo);
         return associatedConnection == null ? null : associatedConnection.getLocation();
+    }
+
+    @Override
+    public boolean remove(Object o) {
+        if (o instanceof InputNode || o instanceof OutputNode)
+            throw new UnsupportedOperationException("Input and Output Nodes cannot be removed from the ConnectionList");
+        return super.remove(o);
     }
 
     @Override

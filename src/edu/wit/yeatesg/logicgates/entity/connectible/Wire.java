@@ -13,6 +13,7 @@ import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 
 public class Wire extends ConnectibleEntity {
@@ -45,6 +46,14 @@ public class Wire extends ConnectibleEntity {
         super(c, false);
     }
 
+    @Override
+    public void determinePowerState() {
+        super.determinePowerState();
+        if (state == State.OFF) {
+            ConnectibleEntity dependentOn = dependencies.keySet().iterator().next();
+            state = dependentOn.state;
+        }
+    }
 
     @Override
     public String getDisplayName() {
@@ -145,11 +154,17 @@ public class Wire extends ConnectibleEntity {
 
     @Override
     public void connectCheck(ConnectibleEntity e) {
+        System.out.println("ConnectCheck between " + this + " and " + e);
         if (isPreview || e.isPreview() || deleted || e.isDeleted())
             return;
-        for (CircuitPoint edgePoint : getEdgePoints())
-            if (canConnectTo(e, edgePoint) && e.canConnectTo(this, edgePoint) && !deleted && !e.isDeleted())
+        for (CircuitPoint edgePoint : getEdgePoints()) {
+            if (canConnectTo(e, edgePoint) && e.canConnectTo(this, edgePoint) && !deleted && !e.isDeleted()) {
+                System.out.println("  e.canConnectToThis and this.canConnectToE! leggo");
                 connect(e, edgePoint);
+            } else {
+                System.out.println("DOH!");
+            }
+        }
     }
 
     @Override
@@ -168,6 +183,8 @@ public class Wire extends ConnectibleEntity {
             throw new RuntimeException("Wires can only be connected at end points! (w1)");
         if (hasConnectionTo(e) || e.hasConnectionTo(this))
             throw new RuntimeException(this + " is Already Connected To " + e);
+        if (!canConnectTo(e, atLocation) || !e.canConnectTo(this, atLocation))
+            throw new RuntimeException("canConnectTo returned false");
         if (e instanceof Wire) {
             Wire w = (Wire) e;
             if (!atLocation.equals(w.startLocation) && !atLocation.equals(w.endLocation))
@@ -181,6 +198,11 @@ public class Wire extends ConnectibleEntity {
             connections.add(new ConnectionNode(atLocation, this, e));
             block.getNodeAt(atLocation).connectedTo = this;
             // Handle other cases...
+        } else if (e instanceof SimpleGateAND) {
+            System.out.println("CONNECTING WIRE TO AND GAT");
+            SimpleGateAND gate = (SimpleGateAND) e;
+            connections.add(new ConnectionNode(atLocation, this, e));
+            gate.getNodeAt(atLocation).connectedTo = this;
         }
         c.refreshTransmissions();
     }
@@ -201,8 +223,6 @@ public class Wire extends ConnectibleEntity {
         if (isInvalid() || deleted || isPreview || other.isInvalid() || other.deleted || other.isPreview)
             return;
         for (CircuitPoint thisWiresEndpoint : new CircuitPoint[]{startLocation, endLocation}) {
-            System.out.println("OTHER: "  + other);
-            System.out.println(other.getInterceptPoints() + " <- POINTS");
             if (other.getPointsExcludingEdgePoints().contains(thisWiresEndpoint)
                     && other.getDirection() != getDirection()) // This means it is bisecting the wire
                 bisect(other, thisWiresEndpoint);
@@ -264,16 +284,6 @@ public class Wire extends ConnectibleEntity {
         c.getEditorPanel().repaint();
     }
 
-    @Override
-    public void onPowerReceive() {
-        if (!receivedPowerThisUpdate) {
-            super.onPowerReceive();
-            for (ConnectibleEntity ent : getConnectedEntities()) {
-                if (!ent.receivedPowerThisUpdate)
-                    ent.onPowerReceive();
-            }
-        }
-    }
 
     public int getNumOtherEdgePointsAt(CircuitPoint edgeOfThisWire) {
         int num = 0;
@@ -287,6 +297,26 @@ public class Wire extends ConnectibleEntity {
     @Override
     public boolean canPullConnectionFrom(CircuitPoint locationOnThisEntity) {
         return getNumEntitiesConnectedAt(locationOnThisEntity) < 3;
+    }
+
+    public void determineIllogicies() {
+        LogicGates.debug("\n\nThis Wires Direct Dependencies:", getDependencies().keySet());
+        LinkedList<ConnectibleEntity> superDependencies = getSuperDependencies();
+        System.out.println("GET SUPERDEPENDENCIES FOR " + this);
+        LogicGates.debug("This Wire's SUPA Dependencies:", superDependencies);
+
+        if (superDependencies == null)
+            setState(State.ILLOGICAL);
+        else if (getDependencies().size() > 1)
+            setState(State.ILLOGICAL);
+        else if (superDependencies.size() > 0)
+            setState(State.OFF);
+        else if (getDependencies().size() > 0)
+            setState(State.PARTIALLY_DEPENDENT);
+        else
+            setState(State.NO_DEPENDENT);
+
+        System.out.println("DONE WIRE ILLOGICS");
     }
 
     @Override
@@ -349,8 +379,10 @@ public class Wire extends ConnectibleEntity {
         } else if (whichEdgePoint(edgePoint).equals("end"))
             endLocation = to;
         updateInterceptPoints();
+        disconnectAll();
         if (!deleted)
-            checkEntities(edgePoint, startLocation, endLocation);
+            checkEntities(edgePoint, startLocation, endLocation, to);
+        c.refreshTransmissions();
     }
 
     @Override
@@ -359,6 +391,10 @@ public class Wire extends ConnectibleEntity {
         deleted = true;
         checkEntities(startLocation, endLocation);
         c.refreshTransmissions();
+    }
+
+    public Color getColor() {
+        return state.getColor();
     }
 
     public void draw(GraphicsContext g, boolean drawJunctions) {
@@ -407,10 +443,6 @@ public class Wire extends ConnectibleEntity {
         return false;
     }
 
-    @Override
-    public boolean intercepts(CircuitPoint p) {
-        return getInterceptPoints().contains(p);
-    }
 
     @Override
     public boolean equals(Object other) {
@@ -476,7 +508,7 @@ public class Wire extends ConnectibleEntity {
                                                          int maxLength,
                                                          int order,
                                                          boolean strictWithWires) {
-        System.out.println("GEN FROM " + start + " to " + end + ", dir = " + initialDir);
+   //     System.out.println("GEN FROM " + start + " to " + end + ", dir = " + initialDir);
         PermitList permitList = new PermitList();
         int expansion = (SPLIT_DIST + OVERSHOOT_DIST) * order;
         BoundingBox scopeBox = new BoundingBox(start, end, null);

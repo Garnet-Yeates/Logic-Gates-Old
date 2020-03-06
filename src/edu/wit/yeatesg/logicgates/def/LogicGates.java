@@ -21,9 +21,8 @@ public class LogicGates {
                     for (Object o : arr)
                         System.out.print("  " + o);
                     System.out.println();
-                } else if (args[i] instanceof List) {
-                    for (Object o : (List<Object>) args[i])
-                        System.out.print("  " + o);
+                } else if (args[i] instanceof Iterable<?>) {
+                    ((Iterable<?>) args[i]).forEach(System.out::println);
                     System.out.println();
                 } else
                     System.out.println("  " + args[i]);

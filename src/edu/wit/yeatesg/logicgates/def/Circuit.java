@@ -1,7 +1,7 @@
 package edu.wit.yeatesg.logicgates.def;
 
 import edu.wit.yeatesg.logicgates.entity.*;
-import edu.wit.yeatesg.logicgates.entity.connectible.ConnectibleEntity;
+import edu.wit.yeatesg.logicgates.entity.connectible.*;
 import edu.wit.yeatesg.logicgates.gui.EditorPanel;
 import edu.wit.yeatesg.logicgates.gui.Project;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
@@ -10,6 +10,7 @@ import javafx.beans.value.ObservableValue;
 import javafx.scene.paint.Color;
 
 import java.util.Arrays;
+import java.util.LinkedList;
 
 
 public class Circuit implements Dynamic {
@@ -175,23 +176,77 @@ public class Circuit implements Dynamic {
     }
 
     public void refreshTransmissions() {
-        for (ConnectibleEntity e : getAllEntitiesOfType(ConnectibleEntity.class))
-            e.resetPower();
-        for (ConnectibleEntity e : getAllEntitiesOfType(ConnectibleEntity.class))
-            if (e.isPowerSource())
-                e.onPowerReceive();
+        LinkedList<Wire> wires = new LinkedList<>();
+        LinkedList<ConnectibleEntity> connectibles = new LinkedList<>();
+        LinkedList<InputNode> inputNodes = new LinkedList<>();
+        LinkedList<OutputNode> outputNodes = new LinkedList<>();
+        for (Entity e : getAllEntities()) {
+            if (e instanceof ConnectibleEntity) {
+                connectibles.add((ConnectibleEntity) e);
+                inputNodes.addAll(((ConnectibleEntity) e).getInputNodes());
+                outputNodes.addAll(((ConnectibleEntity) e).getOutputNodes());
+            }
+            if (e instanceof Wire)
+                wires.add((Wire) e);
+        }
+
+        for (InputNode node : inputNodes)
+            node.getDependencies().clear();
+
+        // Reset dependencies
+        for (ConnectibleEntity e : connectibles) {
+            e.resetSuperdependencyCache();
+            e.getDependencies().clear();
+            e.resetPowerState();
+        }
+
+        // Assign all dependencies to dependent entities
+        for (ConnectibleEntity e : connectibles)
+            if (e.hasOutputNodes())
+                e.calculateDependedBy();
+
+        for (ConnectibleEntity e : connectibles)
+            e.getSuperDependencies(); // Set up the super dependency cache
+
+        // Determine If Entities Are In Invalid(Illogical/PartialDependent/NotDependent) States
+        for (Wire w : wires)
+            w.determineIllogicies();
+        // Ditto, but for input nodes
+        for (InputNode in : inputNodes)
+            in.determineIllogical();
+
+        for (InputNode in : inputNodes) {
+            if (in.getState() == State.ILLOGICAL) {
+                LinkedList<ConnectibleEntity> dependingOn = new LinkedList<>();
+                for (OutputNode node : in.getDependencies().keySet())
+                    dependingOn.add(node.getParent());
+                in.getDependencies().clear();
+                for (ConnectibleEntity dep : dependingOn)
+                    in.getParent().getDependencies().remove(dep);
+            }
+        }
+
+        for (ConnectibleEntity ce : connectibles)
+            ce.determinePowerState();
+
+        for (OutputNode out : outputNodes)
+            out.determinePowerState();
+
+        for (InputNode in : inputNodes) {
+            if (in.getState() == State.OFF && in.getConnectedTo().getState() == State.ON)
+                in.setState(State.ON);
+        }
     }
 
     public EntityList<Entity> getAllEntities(boolean clone) {
         return clone ? allEntities.clone() : allEntities;
     }
 
-    public boolean removeEntity(Entity e) {
+    public void removeEntity(Entity e) {
         if (e instanceof ConnectibleEntity)
             ((ConnectibleEntity) e).disconnectAll();
         boolean removed = allEntities.remove(e);
         if (removed) e.onDelete();
-        return removed;
     }
 
     public void addEntity(Entity entity) {

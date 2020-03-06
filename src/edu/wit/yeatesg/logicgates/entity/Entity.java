@@ -21,6 +21,7 @@ public abstract class Entity implements Dynamic {
         this.isPreview = isPreview;
     }
 
+
     // General attributes
 
     protected Circuit c;
@@ -90,7 +91,7 @@ public abstract class Entity implements Dynamic {
         return getInterceptPoints(other).size() > 0;
     }
 
-    public boolean intercepts(CircuitPoint p) {
+    public final boolean intercepts(CircuitPoint p) {
         return getInterceptPoints().contains(p);
     }
 
@@ -115,7 +116,6 @@ public abstract class Entity implements Dynamic {
                 return false;
         return true;
     }
-
 
 
     // Invalid Intercepting

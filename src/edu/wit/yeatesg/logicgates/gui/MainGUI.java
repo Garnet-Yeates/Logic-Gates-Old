@@ -1,11 +1,12 @@
 package edu.wit.yeatesg.logicgates.gui;
 
+import edu.wit.yeatesg.logicgates.def.Direction;
+import edu.wit.yeatesg.logicgates.def.SimpleGateAND;
 import edu.wit.yeatesg.logicgates.entity.Dynamic;
 import edu.wit.yeatesg.logicgates.entity.Property;
 import edu.wit.yeatesg.logicgates.entity.connectible.InputBlock;
 import edu.wit.yeatesg.logicgates.entity.connectible.Wire;
 import edu.wit.yeatesg.logicgates.def.Circuit;
-import edu.wit.yeatesg.logicgates.def.GateAND;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 import javafx.application.Application;
 import javafx.application.Platform;
@@ -19,11 +20,9 @@ import javafx.scene.control.MenuBar;
 import javafx.scene.control.MenuItem;
 import javafx.scene.layout.*;
 import javafx.stage.FileChooser;
-import javafx.stage.Modality;
 import javafx.stage.Stage;
 
 import java.io.File;
-import java.util.concurrent.CountDownLatch;
 
 
 // Rename to LogicGates
@@ -151,8 +150,8 @@ public class MainGUI extends Application {
 
         setPropertyTable(editorPanel.getCurrentCircuit());
 
-        stage.setMinHeight(menuBar.getMinHeight() + EDITOR_MIN_SIZE + 100);
-        stage.setMinWidth(EDITOR_MIN_SIZE + LEFT_MIN_WIDTH + 50);
+        stage.setMinHeight(menuBar.getMinHeight() + EDITOR_MIN_SIZE + 125);
+        stage.setMinWidth(EDITOR_MIN_SIZE + LEFT_MIN_WIDTH + 75);
         borderPane.setPrefSize(1250, 750);
 
         editorPanel.repaint();
@@ -170,6 +169,24 @@ public class MainGUI extends Application {
 
     public void postInit() {
         editorPanel.repaint();
+        Circuit c = currProject.getCurrentCircuit();
+        new Wire(new CircuitPoint(0, 0, c), new CircuitPoint(-5, 0, c));
+        new InputBlock(new CircuitPoint(-5, 3, c), Direction.rotationFromCardinal("EAST"));
+        new InputBlock(new CircuitPoint(-5, 7, c), Direction.rotationFromCardinal("EAST"));
+        new InputBlock(new CircuitPoint(-5, 15, c), Direction.rotationFromCardinal("EAST"));
+        new InputBlock(new CircuitPoint(-5, 25, c), Direction.rotationFromCardinal("EAST"));
+        new InputBlock(new CircuitPoint(-5, 33, c), Direction.rotationFromCardinal("EAST"));
+        new InputBlock(new CircuitPoint(-5, 37, c), Direction.rotationFromCardinal("EAST"));
+
+
+        new SimpleGateAND(new CircuitPoint(5, 5, c), 270, false);
+        new SimpleGateAND(new CircuitPoint(15, 5, c), 270, false);
+        new SimpleGateAND(new CircuitPoint(5, 15, c), 270, false);
+        new SimpleGateAND(new CircuitPoint(15, 15, c), 270, false);
+        new SimpleGateAND(new CircuitPoint(5, 25, c), 270, false);
+        new SimpleGateAND(new CircuitPoint(15, 25, c), 270, false);
+        new SimpleGateAND(new CircuitPoint(5, 35, c), 270, false);
+
        /* Circuit currentCircuit = editorPanel.getCurrentCircuit();
         new GateAND(new CircuitPoint(0, 10, currentCircuit), 90);
         new GateAND(new CircuitPoint(-10, 10, currentCircuit), 180);
