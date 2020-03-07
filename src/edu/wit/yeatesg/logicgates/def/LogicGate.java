@@ -2,6 +2,7 @@ package edu.wit.yeatesg.logicgates.def;
 
 import edu.wit.yeatesg.logicgates.entity.*;
 import edu.wit.yeatesg.logicgates.entity.connectible.ConnectibleEntity;
+import edu.wit.yeatesg.logicgates.entity.connectible.OutputNode;
 import edu.wit.yeatesg.logicgates.entity.connectible.Wire;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 import javafx.beans.value.ObservableValue;
@@ -12,6 +13,11 @@ public class LogicGate extends ConnectibleEntity implements Pokable, Rotatable {
 
     public LogicGate(Circuit c, boolean isPreview) {
         super(c, isPreview);
+    }
+
+    @Override
+    protected void determineOutputDependencies() {
+
     }
 
     @Override
@@ -36,6 +42,11 @@ public class LogicGate extends ConnectibleEntity implements Pokable, Rotatable {
 
     @Override
     protected void connectCheck(ConnectibleEntity e) {
+
+    }
+
+    @Override
+    public void determinePowerStateOf(OutputNode outputNode) {
 
     }
 

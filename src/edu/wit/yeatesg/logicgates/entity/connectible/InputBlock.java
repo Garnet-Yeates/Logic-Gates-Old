@@ -14,24 +14,31 @@ import java.util.Arrays;
 public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable {
 
     private CircuitPoint origin;
+    private OutputNode out;
 
     public InputBlock(CircuitPoint origin, int rotation, boolean preview) {
         super(origin.getCircuit(), preview);
         this.origin = origin;
         drawPoints = getRelativePointSet().applyToOrigin(origin, rotation);
         establishOutputNode(drawPoints.get(0));
+        out = (OutputNode) getNodeAt(drawPoints.get(0));
         updateInvalidInterceptPoints();
-        if (!preview) {
-            c.addEntity(this);
-            connectCheck();
-            c.getEditorPanel().repaint();
-        }
-        c.refreshTransmissions();
+        postInit();
     }
 
     public InputBlock(CircuitPoint origin, int rotation) {
         this(origin, rotation, false);
     }
+
+    @Override
+    protected void determineOutputDependencies() { /* Output Node Dependency List Will Be Empty For Input Nodes */}
+
+    @Override
+    public void determinePowerStateOf(OutputNode outputNode) {
+        System.out.println("InputNode.DeterminePowerSateOf");
+        outputNode.setState(powerStatus ? State.ON : State.OFF);
+    }
+
 
     // Rotatable Interface Methods
 
@@ -64,7 +71,7 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
     // Other stuff
 
     public Color getColor() {
-        return state.getColor();
+        return out.getState().getColor();
     }
 
     @Override
@@ -130,13 +137,6 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
     }
 
     @Override
-    public void determinePowerState() {
-        super.determinePowerState();
-        if (state != State.ILLOGICAL)
-            state = powerStatus ? State.ON : State.OFF;
-    }
-
-    @Override
     public void connect(ConnectibleEntity e, CircuitPoint atLocation) {
         if (!canConnectTo(e, atLocation))
             throw new RuntimeException("Cannot connect these 2 entities");
@@ -172,6 +172,7 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
         if (canConnectTo(e, nodeLoc) && e.canConnectTo(this, nodeLoc) && !deleted && !e.isDeleted())
                 connect(e, nodeLoc);
     }
+
 
     @Override
     public String getDisplayName() {

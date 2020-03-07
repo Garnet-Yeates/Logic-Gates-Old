@@ -77,46 +77,81 @@ public class EditorPanel extends Pane {
     public void onMouseMoved(MouseEvent e) {
         if (!canvas.isFocused())
             canvas.requestFocus();
-        if (holdingSpace) {
+        if (holdingSpace || e.isMiddleButtonDown()) {
             getCurrentCircuit().modifyOffset(new Vector(mouseX, mouseY, e.getX(), e.getY()));
             repaint();
         }
+
+        if (selectionBoxStartPoint != null && middleClickedWhileSelectionBox) // Special case for when middle click is held
+            onMouseDragWhileCreatingSelectionBox();
+
         updateMousePos(e);
         updatePossiblePullPoint();
     }
 
     public void onMouseClicked(MouseEvent e) {
         updateMousePos(e);
-        System.out.println("MOUSE CLICK:");
+     /*   System.out.println("MOUSE CLICK:");
         System.out.println(" SCENE: " + e.getSceneX() + " " + e.getSceneY());
-        System.out.println(" NORM: " + e.getX() + " " + e.getX());
+        System.out.println(" NORM: " + e.getX() + " " + e.getX());*/
     }
 
+    private CircuitPoint middlePressPoint;
+    private CircuitPoint middleReleasePoint;
+
     public void onMousePressed(MouseEvent e) {
-        updateMousePos(e);
-        pressPointGrid = circuitPointAtMouse(true);
-        pressedOnSelectedEntity = currSelection.intercepts(panelDrawPointAtMouse());
-        determineIfPullingWire();
-        determineSelecting();
-        //  System.out.println("PRESSED END? " + pressedOnEndpoint);
-        repaint();
+        if (e.isMiddleButtonDown()) {
+            middlePressPoint = circuitPointAtMouse(true);
+            if (currSelectionBox != null)
+                middleClickedWhileSelectionBox = true;
+            middlePressedLastMousePress = true;
+        }
+        if (!middlePressedLastMousePress) {
+            updateMousePos(e);
+            middleClickedWhileSelectionBox = false;
+            middlePressedLastMousePress = false;
+            pressPointGrid = circuitPointAtMouse(true);
+            pressedOnSelectedEntity = currSelection.intercepts(panelDrawPointAtMouse());
+            determineIfPullingWire();
+            determineSelecting();
+            repaint();
+        }
+
     }
+
+    private boolean middleClickedWhileSelectionBox = true;
+
+    boolean middlePressedLastMousePress = false;
 
     public void onMouseReleased(MouseEvent e) {
         updateMousePos(e);
-        releasePointGrid = circuitPointAtMouse(true);
-        selectionBoxStartPoint = null;
-        if (currSelectionBox != null)
-            onReleaseSelectionBox();
-        if (pullPoint != null)
-            onStopPulling();
+        if (middlePressedLastMousePress) {
+            // If we pressed middle click last mouse press
+            middleReleasePoint = circuitPointAtMouse(true);
+            if (middlePressPoint.equals(middleReleasePoint))
+                onPoke();
+            middleClickedWhileSelectionBox = false;
+            middlePressedLastMousePress = false;
+        } else {
+            // Normal Mouse Release
+            releasePointGrid = circuitPointAtMouse(true);
+            selectionBoxStartPoint = null;
+            determineSelectingMouseRelease();
+            if (pullPoint != null)
+                onStopPulling();
+            if (currSelectionBox != null)
+                onReleaseSelectionBox();
+        }
 
-        determineSelectingMouseRelease();
+
         repaint();
+
+
     }
 
     public void onMouseDragged(MouseEvent e) {
-        if (holdingSpace) {
+        System.out.println("ASS");
+        if (holdingSpace || e.isMiddleButtonDown()) {
             getCurrentCircuit().modifyOffset(new Vector(mouseX, mouseY, e.getX(), e.getY()));
             repaint();
         }
@@ -393,8 +428,7 @@ public class EditorPanel extends Pane {
                     && currConnectionView.isEmpty()
                     && currSelection.get(0) instanceof ConnectibleEntity) {
                 ConnectibleEntity selectedConnectible = (ConnectibleEntity) currSelection.get(0);
-                System.out.println("STATE OF SELECTED " + selectedConnectible.getState());
-                System.out.println("DEPENDENCIES OF SELECTED: ");
+             /*   System.out.println("DEPENDENCIES OF SELECTED: ");
                 for (ConnectibleEntity ce : selectedConnectible.getDependencies())
                     System.out.println(ce);
                 System.out.println("SUPER DEPENDENCIES OF SELECTED: ");
@@ -402,14 +436,14 @@ public class EditorPanel extends Pane {
                     System.out.println(ce);
                 System.out.println("DEPENDENCIES OF INPUT NODES: ");
                 for (InputNode in : selectedConnectible.getInputNodes())
-                    for (OutputNode o : in.getDependencies())
+                    for (Dependent o : in.getDependencyList())
                         System.out.println(in + " depends on " + o);
                 System.out.println("SUPER DEPENDENCIES INPUT NODES: ");
                 for (InputNode in : selectedConnectible.getInputNodes())
-                    for (ConnectibleEntity ce : in.getSuperDependencies())
+                    for (Dependent ce : in.getDependencyList())
                         System.out.println(in + " depends on " + ce);
                 for (ConnectibleEntity ce : selectedConnectible.getSuperDependencies())
-                    System.out.println(ce);
+                    System.out.println(ce);*/
                 currConnectionView.addAll(selectedConnectible.getConnectedEntities());
                 currConnectionView.resetTimer();
             }

@@ -176,78 +176,19 @@ public class Circuit implements Dynamic {
     }
 
     public void refreshTransmissions() {
-        LinkedList<Wire> wires = new LinkedList<>();
-        LinkedList<ConnectibleEntity> connectibles = new LinkedList<>();
-        LinkedList<InputNode> inputNodes = new LinkedList<>();
-        LinkedList<OutputNode> outputNodes = new LinkedList<>();
-        for (Entity e : getAllEntities()) {
-            if (e instanceof ConnectibleEntity) {
-                connectibles.add((ConnectibleEntity) e);
-                inputNodes.addAll(((ConnectibleEntity) e).getInputNodes());
-                outputNodes.addAll(((ConnectibleEntity) e).getOutputNodes());
-            }
-            if (e instanceof Wire)
-                wires.add((Wire) e);
-        }
+        Dependent.resetDependencies(this);
+        Dependent.resetStates(this);
+        Dependent.calculateDependencies(this);
+        Dependent.calculateSuperDependencies(this);
+        Dependent.illogicalCheck(this);
+        Dependent.resetDependencies(this);
+        Dependent.calculateDependencies(this);
+        Dependent.calculateSuperDependencies(this);
+        Dependent.determinePowerStates(this);
+    }
 
-
-
-
-        // Reset dependencies AND power states
-        for (InputNode node : inputNodes) {
-            node.setState(null);
-            node.getDependencies().clear();
-        }
-        for (OutputNode out : outputNodes)
-            out.setState(null);
-        for (ConnectibleEntity e : connectibles) {
-            e.resetSuperdependencyCache();
-            e.getDependencies().clear();
-            e.resetPowerState(); // Reset power states at this point too
-        }
-        // Assign all dependencies to dependent entities and set up super dependency cache
-        for (ConnectibleEntity e : connectibles)
-            if (e.hasOutputNodes())
-                e.calculateDependedBy();
-        for (ConnectibleEntity e : connectibles)
-            e.getSuperDependencies(); // Set up the super dependency cache
-
-        // Determine If Entities Are In Illogical States
-        for (ConnectibleEntity ce : connectibles)
-            ce.determineIllogical();
-        // Ditto, but for input nodes         // TODO ALL THIS BS MAY HAVE TO DO WITH THE FACT THAT SUPERENTITIES FOR NODE DOESNNT
-        for (InputNode in : inputNodes)      // RETURN A NODE
-            in.determineIllogical();
-
-        // Reset dependencies but NOT power states
-        for (InputNode node : inputNodes) {
-            node.getDependencies().clear();
-        }
-        for (ConnectibleEntity e : connectibles) {
-            e.resetSuperdependencyCache();
-            e.getDependencies().clear();
-        }
-        // Assign all dependencies to dependent entities and set up super dependency cache
-        for (ConnectibleEntity e : connectibles)
-            if (e.hasOutputNodes())
-                e.calculateDependedBy();
-        for (ConnectibleEntity e : connectibles)
-            e.getSuperDependencies(); // Set up the super dependency cache
-
-        for (InputNode in : inputNodes)
-            in.calculateDependencies();
-        for (Wire w : wires)
-            w.calculateDependencies();
-
-        for (ConnectibleEntity ce : connectibles)
-            ce.determinePowerState();
-        for (OutputNode out : outputNodes)
-            out.determinePowerState();
-
-        for (InputNode in : inputNodes) {
-            if (in.getState() == State.OFF && in.getConnectedTo().getState() == State.ON)
-                in.setState(State.ON);
-        }
+    public LinkedList<Dependent> getDependents() {
+        return Dependent.getDependentEntities(this);
     }
 
 

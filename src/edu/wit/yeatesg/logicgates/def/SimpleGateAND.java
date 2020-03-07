@@ -11,54 +11,56 @@ import javafx.beans.value.ObservableValue;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
+import static edu.wit.yeatesg.logicgates.entity.connectible.Dependent.*;
+
+import java.util.ArrayList;
 import java.util.LinkedList;
 
 public class SimpleGateAND extends ConnectibleEntity implements Rotatable {
 
     private CircuitPoint origin;
+    private OutputNode out;
 
     public SimpleGateAND(CircuitPoint origin, int rotation, boolean isPreview) {
         super(origin.getCircuit(), isPreview);
-        if (!isPreview)
-            c.addEntity(this);
         this.origin = origin;
         drawPoints = getRelativePointSet().applyToOrigin(origin, rotation);
         establishOutputNode(drawPoints.get(0));
+        out = (OutputNode) getNodeAt(drawPoints.get(0));
         establishInputNode(drawPoints.get(7));
         establishInputNode(drawPoints.get(8));
         //    establishConnectionNode(drawPoints.get(0));
-        c.getEditorPanel().repaint();
-        c.refreshTransmissions();
+        postInit();
     }
 
     public SimpleGateAND(CircuitPoint origin, int rotation) {
         this(origin, rotation, false);
     }
 
-    public LinkedList<InputNode> getRelevantInputs() {
-        LinkedList<InputNode> relevants = new LinkedList<>();
-        for (InputNode input : getInputNodes())
-            if (input.getSuperDependencies() != null && input.getSuperDependencies().size() > 0)
-                relevants.add(input);
-        return relevants;
+    @Override
+    public void determinePowerStateOf(OutputNode outputNode) {
+        if (outputNode.getState() != State.ILLOGICAL) {
+            LinkedList<InputNode> relevants = getRelevantInputNodesFor(outputNode);
+            if (relevants.size() == 0 && outputNode.hasConnectedEntity())
+                outputNode.setState(State.PARTIALLY_DEPENDENT);
+            else if (relevants.size() == 0)
+                outputNode.setState(State.NO_DEPENDENT);
+            if (outputNode.getState() == State.OFF) {
+                outputNode.setState(State.ON);
+                for (InputNode n : getRelevantInputNodesFor(outputNode)) {
+                    if (n.getState() == State.OFF) {
+                        outputNode.setState(State.OFF);
+                        return;
+                    }
+                }
+            }
+        }
     }
 
     @Override
-    public void determinePowerState() {
-        super.determinePowerState();
-        state = State.OFF;
-        if (dependencies.size() == 0)
-            return;
-        state = State.ON;
-
-        for (InputNode relevant : getRelevantInputs()) {
-            ConnectibleEntity inputDependsOn = relevant.getDependencies().get(0).getParent();
-            boolean on = inputDependsOn.getState() == State.ON;
-            if (!on) {
-                state = State.OFF;
-                break;
-            }
-        }
+    protected void determineOutputDependencies() {
+        out.getDependencyList().add((InputNode) getNodeAt(drawPoints.get(7)));
+        out.getDependencyList().add((InputNode) getNodeAt(drawPoints.get(8)));
     }
 
     @Override
@@ -190,6 +192,8 @@ public class SimpleGateAND extends ConnectibleEntity implements Rotatable {
         return false;
     }
 
+
+
     @Override
     public void connect(ConnectibleEntity e, CircuitPoint atLocation) {
         if (!canConnectTo(e, atLocation))
@@ -220,14 +224,11 @@ public class SimpleGateAND extends ConnectibleEntity implements Rotatable {
 
     @Override
     protected void connectCheck(ConnectibleEntity e) {
-        System.out.println("ConnectCheck between " + this + " and " + e);
         if (isPreview || e.isPreview() || deleted || e.isDeleted() || isInvalid() || e.isInvalid())
             return;
         for (CircuitPoint nodeLoc : connections.getEmptyConnectionLocations()) {
             if (canConnectTo(e, nodeLoc) && e.canConnectTo(this, nodeLoc) && !deleted && !e.isDeleted()) {
-                System.out.println("  e.canConnectToThis and this.canConnectToE! leggo");
                 connect(e, nodeLoc);
-            } else {
             }
         }
 

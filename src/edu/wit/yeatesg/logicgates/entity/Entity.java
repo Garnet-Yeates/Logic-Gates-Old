@@ -144,8 +144,9 @@ public abstract class Entity implements Dynamic {
             if (!subCall)
                 other.updateInvalidInterceptPoints(true);
         }
-        if (invalidInterceptPoints.size() > 0 && this instanceof ConnectibleEntity)
+        if (invalidInterceptPoints.size() > 0 && this instanceof ConnectibleEntity) {
             ((ConnectibleEntity) this).disconnectAll();
+        }
     }
 
     public EntityList<Entity> getInvalidlyInterceptingEntities() {

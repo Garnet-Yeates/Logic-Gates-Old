@@ -1,13 +1,11 @@
 package edu.wit.yeatesg.logicgates.entity.connectible;
 
-import edu.wit.yeatesg.logicgates.def.LogicGates;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
+import edu.wit.yeatesg.logicgates.points.PanelDrawPoint;
+import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.paint.Color;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.LinkedList;
-
-public class InputNode extends ConnectionNode {
+public class InputNode extends ConnectionNode implements Dependent {
 
     public InputNode(CircuitPoint location, ConnectibleEntity connectingFrom, ConnectibleEntity connectedTo) {
         super(location, connectingFrom, connectedTo);
@@ -17,64 +15,32 @@ public class InputNode extends ConnectionNode {
         this(location, connectingFrom, null);
     }
 
-    protected LinkedList<OutputNode> dependencies = new LinkedList<>();
+    protected DependentParentList dependencyList = new DependentParentList(this);
 
-    public boolean hasDependencies() {
-        return !dependencies.isEmpty();
+    @Override
+    public DependentParentList getDependencyList() {
+        return dependencyList;
     }
 
-    public LinkedList<OutputNode> getDependencies() {
-        return dependencies;
+    private State state;
+
+    @Override
+    public void setState(State state) {
+        this.state = state;
     }
 
-    public boolean hasPartialDependencies() {
-        return getDependencies().size() > 0;
+    @Override
+    public State getState() {
+        return state;
     }
 
-    // Prob wont need to cache because this is prob only gonna be called once on nodes, during the determine
-    // wireIllogicies() method.
-
-    public LinkedList<ConnectibleEntity> getSuperDependencies() {
-        LinkedList<ConnectibleEntity> superDependencies = new LinkedList<>();
-        for (OutputNode outDependentOn : dependencies) {
-            if (outDependentOn.parent.getSuperDependencies() == null)
-                return null;
-            else if (outDependentOn.parent.isIndependent())
-                superDependencies.add(outDependentOn.parent);
-            else {
-                LinkedList<ConnectibleEntity> parentDepeondsOn = outDependentOn.parent.getSuperDependencies();
-                if (parentDepeondsOn == null)
-                    return null;
-                else
-                    superDependencies.addAll(parentDepeondsOn);
-            }
-        }
-        return superDependencies;
+    @Override
+    public void draw(GraphicsContext g) {
+        g.setStroke(Color.BLACK);
+        g.setFill(getState().getColor());
+        int circleSize = (int) (parent.getCircuit().getScale() * 0.4);
+        if (circleSize % 2 != 0) circleSize++;
+        PanelDrawPoint drawPoint = getLocation().toPanelDrawPoint();
+        g.fillOval(drawPoint.x - circleSize/2.00, drawPoint.y - circleSize/2.00, circleSize, circleSize);
     }
-
-    public boolean hasSuperDependencies() {
-        return getSuperDependencies().size() > 0;
-    }
-
-    public void determineIllogical() {
-        if (getSuperDependencies() == null) // If circular
-            setState(State.ILLOGICAL);
-        if (getDependencies().size() > 1) {
-            setState(State.ILLOGICAL);
-            for (OutputNode dependsOnOut : getDependencies())
-                dependsOnOut.setState(State.ILLOGICAL);
-        }
-    }
-
-    public void calculateDependencies() {
-        if (getState() != State.ILLOGICAL && !hasSuperDependencies()) {
-            if (getDependencies().size() > 0)
-                setState(State.PARTIALLY_DEPENDENT);
-            else
-                setState(State.NO_DEPENDENT);
-        }
-        if (getState() == null)
-            setState(State.OFF);
-    }
-
 }

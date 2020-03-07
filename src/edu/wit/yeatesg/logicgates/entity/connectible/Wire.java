@@ -13,10 +13,9 @@ import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
 import java.util.ArrayList;
-import java.util.LinkedList;
 import java.util.List;
 
-public class Wire extends ConnectibleEntity {
+public class Wire extends ConnectibleEntity implements Dependent {
 
     protected CircuitPoint startLocation;
     protected CircuitPoint endLocation;
@@ -31,11 +30,8 @@ public class Wire extends ConnectibleEntity {
         for (Wire w : c.getAllEntitiesOfType(Wire.class))
             if (isSimilar(w))
                 throw new RuntimeException("Duplicate/Similar Wire " + startLocation + " " + endLocation );
-        if (!isPreview) {
-            c.addEntity(this);
-            connectCheck();
-            c.getEditorPanel().repaint();
-        }
+        postInit();
+        checkEntities(startLocation, endLocation);
     }
 
     public Wire(CircuitPoint startLocation, CircuitPoint endLocation) {
@@ -46,14 +42,33 @@ public class Wire extends ConnectibleEntity {
         super(c, false);
     }
 
+    // INHERITED FROM DEPENDENT CLASS
+
+    protected State state;
+    private DependentParentList dependencyList = new DependentParentList(this);
+
     @Override
-    public void determinePowerState() {
-        if (state == State.OFF) {
-            super.determinePowerState();
-            ConnectibleEntity dependentOn = dependencies.get(0);
-            state = dependentOn.state;
-        }
+    public State getState() {
+        return state;
     }
+
+    @Override
+    public DependentParentList getDependencyList() {
+        return dependencyList;
+    }
+
+    @Override
+    public void setState(State state) {
+        this.state = state;
+    }
+
+    @Override
+    public void determinePowerStateOf(OutputNode outputNode) { /* Not Implemented For Wire, Has Volatile Nodes */ }
+
+    @Override
+    protected void determineOutputDependencies() { /* Not Implemented For Wire, Has Volatile Nodes */ }
+
+
 
     @Override
     public String getDisplayName() {
@@ -154,14 +169,41 @@ public class Wire extends ConnectibleEntity {
 
     @Override
     public void connectCheck(ConnectibleEntity e) {
-        if (isPreview || e.isPreview() || deleted || e.isDeleted())
+        System.out.println("ConnectCheck between " + this + " and " + e);
+        if (isPreview || e.isPreview() || deleted || e.isDeleted()) {
+            System.exit(0);
             return;
+        }
         for (CircuitPoint edgePoint : getEdgePoints()) {
             if (canConnectTo(e, edgePoint) && e.canConnectTo(this, edgePoint) && !deleted && !e.isDeleted()) {
-                System.out.println("  e.canConnectToThis and this.canConnectToE! leggo");
+                System.out.println("  LES GOO");
                 connect(e, edgePoint);
+            } else {
+                System.out.println("  Cant nigga!");
             }
         }
+    }
+
+    @Override
+    public boolean canConnectTo(ConnectibleEntity e, CircuitPoint at) {
+        System.out.print("\nCan " + this + " connect to " + e + " at " + at + " ?");
+        System.out.print(isEdgePoint(at) + " ");
+        System.out.print(!hasConnectionTo(e) + " ");
+        System.out.print((getNumOtherEdgePointsAt(at) < 4) + " ");
+        System.out.print(!e.isDeleted() + " ");
+        if (isEdgePoint(at)
+                && !hasConnectionTo(e)
+                && getNumOtherEdgePointsAt(at) < 4
+                && !e.isDeleted()) {
+            if (e instanceof Wire) {
+                Wire other = (Wire) e;
+                System.out.print((getDirection() != other.getDirection() || other.getNumOtherEdgePointsAt(at) > 1) + " \n");
+                return getDirection() != other.getDirection() || other.getNumOtherEdgePointsAt(at) > 1;
+            } else
+                System.out.println();
+                return true;
+        }
+        return false;
     }
 
     @Override
@@ -172,6 +214,7 @@ public class Wire extends ConnectibleEntity {
         mergeCheck();
         super.connectCheck();
     }
+
 
     public void connect(ConnectibleEntity e, CircuitPoint atLocation) {
         if (isInvalid() || deleted || isPreview || e.isInvalid() || e.isDeleted() || e.isPreview())
@@ -296,36 +339,12 @@ public class Wire extends ConnectibleEntity {
         return getNumEntitiesConnectedAt(locationOnThisEntity) < 3;
     }
 
-    public void calculateDependencies() {
-        if (getState() != State.ILLOGICAL && !hasSuperDependencies()) {
-            if (getDependencies().size() > 0)
-                setState(State.PARTIALLY_DEPENDENT);
-            else
-                setState(State.NO_DEPENDENT);
-        }
-        if (getState() == null)
-            setState(State.OFF);
-    }
-
     @Override
     public void disconnect(ConnectibleEntity e) {
         connections.remove(getConnectionTo(e));
     }
 
-    @Override
-    public boolean canConnectTo(ConnectibleEntity e, CircuitPoint at) {
-        if (isEdgePoint(at)
-                && !hasConnectionTo(e)
-                && getNumOtherEdgePointsAt(at) < 4
-                && !e.isDeleted()) {
-            if (e instanceof Wire) {
-                Wire other = (Wire) e;
-                return getDirection() != other.getDirection() || other.getNumOtherEdgePointsAt(at) > 1;
-            } else
-                return true;
-        }
-        return false;
-    }
+
 
     public CircuitPoint getStartLocation() {
         return startLocation;
@@ -367,7 +386,6 @@ public class Wire extends ConnectibleEntity {
         } else if (whichEdgePoint(edgePoint).equals("end"))
             endLocation = to;
         updateInterceptPoints();
-        disconnectAll();
         if (!deleted)
             checkEntities(edgePoint, startLocation, endLocation, to);
         c.refreshTransmissions();
@@ -382,7 +400,7 @@ public class Wire extends ConnectibleEntity {
     }
 
     public Color getColor() {
-        return state.getColor();
+        return getState().getColor();
     }
 
     public void draw(GraphicsContext g, boolean drawJunctions) {
@@ -784,6 +802,9 @@ public class Wire extends ConnectibleEntity {
     public boolean hasProperty(String propertyName) {
         return false;
     }
+
+
+
 
     public static class TheoreticalWire extends Wire {
         public TheoreticalWire(CircuitPoint start, CircuitPoint end) {

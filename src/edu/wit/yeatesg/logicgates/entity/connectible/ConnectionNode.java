@@ -11,16 +11,6 @@ public class ConnectionNode {
    protected ConnectibleEntity connectedTo;
    protected ConnectibleEntity parent;
 
-    private State state;
-
-    public void setState(State state) {
-        this.state = state;
-    }
-
-    public State getState() {
-        return state;
-    }
-
    public ConnectionNode(CircuitPoint location, ConnectibleEntity connectingFrom, ConnectibleEntity connectedTo) {
        this.location = location;
        this.connectedTo = connectedTo;
@@ -67,29 +57,25 @@ public class ConnectionNode {
     public boolean equals(Object other) {
         if (other instanceof ConnectionNode) {
             ConnectionNode o = (ConnectionNode) other;
-            if ((connectedTo == null || o.connectedTo == null) && !(o.connectedTo == null && connectedTo == null))
-                return false;
-            else return (((ConnectionNode) other).parent.equals(parent)
-                    && ((ConnectionNode) other).location.equals(location)
-                    && ((ConnectionNode) other).connectedTo.equals(connectedTo));
+            String cTo = connectedTo == null ? "null" : connectedTo.toString();
+            String oCTo = o.connectedTo == null ? "null" : o.connectedTo.toString();
+             return (o.parent.equals(parent)
+                     && ((ConnectionNode) other).location.equals(location)
+                     && !((connectedTo == null || o.connectedTo == null) && !(o.connectedTo == null && connectedTo == null))
+                     && oCTo.equalsIgnoreCase(cTo));
         }
         return false;
     }
 
     public void draw(GraphicsContext g) {
-        g.setStroke(Color.BLACK);
-        g.setFill(state.getColor());
-        int circleSize = (int) (parent.getCircuit().getScale() * 0.4);
-        if (circleSize % 2 != 0) circleSize++;
-        PanelDrawPoint drawPoint = getLocation().toPanelDrawPoint();
-        g.fillOval(drawPoint.x - circleSize/2.00, drawPoint.y - circleSize/2.00, circleSize, circleSize);
+
+
     }
 
     @Override
     public String toString() {
         return getClass().getSimpleName() +
-                "location=" + location +
-                ", state=" + state +
+                "{location=" + location +
                 '}';
     }
 }

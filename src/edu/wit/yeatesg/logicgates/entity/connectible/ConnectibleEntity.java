@@ -19,53 +19,17 @@ public abstract class ConnectibleEntity extends Entity {
         connections = new ConnectionList();
     }
 
-
-    public void determineIllogical() {
-        if (getSuperDependencies() == null)
-            setState(State.ILLOGICAL); // TODO ANYTHING ELSE BESIDES WIRES THAT CANT HAVE MORE THAN ONE DEPENDENCE
-        if (this instanceof Wire && getDependencies().size() > 1) { // TODO MUST BE ADDED TO THIS IF BLOCK
-            setState(State.ILLOGICAL);
-            for (ConnectibleEntity ce : getDependencies())
-                ce.setState(State.ILLOGICAL);
+    public void postInit() {
+        determineOutputDependencies();
+        if (!isPreview) {
+            c.addEntity(this);
+            c.refreshTransmissions();
+            c.getEditorPanel().repaint();
         }
     }
 
+    protected abstract void determineOutputDependencies();
 
-
-    // State stuff. All connectible entities will have a state, even entities that don't have output nodes.
-    // an example of this is an output block, because it doesn't have an output node but still needs to have a state
-    // to display output
-
-    protected State state;
-
-    public State getState() {
-        return state;
-    }
-
-    public void setState(State state) {
-        this.state = state;
-    }
-
-    private boolean powerStateDetermined = false;
-
-    public final void resetPowerState() {
-        powerStateDetermined = false;
-        state = null;
-    }
-
-    public boolean isPowerStateDetermined() {
-        return powerStateDetermined;
-    }
-
-    /**
-     * MAKE SURE YOU CALL SUPER FIRST WHEN OVERRIDING THIS
-     */
-    public void determinePowerState() {
-        if (!powerStateDetermined)
-            for (ConnectibleEntity dependingOn : dependencies)
-                if (!dependingOn.powerStateDetermined)
-                    dependingOn.determinePowerState();
-    }
 
     // Specific Output Entities (entities that can send power)
 
@@ -92,7 +56,6 @@ public abstract class ConnectibleEntity extends Entity {
     }
 
 
-
     // Input Entities (entities that receive power)
     // Input entities depend on output entities. Input nodes depend on output nodes
 
@@ -108,53 +71,7 @@ public abstract class ConnectibleEntity extends Entity {
         return connections.hasInputNodes();
     }
 
-    protected LinkedList<ConnectibleEntity> dependencies = new LinkedList<>();
 
-    public LinkedList<ConnectibleEntity> getDependencies() {
-        return dependencies;
-    }
-
-    public SuperDependencyCache superDependenciesCache = null;
-
-    public void resetSuperdependencyCache() {
-        superDependenciesCache = null;
-    }
-
-    public SuperDependencyCache getSuperDependencies() {
-        if (superDependenciesCache == null) {
-            LinkedList<ConnectibleEntity> roots = new LinkedList<>();
-            roots.add(this);
-            superDependenciesCache = getSuperDependencies(new SuperDependencyCache(), roots);
-        }
-        return superDependenciesCache.isCircular ? null : superDependenciesCache;
-    }
-
-    private SuperDependencyCache getSuperDependencies(SuperDependencyCache superDependencies, LinkedList<ConnectibleEntity> roots) {
-        for (ConnectibleEntity dependsOn : dependencies) {
-            if (roots.contains(dependsOn)) {
-                superDependencies.isCircular = true;
-            }
-            if (superDependencies.isCircular) // dont merge with the above if, needs to be checked because sub calls
-                return superDependencies;
-            else if (dependsOn.isIndependent())
-                superDependencies.add(dependsOn);
-            else {
-                roots.add(dependsOn); // All sub method calls share the same roots ref
-                dependsOn.getSuperDependencies(superDependencies, roots);
-                if (superDependencies.isCircular)
-                    return superDependencies; // If ANY path hits ANY of the shared roots, it is circular and therefore illogical
-            }
-        }
-        return superDependencies;
-    }
-
-    public boolean hasSuperDependencies() {
-        return getSuperDependencies().size() > 0;
-    }
-
-    public boolean hasPartialDependencies() {
-        return getDependencies().size() > 0;
-    }
 
 
     // General Connecting, Disconnecting, Pulling Wires
@@ -180,6 +97,7 @@ public abstract class ConnectibleEntity extends Entity {
     public abstract boolean canConnectTo(ConnectibleEntity e, CircuitPoint at);
 
     public void disconnectAll() {
+        System.out.println("DisconnectALL from " + this);
         for (ConnectibleEntity e : getConnectedEntities()) {
             disconnect(e);
             e.disconnect(this);
@@ -295,7 +213,17 @@ public abstract class ConnectibleEntity extends Entity {
         return connections.hasConnectionTo(potentiallyConnectedEntity);
     }
 
+    public abstract void determinePowerStateOf(OutputNode outputNode);
+
     public static class SuperDependencyCache extends LinkedList<ConnectibleEntity> {
         boolean isCircular;
+    }
+
+    public LinkedList<InputNode> getRelevantInputNodesFor(OutputNode out) {
+        LinkedList<InputNode> relevants = new LinkedList<>();
+        for (Dependent inputNode : out.getDependencyList())
+            if (inputNode.hasSuperDependencies())
+                relevants.add((InputNode) inputNode);
+        return relevants;
     }
 }
