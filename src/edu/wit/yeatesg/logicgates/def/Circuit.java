@@ -65,7 +65,6 @@ public class Circuit implements Dynamic {
     }
 
     public boolean canScaleUp() {
-        System.out.println("scale: " + scale + " SCALE_MAX: " + SCALE_MAX);
         return scale < SCALE_MAX;
     }
 
@@ -176,15 +175,18 @@ public class Circuit implements Dynamic {
     }
 
     public void refreshTransmissions() {
-        Dependent.resetDependencies(this);
-        Dependent.resetStates(this);
-        Dependent.calculateDependencies(this);
-        Dependent.calculateSuperDependencies(this);
-        Dependent.illogicalCheck(this);
-        Dependent.resetDependencies(this);
-        Dependent.calculateDependencies(this);
-        Dependent.calculateSuperDependencies(this);
-        Dependent.determinePowerStates(this);
+        System.out.println("Refresh Transmissions Took " + LogicGates.doTimeTest(() -> {
+            Dependent.resetDependencies(this);
+            Dependent.resetStates(this);
+            Dependent.calculateDependencies(this);
+            Dependent.calculateSuperDependencies(this);
+            Dependent.illogicalCheck(this);
+            Dependent.resetDependencies(this);
+            Dependent.calculateDependencies(this);
+            Dependent.calculateSuperDependencies(this);
+            Dependent.determinePowerStates(this);
+        }));
+
     }
 
     public LinkedList<Dependent> getDependents() {

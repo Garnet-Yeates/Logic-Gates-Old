@@ -11,6 +11,7 @@ import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
+import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
@@ -77,14 +78,10 @@ public class EditorPanel extends Pane {
     public void onMouseMoved(MouseEvent e) {
         if (!canvas.isFocused())
             canvas.requestFocus();
-        if (holdingSpace || e.isMiddleButtonDown()) {
+        if (holdingSpace) {
             getCurrentCircuit().modifyOffset(new Vector(mouseX, mouseY, e.getX(), e.getY()));
             repaint();
         }
-
-        if (selectionBoxStartPoint != null && middleClickedWhileSelectionBox) // Special case for when middle click is held
-            onMouseDragWhileCreatingSelectionBox();
-
         updateMousePos(e);
         updatePossiblePullPoint();
     }
@@ -96,51 +93,68 @@ public class EditorPanel extends Pane {
         System.out.println(" NORM: " + e.getX() + " " + e.getX());*/
     }
 
-    private CircuitPoint middlePressPoint;
-    private CircuitPoint middleReleasePoint;
+    private CircuitPoint middlePressPointGrid;
+    private CircuitPoint middleReleasePointGrid;
+    private boolean draggedViaMiddlePress;
+
+    private CircuitPoint pressPointGrid;
+    private CircuitPoint releasePointGrid;
+
+    private CircuitPoint rightPressPointGrid;
+    private CircuitPoint rightReleasePointGrid;
+
+    private boolean leftDown() {
+        return pressPointGrid != null;
+    }
+
+    private boolean rightDown() {
+        return rightReleasePointGrid != null;
+    }
+
+    private boolean middleDown() {
+        return middlePressPointGrid != null;
+    }
+
 
     public void onMousePressed(MouseEvent e) {
-        if (e.isMiddleButtonDown()) {
-            middlePressPoint = circuitPointAtMouse(true);
-            if (currSelectionBox != null)
-                middleClickedWhileSelectionBox = true;
-            middlePressedLastMousePress = true;
-        }
-        if (!middlePressedLastMousePress) {
-            updateMousePos(e);
-            middleClickedWhileSelectionBox = false;
-            middlePressedLastMousePress = false;
+        System.out.println("MOUSE PRESS " + e.getButton());
+        updateMousePos(e);
+        if (e.getButton() == MouseButton.MIDDLE) {
+            // Middle Click Processing
+            draggedViaMiddlePress = false; // Reset this field
+            middlePressPointGrid = circuitPointAtMouse(true);
+        } else if (e.getButton() == MouseButton.PRIMARY) {
+            // Normal Left Click Processing
             pressPointGrid = circuitPointAtMouse(true);
             pressedOnSelectedEntity = currSelection.intercepts(panelDrawPointAtMouse());
             determineIfPullingWire();
             determineSelecting();
             repaint();
+        } else if (e.getButton() == MouseButton.SECONDARY) {
+            rightPressPointGrid = circuitPointAtMouse(true);
         }
-
     }
 
-    private boolean middleClickedWhileSelectionBox = true;
-
-    boolean middlePressedLastMousePress = false;
-
     public void onMouseReleased(MouseEvent e) {
+        System.out.println("MOUSE RELEASE " + e.getButton());
         updateMousePos(e);
-        if (middlePressedLastMousePress) {
-            // If we pressed middle click last mouse press
-            middleReleasePoint = circuitPointAtMouse(true);
-            if (middlePressPoint.equals(middleReleasePoint))
+        if (e.getButton() == MouseButton.MIDDLE) {
+            middleReleasePointGrid = circuitPointAtMouse(true);
+            if (middlePressPointGrid.equals(middleReleasePointGrid))
                 onPoke();
-            middleClickedWhileSelectionBox = false;
-            middlePressedLastMousePress = false;
-        } else {
+            middlePressPointGrid = null;
+        } else if (e.getButton() == MouseButton.PRIMARY) {
             // Normal Mouse Release
             releasePointGrid = circuitPointAtMouse(true);
             selectionBoxStartPoint = null;
+            onStopPulling();
             determineSelectingMouseRelease();
-            if (pullPoint != null)
-                onStopPulling();
             if (currSelectionBox != null)
                 onReleaseSelectionBox();
+            pressPointGrid = null;
+        } else if (e.getButton() == MouseButton.SECONDARY) {
+            rightReleasePointGrid = circuitPointAtMouse(true);
+            rightPressPointGrid = null;
         }
 
 
@@ -150,16 +164,19 @@ public class EditorPanel extends Pane {
     }
 
     public void onMouseDragged(MouseEvent e) {
-        System.out.println("ASS");
-        if (holdingSpace || e.isMiddleButtonDown()) {
+        if (middleDown() || holdingSpace) {
+            draggedViaMiddlePress = true;
             getCurrentCircuit().modifyOffset(new Vector(mouseX, mouseY, e.getX(), e.getY()));
             repaint();
         }
         updateMousePos(e);
-        if (selectionBoxStartPoint != null)
-            onMouseDragWhileCreatingSelectionBox();
-        if (gridSnapChanged)
-            onGridSnapChangeWhileDragging();
+        if (leftDown()) {
+            if (selectionBoxStartPoint != null)
+                onMouseDragWhileCreatingSelectionBox();
+            if (gridSnapChanged)
+                onGridSnapChangeWhileDragging();
+        }
+
     }
 
     public Circuit getCurrentCircuit() {
@@ -363,16 +380,16 @@ public class EditorPanel extends Pane {
 
     @SuppressWarnings("unchecked")
     public void determineSelecting() {
-        LogicGates.debug("Start Of DetermineSelecting() method", "", "CurrSelection", currSelection, "curr connection view", currConnectionView);
         selectionBoxStartPoint = null;
         selectedSomething = false;
         movingSelection = false;
         PanelDrawPoint atMouse = panelDrawPointAtMouse();
         if (isPullingWire) {
+            System.out.println("i am gay");
             currSelection.clear();
             currConnectionView.clear();
         } else {
-            System.out.println("Not pullin wiah");
+            System.out.println("We got here");
             if (!currSelection.isEmpty() && !currSelection.intercepts(atMouse) && !ctrl) {
                 currSelection.clear();
                 currConnectionView.clear();
@@ -448,8 +465,7 @@ public class EditorPanel extends Pane {
                 currConnectionView.resetTimer();
             }
         }
-        LogicGates.debug("End Of DetermineSelecting() method", "", "CurrSelection", currSelection, "curr connection view", currConnectionView);
-    }
+   }
 
     public class SelectionBox extends BoundingBox {
 
@@ -505,9 +521,6 @@ public class EditorPanel extends Pane {
     }
 
 
-    public CircuitPoint pressPointGrid;
-    public CircuitPoint releasePointGrid;
-
     private CircuitPoint pullPoint = null;
     private boolean isPullingWire = false;
     private Direction pullDir = null;
@@ -533,6 +546,7 @@ public class EditorPanel extends Pane {
     private void onGridSnapChangeWhilePullingWire() {
         CircuitPoint gridAtMouse = circuitPointAtMouse(true);
         if (pullDir == null) { // If a preferred pull dir hasn't been chosen by the user yet, set it
+            System.out.println(pullPoint + " PULL FUCKING POINT");
             Vector dir = new Vector(pullPoint, gridAtMouse);
             if ((!dir.equals(Vector.ZERO_VECTOR)) && Vector.getDirectionVecs().contains(dir)) {
                 System.out.println("b4 pull dir dir = " + dir);
@@ -561,6 +575,7 @@ public class EditorPanel extends Pane {
                 && pullPoint.is4AdjacentTo(gridAtMouse)
                 && (isSameEntity)) {
             pullPoint = gridAtMouse;
+            System.out.println("PULLPOINT SET ~ 586");
             pullDir = null;
             theoreticalCreations = new ArrayList<>();
         }
@@ -685,12 +700,12 @@ public class EditorPanel extends Pane {
         isPullingWire = false;
         pullPoint = null;
         pullDir = null;
+        System.out.println("pullPoint nullified ~ 704");
         theoreticalDeletion = null;
         updatePossiblePullPoint();
     }
 
     public void onPoke() {
-        System.out.println("POKE");
         for (Entity e : getCurrentCircuit().getAllEntities()) {
             if (e instanceof Pokable) {
                 if (e.getBoundingBox().intercepts(panelDrawPointAtMouse()))
@@ -724,7 +739,6 @@ public class EditorPanel extends Pane {
             canvas.setWidth(w);
             canvas.setHeight(h);
             repaint();
-
         }
     }
 

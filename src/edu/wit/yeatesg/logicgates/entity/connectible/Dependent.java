@@ -1,12 +1,31 @@
 package edu.wit.yeatesg.logicgates.entity.connectible;
 
 import edu.wit.yeatesg.logicgates.def.Circuit;
+import javafx.scene.paint.Color;
 
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedList;
 
 public interface Dependent {
+
+    enum State {
+        ON(Color.rgb(50, 199, 0, 1)),
+        OFF(Color.rgb(34, 99, 0, 1)),
+        PARTIALLY_DEPENDENT(Color.rgb(34, 205, 205, 1)),
+        NO_DEPENDENT(Color.rgb(0, 67, 169, 1)),
+        ILLOGICAL(Color.rgb(162, 0, 10, 1));
+
+        private Color color;
+
+        State(Color col) {
+            color = col;
+        }
+
+        public Color getColor() {
+            return color;
+        }
+    }
 
     static LinkedList<Dependent> getDependentEntities(Circuit c) {
         LinkedList<Dependent> dependents = new LinkedList<>();
@@ -103,16 +122,13 @@ public interface Dependent {
      * Should be called ALL dependencies are calculated for the circuit
      */
     default void illogicalCheck() {
-        if (getDependencyList().getSuperDependencies().isCircular()) {
-            setState(State.ILLOGICAL);
-            System.out.println(this + " SET TO ILLOGICAL BECAUSE CIRCULAR SUPER");
-        }
-        else if ((this instanceof InputNode || this instanceof Wire) && getNumDependencies() > 1) {
+        if ((this instanceof InputNode || this instanceof Wire) && getNumDependencies() > 1) {
             setState(State.ILLOGICAL);
             for (Dependent outputNode : getDependencyList())
                 outputNode.setState(State.ILLOGICAL);
-            System.out.println(this + " SET TO ILLOGICAL BECAUSE MORE THAN 1 DEPEND");
         }
+        else if (getDependencyList().getSuperDependencies().isCircular())
+            setState(State.ILLOGICAL);
     }
 
     class DependentParentList extends LinkedList<Dependent> {
@@ -167,12 +183,6 @@ public interface Dependent {
         // AND ADD THE OUT TO THE DEPENDENCY LIST OF THE PARENT AS WELL. PARENT ENTITIES AKA LOGIC GATES
         // AND STUFF LIKE THAT WILL OBVIOUSLY HAVE MULTIPLE DEPENDENCIES, BUT THAT IS OKAY AND REQUIRED
 
-        // TO MAKE SUPER DEPENDENCY CHECK MORE EFFICIENT, WE CAN JUST CALL IT ON ALL OF THE INPUT NODES. THEN AFTER
-        // WE DO THAT, WE CAN LOOP THROUGH ALL OF THE WIRES THAT ARE CONNECTED TO EACH INPUT NODE AND SET ITS
-        // SUPER DEPENDENCIES TO THE SUPER DEPENDENCIES OF THE INPUT NODE. THEN WE GO TO THE PARENTS OF THE INPUT
-        // NODE THAT WE JUST CHECKED, AND ADD ALL OF THE SUPER DEPENDENCIES AS WELL. I SHOULD OVERRIDE ADDALL
-        // IN DEPENDENCYLIST SO THAT WHEN A CIRCULAR DEPENDENCYLIST IS ADDED TO ANOTHER ONE, THE ONE IT WAS ADDED
-        // TO IS SET TO CIRCULAR AS WELL
 
         // DEPENDENT INTERFACE
         //   IMPLEMENTED BY WIRE AND INPUTNODE
@@ -191,21 +201,21 @@ public interface Dependent {
 
         private void calculateSuperDependencies() {
             superDependencies = new SuperDependencyList();
-            calculateSuperDependencies(superDependencies, reference, new NumTillInvalidMap());
+            calculateSuperDependencies(superDependencies, new LinkedList<>(), new IgnoreMap(), 0);
         }
 
 
-        private static class NumTillInvalidMap extends HashMap<Dependent, Integer> {
+        private static class IgnoreMap extends HashMap<Dependent, Integer> {
 
             public void put(Dependent d) {
                 if (!containsKey(d))
-                    put(d, 1);
+                    put(d, 0);
                 else
                     put(d, get(d) + 1);
             }
 
             // Returns true if invalid
-            public boolean invalidPoll(Dependent d) {
+            public boolean ignorePoll(Dependent d) {
                 put(d, get(d) - 1);
                 return get(d) == -1;
             }
@@ -217,15 +227,12 @@ public interface Dependent {
         // A dependent is considered a super dependent if it is an OutputNode and has no dependency. The dependency
         // of OutputNodes are pre determined
         private void calculateSuperDependencies(SuperDependencyList addingTo,
-                                                    Dependent initialCaller,
-                                                    NumTillInvalidMap numTillInvalid) {
-
-            if (initialCaller == null) // Wires are a special case; they have dependencies but nothing will ever
-                initialCaller = reference; // technically depend on them, so if they are the initialcaller it will loop
-            if (reference instanceof Wire) // forever
-                initialCaller = null;
+                                                LinkedList<Dependent> cantRepeat,
+                                                IgnoreMap numTillInvalid,
+                                                int callNum) {
+            cantRepeat.add(reference);
             for (Dependent dep : this) {
-                if (dep.equals(initialCaller)) {
+                if (cantRepeat.contains(dep)) {
                     addingTo.isCircular = true;
                     return;
                 }
@@ -233,7 +240,8 @@ public interface Dependent {
                     addingTo.add((OutputNode) dep);
                 }
                 else {
-                    dep.getDependencyList().calculateSuperDependencies(addingTo, initialCaller, numTillInvalid);
+                    cantRepeat = new LinkedList<>(cantRepeat); // <-- CLONE IS VERY NECESSARY. If 2 different input nodes for a logic gate share a dependency (this is allowed), obviously one sub call will happen at a time, in1, then in2, so if we dont clone the list and the in1 sub-call states that we can't repeat the output node, it shld NOT make it so in2 cant repeat the output node as well!
+                    dep.getDependencyList().calculateSuperDependencies(addingTo, cantRepeat, numTillInvalid, callNum);
                     if (addingTo.isCircular)
                         return;
                 }

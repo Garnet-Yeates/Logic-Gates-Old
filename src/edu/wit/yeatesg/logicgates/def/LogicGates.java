@@ -6,6 +6,15 @@ import java.util.List;
 
 public class LogicGates {
 
+    private long startTime;
+
+    public static String doTimeTest(Runnable r) {
+        long start = System.currentTimeMillis();
+        r.run();
+        return ((System.currentTimeMillis() - start) / 1000.0) + "s";
+    }
+
+
     @SuppressWarnings("unchecked")
     public static void debug(Object... args) {
         if (args.length % 2 != 0)

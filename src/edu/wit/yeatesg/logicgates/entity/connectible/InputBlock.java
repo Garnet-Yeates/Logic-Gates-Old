@@ -11,6 +11,8 @@ import javafx.scene.paint.Color;
 
 import java.util.Arrays;
 
+import static edu.wit.yeatesg.logicgates.entity.connectible.Dependent.*;
+
 public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable {
 
     private CircuitPoint origin;

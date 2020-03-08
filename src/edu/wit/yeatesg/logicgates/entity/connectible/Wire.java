@@ -169,38 +169,26 @@ public class Wire extends ConnectibleEntity implements Dependent {
 
     @Override
     public void connectCheck(ConnectibleEntity e) {
-        System.out.println("ConnectCheck between " + this + " and " + e);
         if (isPreview || e.isPreview() || deleted || e.isDeleted()) {
             System.exit(0);
             return;
         }
         for (CircuitPoint edgePoint : getEdgePoints()) {
-            if (canConnectTo(e, edgePoint) && e.canConnectTo(this, edgePoint) && !deleted && !e.isDeleted()) {
-                System.out.println("  LES GOO");
+            if (canConnectTo(e, edgePoint) && e.canConnectTo(this, edgePoint) && !deleted && !e.isDeleted())
                 connect(e, edgePoint);
-            } else {
-                System.out.println("  Cant nigga!");
-            }
         }
     }
 
     @Override
     public boolean canConnectTo(ConnectibleEntity e, CircuitPoint at) {
-        System.out.print("\nCan " + this + " connect to " + e + " at " + at + " ?");
-        System.out.print(isEdgePoint(at) + " ");
-        System.out.print(!hasConnectionTo(e) + " ");
-        System.out.print((getNumOtherEdgePointsAt(at) < 4) + " ");
-        System.out.print(!e.isDeleted() + " ");
         if (isEdgePoint(at)
-                && !hasConnectionTo(e)
-                && getNumOtherEdgePointsAt(at) < 4
+                && !hasConnectionTo(e) // TODO fix
+                && connections.size() < 4
                 && !e.isDeleted()) {
             if (e instanceof Wire) {
                 Wire other = (Wire) e;
-                System.out.print((getDirection() != other.getDirection() || other.getNumOtherEdgePointsAt(at) > 1) + " \n");
                 return getDirection() != other.getDirection() || other.getNumOtherEdgePointsAt(at) > 1;
             } else
-                System.out.println();
                 return true;
         }
         return false;
@@ -239,7 +227,6 @@ public class Wire extends ConnectibleEntity implements Dependent {
             block.getNodeAt(atLocation).connectedTo = this;
             // Handle other cases...
         } else if (e instanceof SimpleGateAND) {
-            System.out.println("CONNECTING WIRE TO AND GAT");
             SimpleGateAND gate = (SimpleGateAND) e;
             connections.add(new ConnectionNode(atLocation, this, e));
             gate.getNodeAt(atLocation).connectedTo = this;
@@ -272,7 +259,6 @@ public class Wire extends ConnectibleEntity implements Dependent {
     public void bisect(Wire other, CircuitPoint endpointOfThisWire) {
         if (isInvalid() || deleted || isPreview || other.isInvalid() || other.deleted || other.isPreview)
             throw new RuntimeException("Cannot bisect. At least one of these wires is deleted/invalid/preview");
-        System.out.println("\n" + this + "\nBISECT\n" + other + "\nAT\n" + endpointOfThisWire + "\n");
         if (!other.getPointsExcludingEdgePoints().contains(endpointOfThisWire))
             throw new RuntimeException("Invalid Wire Bisect. Can't bisect a wire at its edge points");
         if (!(endpointOfThisWire.equals(startLocation) || endpointOfThisWire.equals(endLocation)))
@@ -305,10 +291,10 @@ public class Wire extends ConnectibleEntity implements Dependent {
         for (CircuitPoint edgePoint : new CircuitPoint[]{startLocation, endLocation}) {
             for (CircuitPoint otherEdgePoint : new CircuitPoint[]{other.startLocation, other.endLocation}) {
                 if (edgePoint.equals(otherEdgePoint)
-                        && (other.getNumOtherEdgePointsAt(edgePoint) < 2)
                         && other.getDirection() == getDirection()
                         && !isSimilar(other)
-                        && !(other.deleted || deleted)) {
+                        && !(other.deleted || deleted)
+                        && (other.getNumOtherEdgePointsAt(edgePoint) < 2)) {
                     merge(other, edgePoint);
                 }
             }
