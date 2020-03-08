@@ -1,9 +1,14 @@
 package edu.wit.yeatesg.logicgates.gui;
 
-import edu.wit.yeatesg.logicgates.def.*;
+import edu.wit.yeatesg.logicgates.def.BoundingBox;
+import edu.wit.yeatesg.logicgates.def.Circuit;
+import edu.wit.yeatesg.logicgates.def.Direction;
+import edu.wit.yeatesg.logicgates.def.Vector;
 import edu.wit.yeatesg.logicgates.entity.Entity;
-import edu.wit.yeatesg.logicgates.entity.connectible.*;
+import edu.wit.yeatesg.logicgates.entity.EntityList;
 import edu.wit.yeatesg.logicgates.entity.Pokable;
+import edu.wit.yeatesg.logicgates.entity.connectible.ConnectibleEntity;
+import edu.wit.yeatesg.logicgates.entity.connectible.Wire;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 import edu.wit.yeatesg.logicgates.points.PanelDrawPoint;
 import javafx.application.Platform;
@@ -20,6 +25,7 @@ import javax.swing.*;
 import java.util.ArrayList;
 import java.util.Arrays;
 
+import static edu.wit.yeatesg.logicgates.entity.connectible.Wire.*;
 import static javafx.scene.input.KeyCode.*;
 
 public class EditorPanel extends Pane {
@@ -76,6 +82,8 @@ public class EditorPanel extends Pane {
     }
 
     public void onMouseMoved(MouseEvent e) {
+        CircuitPoint gridSnapAtMouse = circuitPointAtMouse(true);
+        this.new PullPoint(gridSnapAtMouse, gridSnapAtMouse);
         if (!canvas.isFocused())
             canvas.requestFocus();
         if (holdingSpace) {
@@ -127,11 +135,13 @@ public class EditorPanel extends Pane {
             // Normal Left Click Processing
             pressPointGrid = circuitPointAtMouse(true);
             pressedOnSelectedEntity = currSelection.intercepts(panelDrawPointAtMouse());
-            determineIfPullingWire();
+            this.new PullPoint(pressPointGrid, pressPointGrid);
             determineSelecting();
             repaint();
         } else if (e.getButton() == MouseButton.SECONDARY) {
             rightPressPointGrid = circuitPointAtMouse(true);
+            if (currentPullPoint != null)
+                currentPullPoint.dropAndRestart();
         }
     }
 
@@ -147,8 +157,10 @@ public class EditorPanel extends Pane {
             // Normal Mouse Release
             releasePointGrid = circuitPointAtMouse(true);
             selectionBoxStartPoint = null;
-            onStopPulling();
+            if (currentPullPoint != null)
+                currentPullPoint.onRelease(false);
             determineSelectingMouseRelease();
+            this.new PullPoint(circuitPointAtMouse(true), circuitPointAtMouse(true));
             if (currSelectionBox != null)
                 onReleaseSelectionBox();
             pressPointGrid = null;
@@ -259,23 +271,7 @@ public class EditorPanel extends Pane {
         }
     }
 
-    private Color hypotheticalPullColor = Color.ORANGE;
 
-    private void drawPullableCircle(GraphicsContext g) {
-        int strokeSize = (int) (getCurrentCircuit().getLineWidth() * 0.8);
-        if (strokeSize % 2 == 0) strokeSize++;
-        int circleSize = (int) (getCurrentCircuit().getScale() / 2.5);
-        if (circleSize % 2 != 0) circleSize++;
-        int bigCircleSize = (int) (circleSize * 1.5);
-        if (bigCircleSize % 2 != 0) bigCircleSize++;
-
-        PanelDrawPoint dp = pullPoint.toPanelDrawPoint();
-        g.setLineWidth(strokeSize);
-        g.setStroke(Color.BLACK);
-        g.strokeOval(dp.x - bigCircleSize/2.00, dp.y - bigCircleSize/2.00, bigCircleSize, bigCircleSize);
-        g.setStroke(hypotheticalPullColor);
-        g.strokeOval(dp.x - circleSize/2.00, dp.y - circleSize/2.00, circleSize, circleSize);
-    }
 
     public void viewOrigin() {
         getCurrentCircuit().setXOffset(canvasWidth() / 2);
@@ -295,42 +291,6 @@ public class EditorPanel extends Pane {
 
     public CircuitPoint getCenter(boolean gridSnap) {
         return circuitPointAt(canvasWidth() / 2, canvasHeight() / 2, gridSnap);
-    }
-
-    public void updatePossiblePullPoint() {
-        if (!isPullingWire) {
-            CircuitPoint gridSnapAtMouse = circuitPointAtMouse(true);
-            pullPoint = null;
-
-            ArrayList<ConnectibleEntity> interceptingConnectibles = new ArrayList<>();
-            for (ConnectibleEntity ce : getCurrentCircuit().getAllEntitiesOfType(ConnectibleEntity.class)) {
-                if (ce.intercepts(gridSnapAtMouse)) {
-                    if (ce instanceof Wire)
-                        interceptingConnectibles.add(ce);
-                    else {
-                        for (ConnectionNode node : ce.getConnections())
-                            if (node.getLocation().equals(gridSnapAtMouse))
-                                interceptingConnectibles.add(ce);
-                    }
-                }
-            }
-
-            for (ConnectibleEntity ce : interceptingConnectibles)
-                if (ce.canPullConnectionFrom(gridSnapAtMouse))
-                    pullPoint = gridSnapAtMouse;
-
-            if (pullPoint != null)
-                for (ConnectibleEntity ce : interceptingConnectibles)
-                    if (!ce.canPullConnectionFrom(gridSnapAtMouse))
-                        pullPoint = null;
-
-            for (Entity e : currSelection)
-                if (e.intercepts(gridSnapAtMouse))
-                    pullPoint = null;
-
-            if (gridSnapChanged)
-                repaint();
-        }
     }
 
 
@@ -384,17 +344,14 @@ public class EditorPanel extends Pane {
         selectedSomething = false;
         movingSelection = false;
         PanelDrawPoint atMouse = panelDrawPointAtMouse();
-        if (isPullingWire) {
-            System.out.println("i am gay");
+        if (currentPullPoint != null) {
             currSelection.clear();
             currConnectionView.clear();
         } else {
-            System.out.println("We got here");
             if (!currSelection.isEmpty() && !currSelection.intercepts(atMouse) && !ctrl) {
                 currSelection.clear();
                 currConnectionView.clear();
             }
-
             ArrayList<Entity> deselected = new ArrayList<>();
             if (!currSelection.isEmpty() && currSelection.intercepts(atMouse)) {
                 if (ctrl) {
@@ -414,7 +371,6 @@ public class EditorPanel extends Pane {
                     }
                 }
             }
-
             if (currSelection.isEmpty() || ctrl) {
                 ArrayList<Entity> potentialClickSelection = new ArrayList<>();
                 for (Entity e : getCurrentCircuit().getAllEntities())
@@ -429,9 +385,8 @@ public class EditorPanel extends Pane {
                             selectedSomething = true;
                         }
                     }
-                } else { // Might not need the '!ctrl' boolean check
+                } else
                     selectionBoxStartPoint = circuitPointAtMouse(false);
-                }
             }
 
             if (!currSelection.isEmpty() && currSelection.intercepts(atMouse) && !ctrl) {
@@ -445,22 +400,6 @@ public class EditorPanel extends Pane {
                     && currConnectionView.isEmpty()
                     && currSelection.get(0) instanceof ConnectibleEntity) {
                 ConnectibleEntity selectedConnectible = (ConnectibleEntity) currSelection.get(0);
-             /*   System.out.println("DEPENDENCIES OF SELECTED: ");
-                for (ConnectibleEntity ce : selectedConnectible.getDependencies())
-                    System.out.println(ce);
-                System.out.println("SUPER DEPENDENCIES OF SELECTED: ");
-                for (ConnectibleEntity ce : selectedConnectible.getSuperDependencies())
-                    System.out.println(ce);
-                System.out.println("DEPENDENCIES OF INPUT NODES: ");
-                for (InputNode in : selectedConnectible.getInputNodes())
-                    for (Dependent o : in.getDependencyList())
-                        System.out.println(in + " depends on " + o);
-                System.out.println("SUPER DEPENDENCIES INPUT NODES: ");
-                for (InputNode in : selectedConnectible.getInputNodes())
-                    for (Dependent ce : in.getDependencyList())
-                        System.out.println(in + " depends on " + ce);
-                for (ConnectibleEntity ce : selectedConnectible.getSuperDependencies())
-                    System.out.println(ce);*/
                 currConnectionView.addAll(selectedConnectible.getConnectedEntities());
                 currConnectionView.resetTimer();
             }
@@ -513,197 +452,282 @@ public class EditorPanel extends Pane {
     private void determineSelectingMouseRelease() {
         if (pressPointGrid.equals(releasePointGrid) && (currSelection.isEmpty() || ctrl)) {
             if (!pressedOnSelectedEntity && !selectedSomething) {
-                pullPoint = null;
                 determineSelecting();
                 updatePossiblePullPoint();
             }
         }
     }
 
-
-    private CircuitPoint pullPoint = null;
-    private boolean isPullingWire = false;
-    private Direction pullDir = null;
-    private boolean pressedOnEndpoint = false;
-    private Wire wireBeingShortened = null;
-    private Wire.TheoreticalWire theoreticalDeletion = null;
-    private java.util.List<Wire.TheoreticalWire> theoreticalCreations = new ArrayList<>();
-
-    public void determineIfPullingWire() {
-        pressedOnEndpoint = false;
-        if (pullPoint != null && !ctrl) {
-            onStartPulling();
-        }
+    private void updatePossiblePullPoint() {
+        CircuitPoint gridSnapAtMouse = circuitPointAtMouse(true);
+        this.new PullPoint(gridSnapAtMouse, gridSnapAtMouse);
     }
 
-    private void onStartPulling() {
-        isPullingWire = true;
-        for (Wire w : getCurrentCircuit().getAllEntitiesOfType(Wire.class))
-            if (w.isEdgePoint(pullPoint))
-                pressedOnEndpoint = true;
-    }
 
-    private void onGridSnapChangeWhilePullingWire() {
-        CircuitPoint gridAtMouse = circuitPointAtMouse(true);
-        if (pullDir == null) { // If a preferred pull dir hasn't been chosen by the user yet, set it
-            System.out.println(pullPoint + " PULL FUCKING POINT");
-            Vector dir = new Vector(pullPoint, gridAtMouse);
-            if ((!dir.equals(Vector.ZERO_VECTOR)) && Vector.getDirectionVecs().contains(dir)) {
-                System.out.println("b4 pull dir dir = " + dir);
-                if (dir.equals(Vector.LEFT) || dir.equals(Vector.RIGHT))
-                    pullDir = Direction.HORIZONTAL;
-                else
-                    pullDir = Direction.VERTICAL;
+    // Mouse press: initialize pull point. it is only calculate on mouse press
+    // Mouse release,, nullify pull point. therefore, inner class
+
+    // Called on mouse press, or in special cases when you right click while pulling wire
+
+
+
+    private PullPoint currentPullPoint;
+
+    private enum PullPointState { DELETE_ONLY, DELETE_ONLY_BUT_CANT, CREATE_DELETE, CREATE }
+
+    class PullPoint extends CircuitPoint {
+
+        private CircuitPoint originalLoc;
+
+        private boolean lock;
+
+        private ArrayList<TheoreticalWire> theos;
+
+        private CircuitPoint pressPoint;
+        private Direction pullDir;
+
+        private boolean deleteOnly;
+        private boolean canDelete;
+
+        private EntityList<ConnectibleEntity> interceptingCes;
+
+        private TheoreticalWire theoreticalDelete;
+        private Wire deleting;
+
+        public PullPoint(CircuitPoint location, CircuitPoint originalLoc) {
+            super(location.x, location.y, originalLoc.getCircuit());
+            pressPoint = circuitPointAtMouse(true);
+            interceptingCes = getCurrentCircuit().getAllEntitiesOfType(ConnectibleEntity.class).thatIntercept(pressPoint);
+            pullDir = null;
+            theos = new ArrayList<>();
+            this.originalLoc = originalLoc;
+
+            if (!isPullableLocation(pressPoint) || currSelection.size() > 0) {
+                currentPullPoint = null;
+                repaint();
+                return;
             }
 
+            currentPullPoint = this;
+            if (originalLoc.equals(pressPoint))
+                for (Wire w : getCurrentCircuit().getAllEntitiesOfType(Wire.class))
+                    if (w.isEdgePoint(pressPoint))
+                        canDelete = true;
+            if (!canCreateFromAll(interceptingCes))
+                deleteOnly = true;
+            repaint();
         }
 
-        // Whether or not the mouse pos is on the same entity that the pull point is on
-        boolean isSameEntity = getCurrentCircuit().getAllEntities().thatInterceptAll(gridAtMouse, pullPoint).size() > 0;
-
-        wireBeingShortened = null;
-        if (pressedOnEndpoint  // Check to see if they are deleting wire
-                && pullDir != null
-                && !gridAtMouse.equals(pullPoint))
-            for (Wire w : getCurrentCircuit().getAllEntitiesOfType(Wire.class).thatInterceptAll(pullPoint, gridAtMouse))
-                if (w.isEdgePoint(pullPoint))
-                    wireBeingShortened = w;
-
-        if (wireBeingShortened == null // If they move the pullPoint to another spot by mousing over an adjacent spot
-                && pullDir != null // that is on the same entity that they originally pulled from
-                && !gridAtMouse.equals(pullPoint)
-                && pullPoint.is4AdjacentTo(gridAtMouse)
-                && (isSameEntity)) {
-            pullPoint = gridAtMouse;
-            System.out.println("PULLPOINT SET ~ 586");
-            pullDir = null;
-            theoreticalCreations = new ArrayList<>();
+        public boolean isPullableLocation(CircuitPoint location) {
+            for (ConnectibleEntity ce : getCurrentCircuit().getAllEntitiesOfType(ConnectibleEntity.class))
+                if (ce.isPullableLocation(location))
+                    return true;
+            return false;
         }
 
-        if (wireBeingShortened == null)
-            theoreticalDeletion = null;
-
-        if (wireBeingShortened != null && !gridAtMouse.equals(pullPoint)) {
-            theoreticalCreations = new ArrayList<>();
-            theoreticalDeletion = new Wire.TheoreticalWire(pullPoint, gridAtMouse);
+        public boolean canCreateFromAll(EntityList<ConnectibleEntity> list) {
+            if (list.isEmpty())
+                return false;
+            for (ConnectibleEntity e : list)
+                if (!e.canPullConnectionFrom(pressPoint))
+                    return false;
+            return true;
         }
 
-        // If they aren't shortening wire and the mouse isn't on the same entity, display theoretical creations
-        if (wireBeingShortened == null && !isSameEntity) {
-            theoreticalCreations = Wire.genWirePathLenient(pullPoint, gridAtMouse, pullDir, 8);
-            if (theoreticalCreations == null && pullDir != null) // If we couldn't do it in their preferred dir, try the other
-                theoreticalCreations = Wire.genWirePathLenient(pullPoint, gridAtMouse, pullDir.getPerpendicular(), 8);
-            theoreticalCreations = theoreticalCreations == null ? new ArrayList<>() : theoreticalCreations;
-        } else if (wireBeingShortened == null) {
-            theoreticalCreations.clear();
-        }
-
-        // If they went back to pull point with mouse after giving it an initial vec
-        if (gridAtMouse.equals(pullPoint) && wireBeingShortened == null && pullDir != null) {
-            pullDir = null;
-            theoreticalCreations = new ArrayList<>();
-        }
-        repaint();
-    }
-
-    /**
-     * Theoretical wires are drawn before (under) wires, and since we need theoretical junctions to be drawn above
-     * wires, we need to keep track of them with this list so they can be drawn after.
-     * @see EditorPanel#drawTheoreticalWires(boolean, GraphicsContext)
-     */
-    ArrayList<CircuitPoint> theoJuncsToDrawAfterWires = new ArrayList<>();
-
-    private void drawTheoreticalWires(boolean calledBeforeDrawWires, GraphicsContext g) {
-        ArrayList<Wire> allWires = getCurrentCircuit().getAllEntitiesOfType(Wire.class);
-        if (calledBeforeDrawWires) {
-            theoJuncsToDrawAfterWires = new ArrayList<>();
-            for (Wire.TheoreticalWire t: theoreticalCreations) {
-                t.draw(g);
-                for (Wire w : allWires) {
-                    for (CircuitPoint tEdgePoint : new CircuitPoint[] {t.getStartLocation(), t.getEndLocation()})
-                        if (w.getPointsExcludingEdgePoints().intercepts(tEdgePoint)
-                                || (w.isEdgePoint(tEdgePoint) && w.getNumEntitiesConnectedAt(tEdgePoint) > 0)
-                                && w.getNumEntitiesConnectedAt(tEdgePoint) < 2)
-                            theoJuncsToDrawAfterWires.add(tEdgePoint);
-                    for (CircuitPoint wEdgePoint : new CircuitPoint[] {w.getStartLocation(), w.getEndLocation()}) {
-                        if (t.getPointsExcludingEdgePoints().intercepts(wEdgePoint)
-                                || (t.isEdgePoint(wEdgePoint) && t.getNumEntitiesConnectedAt(wEdgePoint) > 0)
-                                && t.getNumEntitiesConnectedAt(wEdgePoint) < 2)
-                            theoJuncsToDrawAfterWires.add(wEdgePoint);
+        public void onDragGridSnapChange() {
+            CircuitPoint potentialReleasePoint = circuitPointAtMouse(true);
+            EntityList<Wire> thatInterceptStartAndRelease = interceptingCes.thatIntercept(potentialReleasePoint).ofType(Wire.class);
+            Wire deleting = !potentialReleasePoint.equals(pressPoint) && thatInterceptStartAndRelease.size() > 0
+                    ? thatInterceptStartAndRelease.get(0) : null;
+            System.out.println(deleting + " deleting");
+            if (canDelete && deleting != null) {
+                theoreticalDelete = new TheoreticalWire(pressPoint, potentialReleasePoint);
+                this.deleting = deleting;
+                theos.clear();
+            } else {
+                EntityList<ConnectibleEntity> entitiesAtRelease = getCurrentCircuit()
+                        .getAllEntitiesOfType(ConnectibleEntity.class)
+                        .thatIntercept(potentialReleasePoint);
+                ConnectibleEntity entityAtRelease = entitiesAtRelease.size() > 0 ? entitiesAtRelease.get(0) : null;
+                if (!lock && (potentialReleasePoint.equals(pressPoint)
+                        || (potentialReleasePoint.is4AdjacentTo(pressPoint)
+                            && isPullableLocation(potentialReleasePoint)
+                            && (interceptingCes.get(0).hasConnectionTo(entityAtRelease))
+                                || interceptingCes.get(0).equals(entityAtRelease)))) {
+                    new PullPoint(potentialReleasePoint, originalLoc);
+                }
+                else if (!potentialReleasePoint.equals(pressPoint)
+                        && interceptingCes.intersection(entitiesAtRelease).size() == 0) {
+                    theoreticalDelete = null;
+                    this.deleting = null;
+                    if (pullDir == null) {
+                        Vector dir = new Vector(pressPoint, potentialReleasePoint);
+                        if (Vector.getDirectionVecs().contains(dir)) {
+                            if (dir.equals(Vector.LEFT) || dir.equals(Vector.RIGHT))
+                                pullDir = Direction.HORIZONTAL;
+                            else
+                                pullDir = Direction.VERTICAL;
+                        }
+                    }
+                    theos = new ArrayList<>();
+                    if (!deleteOnly) {
+                        theos = Wire.genWirePathLenient(pressPoint, potentialReleasePoint, pullDir, 8);
+                        if (theos == null && pullDir != null) // If we couldn't do it in their preferred dir, try the other
+                            theos = Wire.genWirePathLenient(pressPoint, potentialReleasePoint, pullDir.getPerpendicular(), 8);
+                        theos = theos == null ? new ArrayList<>() : theos;
                     }
                 }
             }
-        } else {
-            Wire.TheoreticalWire toDrawJuncs = new Wire.TheoreticalWire(new CircuitPoint(0, 0, getCurrentCircuit()),
-                    new CircuitPoint(0, 1, getCurrentCircuit()));
-            for (CircuitPoint p : theoJuncsToDrawAfterWires)
-                toDrawJuncs.drawJunction(g, p);
+            repaint();
         }
 
-    }
+        public boolean isCreatingWire() {
+            return theos != null;
+        }
 
-    private Color deletionColor = Color.RED;
+        public void onRelease(boolean calculateNextPullPoint) {
+            if (!theos.isEmpty())
+                for (TheoreticalWire w : theos)
+                    new Wire(w.getStartLocation(), w.getEndLocation());
 
-    private void drawCurrentDeletion(GraphicsContext g) {
-        if (theoreticalDeletion == null)
-            throw new RuntimeException("Can't draw current deletion if there is none. Learn to code");
+            if (deleting != null)
+                deleting.set(theoreticalDelete.getStartLocation(), theoreticalDelete.getEndLocation());
 
-        CircuitPoint theoStart = theoreticalDeletion.getStartLocation();
-        CircuitPoint theoEnd = theoreticalDeletion.getEndLocation();
+            currentPullPoint = null;
+            if (calculateNextPullPoint)
+                updatePossiblePullPoint();
+        }
 
-        // First, white out any wire junctions at the end of the deletion
-        // then draw the wire junctions that need to be added back
-        for (CircuitPoint edgePoint : new CircuitPoint[] { theoStart, theoEnd }) {
-            if (wireBeingShortened.isEdgePoint(edgePoint)) {
-                theoreticalDeletion.setColor(backgroundColor);
-                theoreticalDeletion.drawJunction(g, edgePoint);
-                int numConnects = wireBeingShortened.getNumWiresConnectedAt(edgePoint);
-                for (Wire w : wireBeingShortened.getWiresConnectedAt(edgePoint))
-                    w.draw(g, numConnects == 3);
+        public void dropAndRestart() {
+            onRelease(true);
+            EditorPanel.this.new PullPoint(circuitPointAtMouse(true), circuitPointAtMouse(true));
+            if (currentPullPoint != null)
+                currentPullPoint.lock = true;
+        }
+
+        private PullPointState getState() {
+            if (deleteOnly && canDelete) {
+                return PullPointState.DELETE_ONLY;
+            }
+            else if (deleteOnly) {
+                return PullPointState.DELETE_ONLY_BUT_CANT;
+            }
+            else if (canDelete) { // Delete only is def false here, can delete is true
+                return PullPointState.CREATE_DELETE;
+            }
+            else { // Delete only false, can delete false
+                return PullPointState.CREATE;
             }
         }
 
-        // Next, draw the red deletion indication wire
-        theoreticalDeletion.setColor(deletionColor);
-        theoreticalDeletion.draw(g, false);
+        private void drawPullPoint(GraphicsContext g) {
+            Color col = null;
+            switch (getState()) {
 
-        // Next, overlap any possible white spaces with the original intercepting wires (don't draw the junctions tho)
-        for (CircuitPoint edgePoint : new CircuitPoint[] { theoStart, theoEnd })
-            if (wireBeingShortened.isEdgePoint(edgePoint))
-                for (Wire w : wireBeingShortened.getWiresConnectedAt(edgePoint))
-                    w.draw(g, false);
-
-        // Draw junctions back
-        for (Entity e : getCurrentCircuit().getAllEntities().thatIntercept(theoEnd))
-            if (e instanceof Wire && ((Wire) e).getDirection() != wireBeingShortened.getDirection()
-                    && ((Wire) e).getNumEntitiesConnectedAt(theoEnd) == 0)
-                ((Wire) e).drawJunction(g, theoEnd);
-    }
-
-    private void onStopPulling() {
-        CircuitPoint gridSnapAtMouse = circuitPointAtMouse(true);
-        if (wireBeingShortened != null) {
-            if (wireBeingShortened.intercepts(gridSnapAtMouse)) {
-                wireBeingShortened.set(pullPoint, gridSnapAtMouse);
+                case DELETE_ONLY:
+                    col = Color.rgb(220, 0, 0);
+                    break;
+                case DELETE_ONLY_BUT_CANT:
+                    break;
+                case CREATE_DELETE:
+                    col = Color.rgb(217, 223, 0, 1);
+                    break;
+                case CREATE:
+                    col = Color.rgb(60, 200, 0, 1);
+                    break;
             }
-            wireBeingShortened = null;
+            if (col != null) {
+                int strokeSize = (int) (getCurrentCircuit().getLineWidth() * 0.8);
+                if (strokeSize % 2 == 0) strokeSize++;
+                int circleSize = (int) (getCurrentCircuit().getScale() / 2.5);
+                if (circleSize % 2 != 0) circleSize++;
+                int bigCircleSize = (int) (circleSize * 1.5);
+                if (bigCircleSize % 2 != 0) bigCircleSize++;
+                PanelDrawPoint dp = currentPullPoint.toPanelDrawPoint();
+                g.setLineWidth(strokeSize);
+                g.setStroke(Color.BLACK);
+                g.strokeOval(dp.x - bigCircleSize/2.00, dp.y - bigCircleSize/2.00, bigCircleSize, bigCircleSize);
+                g.setStroke(col);
+                g.strokeOval(dp.x - circleSize/2.00, dp.y - circleSize/2.00, circleSize, circleSize);
+            }
         }
 
-        if (theoreticalCreations != null && !theoreticalCreations.isEmpty()) {
-            for (Wire.TheoreticalWire w : theoreticalCreations)
-                new Wire(w.getStartLocation(), w.getEndLocation());
-            theoreticalCreations = new ArrayList<>();
+        private void drawTheoreticalWires(boolean calledBeforeDrawWires, GraphicsContext g) {
+            ArrayList<Wire> allWires = getCurrentCircuit().getAllEntitiesOfType(Wire.class);
+            if (calledBeforeDrawWires) {
+                theoJuncsToDrawAfterWires = new ArrayList<>();
+                for (Wire.TheoreticalWire t: theos) {
+                    t.draw(g);
+                    for (Wire w : allWires) {
+                        for (CircuitPoint tEdgePoint : new CircuitPoint[] {t.getStartLocation(), t.getEndLocation()})
+                            if (w.getPointsExcludingEdgePoints().intercepts(tEdgePoint)
+                                    || (w.isEdgePoint(tEdgePoint) && w.getNumEntitiesConnectedAt(tEdgePoint) > 0)
+                                    && w.getNumEntitiesConnectedAt(tEdgePoint) < 2)
+                                theoJuncsToDrawAfterWires.add(tEdgePoint);
+                        for (CircuitPoint wEdgePoint : new CircuitPoint[] {w.getStartLocation(), w.getEndLocation()}) {
+                            if (t.getPointsExcludingEdgePoints().intercepts(wEdgePoint)
+                                    || (t.isEdgePoint(wEdgePoint) && t.getNumEntitiesConnectedAt(wEdgePoint) > 0)
+                                    && t.getNumEntitiesConnectedAt(wEdgePoint) < 2)
+                                theoJuncsToDrawAfterWires.add(wEdgePoint);
+                        }
+                    }
+                }
+            } else {
+                Wire.TheoreticalWire toDrawJuncs = new Wire.TheoreticalWire(new CircuitPoint(0, 0, getCurrentCircuit()),
+                        new CircuitPoint(0, 1, getCurrentCircuit()));
+                for (CircuitPoint p : theoJuncsToDrawAfterWires)
+                    toDrawJuncs.drawJunction(g, p);
+            }
+
         }
 
-        pressedOnEndpoint = false;
-        wireBeingShortened = null;
-        isPullingWire = false;
-        pullPoint = null;
-        pullDir = null;
-        System.out.println("pullPoint nullified ~ 704");
-        theoreticalDeletion = null;
-        updatePossiblePullPoint();
+        private Color deletionColor = Color.RED;
+
+
+        /**
+         * Theoretical wires are drawn before (under) wires, and since we need theoretical junctions to be drawn above
+         * wires, we need to keep track of them with this list so they can be drawn after.
+         */
+        ArrayList<CircuitPoint> theoJuncsToDrawAfterWires = new ArrayList<>();
+
+        private void drawCurrentDeletion(GraphicsContext g) {
+            if (theoreticalDelete == null)
+                throw new RuntimeException("Can't draw current deletion if there is none. Learn to code");
+
+            CircuitPoint theoStart = theoreticalDelete.getStartLocation();
+            CircuitPoint theoEnd = theoreticalDelete.getEndLocation();
+
+            // First, white out any wire junctions at the end of the deletion
+            // then draw the wire junctions that need to be added back
+            for (CircuitPoint edgePoint : new CircuitPoint[] { theoStart, theoEnd }) {
+                if (deleting.isEdgePoint(edgePoint)) {
+                    theoreticalDelete.setColor(backgroundColor);
+                    theoreticalDelete.drawJunction(g, edgePoint);
+                    int numConnects = deleting.getNumWiresConnectedAt(edgePoint);
+                    for (Wire w : deleting.getWiresConnectedAt(edgePoint))
+                        w.draw(g, numConnects == 3);
+                }
+            }
+
+            // Next, draw the red deletion indication wire
+            theoreticalDelete.setColor(deletionColor);
+            theoreticalDelete.draw(g, false);
+
+            // Next, overlap any possible white spaces with the original intercepting wires (don't draw the junctions tho)
+            for (CircuitPoint edgePoint : new CircuitPoint[] { theoStart, theoEnd })
+                if (deleting.isEdgePoint(edgePoint))
+                    for (Wire w : deleting.getWiresConnectedAt(edgePoint))
+                        w.draw(g, false);
+
+            // Draw junctions back
+            for (Entity e : getCurrentCircuit().getAllEntities().thatIntercept(theoEnd))
+                if (e instanceof Wire && ((Wire) e).getDirection() != deleting.getDirection()
+                        && ((Wire) e).getNumEntitiesConnectedAt(theoEnd) == 0)
+                    ((Wire) e).drawJunction(g, theoEnd);
+        }
+
     }
+
 
     public void onPoke() {
         for (Entity e : getCurrentCircuit().getAllEntities()) {
@@ -717,8 +741,8 @@ public class EditorPanel extends Pane {
 
 
     public void onGridSnapChangeWhileDragging() {
-        if (isPullingWire)
-            onGridSnapChangeWhilePullingWire();
+        if (currentPullPoint != null)
+            currentPullPoint.onDragGridSnapChange();
         if (movingSelection)
             onGridSnapChangeWhileDraggingSelection();
     }
@@ -764,43 +788,54 @@ public class EditorPanel extends Pane {
             gc.setLineWidth(3);
             gc.strokeRect(0, 0, canvasWidth(), canvasHeight());
 
-            try {
-                CircuitPoint mouseSnap = circuitPointAtMouse(true);
+            gc.setFill(backgroundColor);
+            gc.fillRect(0, 0, getWidth(), getHeight());
 
-                gc.setStroke(backgroundColor);
-                gc.fillRect(0, 0, getWidth(), getHeight());
 
-                drawGridPoints(gc);
+            for (int i =0; i < 1; i++) {
 
-                drawTheoreticalWires(true, gc);
 
-                for (Entity e : getCurrentCircuit().getAllEntities()) {
-                    if (!currConnectionView.contains(e))
-                        e.draw(gc);
+
+                try {
+                    CircuitPoint mouseSnap = circuitPointAtMouse(true);
+
+                    drawGridPoints(gc);
+
+                    if (currentPullPoint != null)
+                        currentPullPoint.drawTheoreticalWires(true, gc);
+
+                    for (Entity e : getCurrentCircuit().getAllEntities()) {
+                        if (!currConnectionView.contains(e))
+                            e.draw(gc);
+                    }
+
+                    if (currentPullPoint != null)
+                        currentPullPoint.drawTheoreticalWires(false, gc);
+
+                    if (currentPullPoint != null && currentPullPoint.theoreticalDelete != null)
+                        currentPullPoint.drawCurrentDeletion(gc);
+
+                    for (Entity e : currConnectionView) {
+                        e.getBoundingBox().drawBorder(gc);
+                        currConnectionView.draw(e, gc);
+                    }
+
+                    for (Entity e : currSelection)
+                        e.getBoundingBox().paint(gc);
+
+                    if (currentPullPoint != null)
+                        currentPullPoint.drawPullPoint(gc);
+
+                    if (currSelectionBox != null)
+                        currSelectionBox.paint(gc);
+
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                    System.exit(0);
                 }
-                drawTheoreticalWires(false, gc);
-
-                if (theoreticalDeletion != null)
-                    drawCurrentDeletion(gc);
-
-                for (Entity e : currConnectionView) {
-                    e.getBoundingBox().drawBorder(gc);
-                    currConnectionView.draw(e, gc);
-                }
-
-                for (Entity e : currSelection)
-                    e.getBoundingBox().paint(gc);
-
-                if (pullPoint != null && (!isPullingWire || mouseSnap.equals(pullPoint)))
-                    drawPullableCircle(gc);
-
-                if (currSelectionBox != null)
-                    currSelectionBox.paint(gc);
-
-            } catch (Exception ex) {
-                ex.printStackTrace();
-                System.exit(0);
             }
+
+
         });
     }
 

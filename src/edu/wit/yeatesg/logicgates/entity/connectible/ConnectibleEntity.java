@@ -23,6 +23,7 @@ public abstract class ConnectibleEntity extends Entity {
         determineOutputDependencies();
         if (!isPreview) {
             c.addEntity(this);
+            connectCheck();
             c.refreshTransmissions();
             c.getEditorPanel().repaint();
         }
@@ -97,7 +98,6 @@ public abstract class ConnectibleEntity extends Entity {
     public abstract boolean canConnectTo(ConnectibleEntity e, CircuitPoint at);
 
     public void disconnectAll() {
-        System.out.println("DisconnectALL from " + this);
         for (ConnectibleEntity e : getConnectedEntities()) {
             disconnect(e);
             e.disconnect(this);
@@ -110,12 +110,15 @@ public abstract class ConnectibleEntity extends Entity {
         if (isInvalid() || isPreview || isDeleted())
             return;
         disconnectAll();
-        for (ConnectibleEntity e : c.getAllEntitiesOfType(ConnectibleEntity.class)
-                .thatAreNotDeleted()
-                .except(this))
-            connectCheck(e);
+        for (Entity e : c.getAllEntities())
+            if (e instanceof ConnectibleEntity
+                && e.intercepts(this)
+                && !e.isDeleted()
+                && !e.equals(this))
+                    connectCheck((ConnectibleEntity) e);
         c.refreshTransmissions();
         c.getEditorPanel().repaint();
+
     }
 
     // Power flow check -> goes from all user inputs / powers / grounds... basically any absolute beginning of
@@ -134,12 +137,11 @@ public abstract class ConnectibleEntity extends Entity {
     public static void checkEntities(CircuitPoint... checking) {
         Circuit c = checking[0].getCircuit();
         for (CircuitPoint edge : checking) {
-            for (ConnectibleEntity ce :  c.getAllEntities()  // When a wire is shortened/deleted, we need
-                            .thatIntercept(edge)             // to check every connectible entity that intercepts
-                            .ofType(ConnectibleEntity.class) // the pullPoint and release pointbecause they may now be
-                            .thatAreNotDeleted()) {          // disconnected, or connected in some cases
-                ce.connectCheck();
-            }
+            for (Entity e : c.getAllEntities())
+                if (e instanceof ConnectibleEntity
+                    && e.intercepts(edge)
+                    && !e.isDeleted())
+                        ((ConnectibleEntity) e).connectCheck();
         }
     }
 
@@ -214,6 +216,8 @@ public abstract class ConnectibleEntity extends Entity {
     }
 
     public abstract void determinePowerStateOf(OutputNode outputNode);
+
+    public abstract boolean isPullableLocation(CircuitPoint gridSnap);
 
     public static class SuperDependencyCache extends LinkedList<ConnectibleEntity> {
         boolean isCircular;

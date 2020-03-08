@@ -62,12 +62,6 @@ public class YesNoGUI {
         toFindSize.applyCss();
         double lblWidth = toFindSize.getLayoutBounds().getWidth();
         double lblHeight = toFindSize.getLayoutBounds().getHeight();
-        System.out.println("LABEL SIZE: " + label.getWidth() + " " + label.getHeight());
-        System.out.println("PREF LBL SIZE: " + lblWidth + " " + lblHeight);
-
-
-        System.out.println("LABEL SIZE: " + label.getWidth() + " " + lblHeight);
-
 
         double sceneWidth = Math.max(2*edgeGap + 2*buttonWidth + buttonGap, lblWidth) * 1.2;
         label.setLayoutY(yGapBtwnLabelAndCeil);
@@ -90,8 +84,6 @@ public class YesNoGUI {
         stage.setTitle(title);
         stage.setResizable(false);
         stage.setScene(new Scene(pane, sceneWidth, sceneHeight));
-        System.out.println("LABEL SIZE: " + label.getWidth() + " " + label.getHeight());
-
     }
 
     private EventHandler<ActionEvent> yesEventHandler = null;

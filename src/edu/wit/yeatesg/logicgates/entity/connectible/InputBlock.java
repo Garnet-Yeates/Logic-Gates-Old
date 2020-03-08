@@ -37,8 +37,12 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
 
     @Override
     public void determinePowerStateOf(OutputNode outputNode) {
-        System.out.println("InputNode.DeterminePowerSateOf");
         outputNode.setState(powerStatus ? State.ON : State.OFF);
+    }
+
+    @Override
+    public boolean isPullableLocation(CircuitPoint gridSnap) {
+        return out.getLocation().equals(gridSnap);
     }
 
 
@@ -221,13 +225,13 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
     }
 
     @Override
-    public boolean doesGenWireInvalidlyInterceptThis(Wire.TheoreticalWire theo, PermitList permit, boolean strictWithWires) {
-        permit = new PermitList(permit);
+    public boolean doesGenWireInvalidlyInterceptThis(Wire.TheoreticalWire theo, PermitList permits, boolean strictWithWires) {
+        permits = new PermitList(permits);
         if (theo.invalidlyIntercepts(this))
             return true;
         else
             for (CircuitPoint p : theo.getInterceptPoints(this))
-                if (!permit.contains(new InterceptPermit(this, p)))
+                if (!permits.contains(new InterceptPermit(this, p)))
                     return true;
         return false;
     }

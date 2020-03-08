@@ -58,6 +58,11 @@ public class SimpleGateAND extends ConnectibleEntity implements Rotatable {
     }
 
     @Override
+    public boolean isPullableLocation(CircuitPoint gridSnap) {
+        return hasNodeAt(gridSnap);
+    }
+
+    @Override
     protected void determineOutputDependencies() {
         out.getDependencyList().add((InputNode) getNodeAt(drawPoints.get(7)));
         out.getDependencyList().add((InputNode) getNodeAt(drawPoints.get(8)));
@@ -76,8 +81,11 @@ public class SimpleGateAND extends ConnectibleEntity implements Rotatable {
 
     @Override
     public PointSet getInvalidInterceptPoints(Entity e) {
-        return null;
+        if (e instanceof Wire)
+            return e.getInvalidInterceptPoints(this);
+        return getInterceptPoints(e); // If it's not a wire, any intersect point is invalid
     }
+
 
     @Override
     public Entity getRotated(int rotation) {
@@ -164,7 +172,14 @@ public class SimpleGateAND extends ConnectibleEntity implements Rotatable {
     }
 
     @Override
-    public boolean doesGenWireInvalidlyInterceptThis(Wire.TheoreticalWire theo, PermitList exceptions, boolean strictWithWires) {
+    public boolean doesGenWireInvalidlyInterceptThis(Wire.TheoreticalWire theo, PermitList permits, boolean strictWithWires) {
+        permits = new PermitList(permits);
+        if (theo.invalidlyIntercepts(this))
+            return true;
+        else
+            for (CircuitPoint p : theo.getInterceptPoints(this))
+                if (!permits.contains(new InterceptPermit(this, p)))
+                    return true;
         return false;
     }
 
@@ -216,6 +231,8 @@ public class SimpleGateAND extends ConnectibleEntity implements Rotatable {
 
     @Override
     public boolean canConnectTo(ConnectibleEntity e, CircuitPoint at) {
+        LogicGates.debug("CanConnectTo in AND class", "", "hasNodeAt?", hasNodeAt(at), "connectedAt", getEntitiesConnectedAt(at),
+            "e is deleted?", e.isDeleted());
         return e instanceof Wire
                 && hasNodeAt(at)
                 && (getNumEntitiesConnectedAt(at) == 0)

@@ -30,8 +30,9 @@ public class Wire extends ConnectibleEntity implements Dependent {
         for (Wire w : c.getAllEntitiesOfType(Wire.class))
             if (isSimilar(w))
                 throw new RuntimeException("Duplicate/Similar Wire " + startLocation + " " + endLocation );
-        postInit();
-        checkEntities(startLocation, endLocation);
+
+        System.out.println("Wire Post Init Took " + LogicGates.doTimeTest(this::postInit));
+
     }
 
     public Wire(CircuitPoint startLocation, CircuitPoint endLocation) {
@@ -64,6 +65,11 @@ public class Wire extends ConnectibleEntity implements Dependent {
 
     @Override
     public void determinePowerStateOf(OutputNode outputNode) { /* Not Implemented For Wire, Has Volatile Nodes */ }
+
+    @Override
+    public boolean isPullableLocation(CircuitPoint gridSnap) {
+        return intercepts(gridSnap);
+    }
 
     @Override
     protected void determineOutputDependencies() { /* Not Implemented For Wire, Has Volatile Nodes */ }
@@ -169,10 +175,8 @@ public class Wire extends ConnectibleEntity implements Dependent {
 
     @Override
     public void connectCheck(ConnectibleEntity e) {
-        if (isPreview || e.isPreview() || deleted || e.isDeleted()) {
-            System.exit(0);
+        if (isPreview || e.isPreview() || deleted || e.isDeleted())
             return;
-        }
         for (CircuitPoint edgePoint : getEdgePoints()) {
             if (canConnectTo(e, edgePoint) && e.canConnectTo(this, edgePoint) && !deleted && !e.isDeleted())
                 connect(e, edgePoint);
@@ -182,7 +186,7 @@ public class Wire extends ConnectibleEntity implements Dependent {
     @Override
     public boolean canConnectTo(ConnectibleEntity e, CircuitPoint at) {
         if (isEdgePoint(at)
-                && !hasConnectionTo(e) // TODO fix
+                && !hasConnectionTo(e)
                 && connections.size() < 4
                 && !e.isDeleted()) {
             if (e instanceof Wire) {
@@ -265,8 +269,11 @@ public class Wire extends ConnectibleEntity implements Dependent {
             throw new RuntimeException("Invalid Wire Bisect. This wire's end point must be between the other wire's" +
                     " endpoints (but cant touch the endpoints) to bisect it");
         CircuitPoint oldStartLoc = other.startLocation;
-        other.set(other.startLocation, endpointOfThisWire);
+        other.disconnectAll();
+        other.set(other.startLocation, endpointOfThisWire, false);
         new Wire(endpointOfThisWire, oldStartLoc);
+        other.connectCheck();
+        connectCheck();
         c.refreshTransmissions();
         c.getEditorPanel().repaint();
     }
@@ -322,6 +329,13 @@ public class Wire extends ConnectibleEntity implements Dependent {
 
     @Override
     public boolean canPullConnectionFrom(CircuitPoint locationOnThisEntity) {
+        for (Entity e : getCircuit().getAllEntities())
+            if (e instanceof Wire
+                    && !e.equals(this)
+                    && e.intercepts(locationOnThisEntity)
+                    && ((Wire) e).getPointsExcludingEdgePoints().intersection(getPointsExcludingEdgePoints())
+                        .contains(locationOnThisEntity))
+                return false;
         return getNumEntitiesConnectedAt(locationOnThisEntity) < 3;
     }
 
@@ -362,7 +376,11 @@ public class Wire extends ConnectibleEntity implements Dependent {
 
     }
 
-    public void set(CircuitPoint edgePoint, CircuitPoint to) {
+    public void set (CircuitPoint edgePoint, CircuitPoint to) {
+        set(edgePoint, to, true);
+    }
+
+    public void set(CircuitPoint edgePoint, CircuitPoint to, boolean checkAfter) {
         if (!isEdgePoint(edgePoint))
             throw new RuntimeException("Set must be called on the edgePoint of a wire");
         if (to.equals(getOppositeEdgePoint(edgePoint))) {
@@ -372,7 +390,7 @@ public class Wire extends ConnectibleEntity implements Dependent {
         } else if (whichEdgePoint(edgePoint).equals("end"))
             endLocation = to;
         updateInterceptPoints();
-        if (!deleted)
+        if (checkAfter)
             checkEntities(edgePoint, startLocation, endLocation, to);
         c.refreshTransmissions();
     }

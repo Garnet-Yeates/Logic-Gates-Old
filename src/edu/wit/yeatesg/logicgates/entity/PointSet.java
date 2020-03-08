@@ -41,12 +41,14 @@ public class PointSet extends ArrayList<CircuitPoint> {
         }
 
         public PointSet intersection(PointSet other) {
-            other = other.clone();
             PointSet intersect = new PointSet();
-            for (CircuitPoint p : this) {
-                if (other.contains(p)) {
-                    other.remove(p);
-                    intersect.add(p);
+            if (other != null) {
+                other = other.clone();
+                for (CircuitPoint p : this) {
+                    if (other.contains(p)) {
+                        other.remove(p);
+                        intersect.add(p);
+                    }
                 }
             }
             return intersect;

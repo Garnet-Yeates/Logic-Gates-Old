@@ -97,6 +97,20 @@ public class EntityList<E extends Entity> extends ArrayList<E> {
         return interceptList;
     }
 
+    public EntityList<E> intersection(EntityList<E> other) {
+        EntityList<E> intersect = new EntityList<>();
+        if (other != null) {
+            other = other.clone();
+            for (E e : this) {
+                if (other.contains(e)) {
+                    other.remove(e);
+                    intersect.add(e);
+                }
+            }
+        }
+        return intersect;
+    }
+
     public EntityList<Wire> getWiresGoingInDirection(Direction dir) {
         EntityList<Wire> list = new EntityList<>();
         for (Entity e : this)

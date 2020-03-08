@@ -51,6 +51,11 @@ public class LogicGate extends ConnectibleEntity implements Pokable, Rotatable {
     }
 
     @Override
+    public boolean isPullableLocation(CircuitPoint gridSnap) {
+        return false;
+    }
+
+    @Override
     public void onPoke() {
 
     }

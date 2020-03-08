@@ -97,7 +97,7 @@ public class BoundingBox {
     public boolean intercepts(PanelDrawPoint p, boolean fuzzy) {
         PanelDrawPoint p1 = this.p1.toPanelDrawPoint();
         PanelDrawPoint p4 = this.p4.toPanelDrawPoint();
-        int thresh = (int) (p1.getCircuit().getScale()*0.5);
+        int thresh = (int) (p1.getCircuit().getScale()*0.2);
         if ((p1.x == p4.x || p1.y == p4.y) && fuzzy)
             return new BoundingBox(
                     new PanelDrawPoint(p1.x - thresh, p1.y - thresh, p1.getCircuit()),
