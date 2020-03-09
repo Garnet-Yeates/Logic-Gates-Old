@@ -12,7 +12,12 @@ public class LogicGate extends ConnectibleEntity implements Pokable, Rotatable {
 
 
     public LogicGate(Circuit c, boolean isPreview) {
-        super(c, isPreview);
+        super(c, true);
+    }
+
+    @Override
+    public ConnectibleEntity clone(Circuit c) {
+        return null;
     }
 
     @Override
@@ -34,6 +39,7 @@ public class LogicGate extends ConnectibleEntity implements Pokable, Rotatable {
     public void disconnect(ConnectibleEntity e) {
 
     }
+
 
     @Override
     public boolean canConnectTo(ConnectibleEntity e, CircuitPoint at) {

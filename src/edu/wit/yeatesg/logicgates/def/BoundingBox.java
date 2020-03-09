@@ -3,6 +3,7 @@ package edu.wit.yeatesg.logicgates.def;
 import edu.wit.yeatesg.logicgates.entity.Entity;
 import edu.wit.yeatesg.logicgates.entity.EntityList;
 import edu.wit.yeatesg.logicgates.entity.PointSet;
+import edu.wit.yeatesg.logicgates.entity.connectible.Wire;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 import edu.wit.yeatesg.logicgates.points.PanelDrawPoint;
 import javafx.scene.canvas.GraphicsContext;
@@ -87,26 +88,28 @@ public class BoundingBox {
     }
 
     public boolean intercepts(CircuitPoint p) {
-        return intercepts(p.toPanelDrawPoint());
+        return intercepts(p, true);
     }
 
     public boolean intercepts(PanelDrawPoint p) {
-        return intercepts(p, false);
+        return intercepts(p.toCircuitPoint(), true);
     }
 
-    public boolean intercepts(PanelDrawPoint p, boolean fuzzy) {
-        PanelDrawPoint p1 = this.p1.toPanelDrawPoint();
-        PanelDrawPoint p4 = this.p4.toPanelDrawPoint();
-        int thresh = (int) (p1.getCircuit().getScale()*0.2);
-        if ((p1.x == p4.x || p1.y == p4.y) && fuzzy)
-            return new BoundingBox(
-                    new PanelDrawPoint(p1.x - thresh, p1.y - thresh, p1.getCircuit()),
-                    new PanelDrawPoint(p4.x + thresh, p4.y + thresh, p4.getCircuit()),
-                    owner).intercepts(p);
+    public boolean intercepts(CircuitPoint p, boolean expandIfInline) {
+        double thresh = 0.3;  // 0.3 cp out
+        if ((p1.x == p4.x || p1.y == p4.y) && expandIfInline)
+            return new BoundingBox(new CircuitPoint(p1.x - thresh, p1.y - thresh, p1.getCircuit()),
+                    new CircuitPoint(p4.x + thresh, p4.y + thresh, p4.getCircuit()), owner).intercepts(p, true);
         return p.x >= p1.x && p.x <= p4.x && p.y >= p1.y && p.y <= p4.y;
     }
 
+    public boolean intercepts(PanelDrawPoint p, boolean expandIfInLine) {
+        return intercepts(p.toCircuitPoint(), true);
+    }
+
     public boolean intercepts(Entity e) {
+        if (e instanceof Wire) // More efficient algorithm for wires
+            return intercepts(((Wire) e).getStartLocation()) || intercepts(((Wire) e).getEndLocation());
         for (CircuitPoint intPoint : e.getInterceptPoints())
             if (intercepts(intPoint))
                 return true;
@@ -114,7 +117,11 @@ public class BoundingBox {
     }
 
     public EntityList<Entity> getInterceptingEntities( ) {
-        return p1.getCircuit().getAllEntities().thatIntercept(this);
+        EntityList<Entity> interceptors = new EntityList<>();
+        for (Entity e : p1.getCircuit().getAllEntities())
+            if (intercepts(e))
+                interceptors.add(e);
+        return interceptors;
     }
 
     public BoundingBox clone() {
@@ -125,20 +132,22 @@ public class BoundingBox {
     public static final Color OUTLINE_COL = Color.BLACK;
 
     public void paint(GraphicsContext g) {
-        Circuit c = p1.getCircuit();
-        int strokeSize = (int) (c.getScale() * 0.6);
-        if (strokeSize % 2 == 0) strokeSize++;
-        int borderThickness = (int) Math.ceil(strokeSize / 5.00) + 1;
-        int innerStrokeSize = strokeSize - borderThickness;
-        if (innerStrokeSize % 2 == 0) innerStrokeSize++;
-        for (CircuitPoint p : new CircuitPoint[] { p1, p2, p3, p4 }) {
-            PanelDrawPoint pp = p.toPanelDrawPoint();
-            g.setStroke(OUTLINE_COL);
-            g.setLineWidth(strokeSize);
-            g.strokeLine(pp.x, pp.y, pp.x, pp.y);
-            g.setStroke(BOX_COL);
-            g.setLineWidth(innerStrokeSize);
-            g.strokeLine(pp.x, pp.y, pp.x, pp.y);
+        for (int i = 0; i < 2; i++) {
+            Circuit c = p1.getCircuit();
+            int strokeSize = (int) (c.getScale() * 0.6);
+            if (strokeSize % 2 == 0) strokeSize++;
+            int borderThickness = (int) Math.ceil(strokeSize / 5.00) + 1;
+            int innerStrokeSize = strokeSize - borderThickness;
+            if (innerStrokeSize % 2 == 0) innerStrokeSize++;
+            for (CircuitPoint p : new CircuitPoint[]{p1, p2, p3, p4}) {
+                PanelDrawPoint pp = p.toPanelDrawPoint();
+                g.setStroke(OUTLINE_COL);
+                g.setLineWidth(strokeSize);
+                g.strokeLine(pp.x, pp.y, pp.x, pp.y);
+                g.setStroke(BOX_COL);
+                g.setLineWidth(innerStrokeSize);
+                g.strokeLine(pp.x, pp.y, pp.x, pp.y);
+            }
         }
     }
 

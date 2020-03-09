@@ -4,9 +4,8 @@ import edu.wit.yeatesg.logicgates.def.Direction;
 import edu.wit.yeatesg.logicgates.def.SimpleGateAND;
 import edu.wit.yeatesg.logicgates.entity.Dynamic;
 import edu.wit.yeatesg.logicgates.entity.Property;
-import edu.wit.yeatesg.logicgates.entity.connectible.InputBlock;
-import edu.wit.yeatesg.logicgates.entity.connectible.Wire;
 import edu.wit.yeatesg.logicgates.def.Circuit;
+import edu.wit.yeatesg.logicgates.entity.connectible.InputBlock;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 import javafx.application.Application;
 import javafx.application.Platform;
@@ -68,7 +67,7 @@ public class MainGUI extends Application {
         Project proj;
         try {
             proj = Project.fromFile(f);
-            YesNoGUI yesNoGUI = new YesNoGUI(new Stage(), "Garnet FUCKS", "Open Project In New Window?");
+            YesNoGUI yesNoGUI = new YesNoGUI(new Stage(), "Option", "Open Project In New Window?");
             yesNoGUI.setNoAction((e) -> {
                 // TODO ask if they want to save
                 setCurrentProject(proj);
@@ -84,8 +83,9 @@ public class MainGUI extends Application {
     public void setCurrentProject(Project p) {
         p.setGUI(this);
         this.currProject = p;
-        if (!currProject.hasCircuits())
+        if (!currProject.hasCircuits()) {
             new Circuit(currProject, "main");
+        }
 
         BorderPane borderPane = new BorderPane();
 
@@ -170,7 +170,6 @@ public class MainGUI extends Application {
     public void postInit() {
         editorPanel.repaint();
         Circuit c = currProject.getCurrentCircuit();
-        new Wire(new CircuitPoint(0, 0, c), new CircuitPoint(-5, 0, c));
         new InputBlock(new CircuitPoint(-5, 3, c), Direction.rotationFromCardinal("EAST"));
         new InputBlock(new CircuitPoint(-5, 7, c), Direction.rotationFromCardinal("EAST"));
         new InputBlock(new CircuitPoint(-5, 15, c), Direction.rotationFromCardinal("EAST"));
@@ -179,26 +178,19 @@ public class MainGUI extends Application {
         new InputBlock(new CircuitPoint(-5, 37, c), Direction.rotationFromCardinal("EAST"));
 
 
-        new SimpleGateAND(new CircuitPoint(5, 5, c), 270, false);
-        new SimpleGateAND(new CircuitPoint(15, 5, c), 270, false);
-        new SimpleGateAND(new CircuitPoint(5, 15, c), 270, false);
-        new SimpleGateAND(new CircuitPoint(15, 15, c), 270, false);
-        new SimpleGateAND(new CircuitPoint(5, 25, c), 270, false);
-        new SimpleGateAND(new CircuitPoint(15, 25, c), 270, false);
-        new SimpleGateAND(new CircuitPoint(5, 35, c), 270, false);
-
-       /* Circuit currentCircuit = editorPanel.getCurrentCircuit();
-        new GateAND(new CircuitPoint(0, 10, currentCircuit), 90);
-        new GateAND(new CircuitPoint(-10, 10, currentCircuit), 180);
-
-        new Wire(new CircuitPoint(0, 0, currentCircuit), new CircuitPoint(-5, 0, currentCircuit));
-        new Wire(new CircuitPoint(0, 0, currentCircuit), new CircuitPoint(5, 0, currentCircuit));
-
-        new InputBlock(new CircuitPoint(5, -5, currentCircuit), 180);*/
+        new SimpleGateAND(new CircuitPoint(5, 5, c), 270);
+        new SimpleGateAND(new CircuitPoint(15, 5, c), 270);
+        new SimpleGateAND(new CircuitPoint(5, 15, c), 270);
+        new SimpleGateAND(new CircuitPoint(15, 15, c), 270);
+        new SimpleGateAND(new CircuitPoint(5, 25, c), 270);
+        new SimpleGateAND(new CircuitPoint(15, 25, c), 270);
+        new SimpleGateAND(new CircuitPoint(5, 35, c), 270);
+        Circuit theo = c.cloneOntoProject("theoretical");
+        getCurrProject().getCurrentCircuit().deepCloneEntitiesFrom(theo);
     }
 
-    public void setPropertyTable(Dynamic propetiable) {
-        TableView<Property> table = propetiable.getPropertyList().toTableView();
+    public void setPropertyTable(Dynamic dynamic) {
+        TableView<Property> table = dynamic.getPropertyList().toTableView();
         propertiesGoHere.setCenter(table);
         propertiesGoHere.setMinHeight(table.getMinHeight());
     }

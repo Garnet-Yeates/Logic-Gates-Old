@@ -23,11 +23,8 @@ public class Circuit implements Dynamic {
 
     public Circuit(Project p, String circuitName) {
         this.circuitName = circuitName;
-        project = p;
-        for (Circuit c : project.getCircuits())
-            if (c.getCircuitName().equalsIgnoreCase(circuitName))
-                throw new RuntimeException("Duplicate Circuit On Project \"" + project.getProjectName() + "\"");
-        project.addCircuit(this);
+        this.project = p;
+        p.addCircuit(this);
     }
 
     private String circuitName;
@@ -159,7 +156,7 @@ public class Circuit implements Dynamic {
     private EntityList<Entity> allEntities = new EntityList<>();
 
     public EntityList<Entity> getAllEntities() {
-        return getAllEntities(true);
+        return getEntityList(true);
     }
 
     public EntityList<Entity> getEntitiesWithinScope(BoundingBox scope) {
@@ -175,7 +172,7 @@ public class Circuit implements Dynamic {
     }
 
     public void refreshTransmissions() {
-        System.out.println("Refresh Transmissions Took " + LogicGates.doTimeTest(() -> {
+   //     System.out.print("Refresh Transmissions Took " + LogicGates.doTimeTest(() -> {
             Dependent.resetDependencies(this);
             Dependent.resetStates(this);
             Dependent.calculateDependencies(this);
@@ -185,7 +182,7 @@ public class Circuit implements Dynamic {
             Dependent.calculateDependencies(this);
             Dependent.calculateSuperDependencies(this);
             Dependent.determinePowerStates(this);
-        }));
+   //     }));
 
     }
 
@@ -193,9 +190,12 @@ public class Circuit implements Dynamic {
         return Dependent.getDependentEntities(this);
     }
 
-
-    public EntityList<Entity> getAllEntities(boolean clone) {
+    public EntityList<Entity> getEntityList(boolean clone) {
         return clone ? allEntities.clone() : allEntities;
+    }
+
+    public void setEntityList(EntityList<Entity> list) {
+        allEntities = list;
     }
 
     public void removeEntity(Entity e) {
@@ -240,5 +240,19 @@ public class Circuit implements Dynamic {
     @Override
     public boolean hasProperty(String propertyName) {
         return Arrays.asList(properties).contains(propertyName);
+    }
+
+    public void deepCloneEntitiesFrom(Circuit c) {
+        for (Entity e : c.getEntityList(false))
+            e.clone(this);
+    }
+
+    public Circuit cloneOntoProject(String newName) {
+        Circuit c = new Circuit(project, newName);
+        return c;
+    }
+
+    public void setScale(int scale) {
+        this.scale = scale;
     }
 }

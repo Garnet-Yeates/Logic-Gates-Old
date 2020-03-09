@@ -21,21 +21,29 @@ public class SimpleGateAND extends ConnectibleEntity implements Rotatable {
     private CircuitPoint origin;
     private OutputNode out;
 
-    public SimpleGateAND(CircuitPoint origin, int rotation, boolean isPreview) {
-        super(origin.getCircuit(), isPreview);
+    private int rotation;
+
+    public SimpleGateAND(CircuitPoint origin, int rotation, boolean addToCircuit) {
+        super(origin.getCircuit(), addToCircuit);
         this.origin = origin;
+        this.rotation = rotation;
         drawPoints = getRelativePointSet().applyToOrigin(origin, rotation);
         establishOutputNode(drawPoints.get(0));
         out = (OutputNode) getNodeAt(drawPoints.get(0));
         establishInputNode(drawPoints.get(7));
         establishInputNode(drawPoints.get(8));
-        //    establishConnectionNode(drawPoints.get(0));
-        postInit();
+        postInit(addToCircuit);
     }
 
     public SimpleGateAND(CircuitPoint origin, int rotation) {
-        this(origin, rotation, false);
+        this(origin, rotation, true);
     }
+
+    @Override
+    public SimpleGateAND clone(Circuit onto) {
+        return new SimpleGateAND(origin.clone(onto), rotation);
+    }
+
 
     @Override
     public void determinePowerStateOf(OutputNode outputNode) {
@@ -231,8 +239,6 @@ public class SimpleGateAND extends ConnectibleEntity implements Rotatable {
 
     @Override
     public boolean canConnectTo(ConnectibleEntity e, CircuitPoint at) {
-        LogicGates.debug("CanConnectTo in AND class", "", "hasNodeAt?", hasNodeAt(at), "connectedAt", getEntitiesConnectedAt(at),
-            "e is deleted?", e.isDeleted());
         return e instanceof Wire
                 && hasNodeAt(at)
                 && (getNumEntitiesConnectedAt(at) == 0)
@@ -241,7 +247,7 @@ public class SimpleGateAND extends ConnectibleEntity implements Rotatable {
 
     @Override
     protected void connectCheck(ConnectibleEntity e) {
-        if (isPreview || e.isPreview() || deleted || e.isDeleted() || isInvalid() || e.isInvalid())
+        if (deleted || e.isDeleted() || isInvalid() || e.isInvalid())
             return;
         for (CircuitPoint nodeLoc : connections.getEmptyConnectionLocations()) {
             if (canConnectTo(e, nodeLoc) && e.canConnectTo(this, nodeLoc) && !deleted && !e.isDeleted()) {

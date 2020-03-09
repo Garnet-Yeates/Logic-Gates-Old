@@ -1,5 +1,6 @@
 package edu.wit.yeatesg.logicgates.entity.connectible;
 
+import edu.wit.yeatesg.logicgates.def.Circuit;
 import edu.wit.yeatesg.logicgates.def.Direction;
 import edu.wit.yeatesg.logicgates.entity.*;
 import edu.wit.yeatesg.logicgates.def.BoundingBox;
@@ -18,19 +19,27 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
     private CircuitPoint origin;
     private OutputNode out;
 
-    public InputBlock(CircuitPoint origin, int rotation, boolean preview) {
-        super(origin.getCircuit(), preview);
+    public InputBlock(CircuitPoint origin, int rotation) {
+        this(origin, rotation, true);
+    }
+
+    public InputBlock(CircuitPoint origin, int rotation, boolean addToCircuit) {
+        super(origin.getCircuit(), addToCircuit);
         this.origin = origin;
+        this.rotation = rotation;
         drawPoints = getRelativePointSet().applyToOrigin(origin, rotation);
         establishOutputNode(drawPoints.get(0));
         out = (OutputNode) getNodeAt(drawPoints.get(0));
         updateInvalidInterceptPoints();
-        postInit();
+        postInit(addToCircuit);
     }
 
-    public InputBlock(CircuitPoint origin, int rotation) {
-        this(origin, rotation, false);
+    @Override
+    public InputBlock clone(Circuit c) {
+        InputBlock clone = new InputBlock(origin.clone(c), rotation);
+        return clone;
     }
+
 
     @Override
     protected void determineOutputDependencies() { /* Output Node Dependency List Will Be Empty For Input Nodes */}
@@ -118,8 +127,6 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
     @Override
     public int getLineWidth() {
         return c.getLineWidth();
-
-     //   return (int) (c.getLineWidth() * 0.8);
     }
 
     @Override
@@ -172,7 +179,7 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
 
     @Override
     public void connectCheck(ConnectibleEntity e) {
-        if (isPreview || e.isPreview() || deleted || e.isDeleted() || isInvalid() || e.isInvalid())
+        if (deleted || e.isDeleted() || isInvalid() || e.isInvalid())
             return;
         CircuitPoint nodeLoc = drawPoints.get(0);
         if (canConnectTo(e, nodeLoc) && e.canConnectTo(this, nodeLoc) && !deleted && !e.isDeleted())
@@ -245,7 +252,7 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
     public Entity onDragMove(CircuitPoint newLocation) {
         super.onDragMove(newLocation);
         if (!newLocation.equals(origin)) {
-            InputBlock preview = new InputBlock(newLocation, rotation, true);
+            InputBlock preview = new InputBlock(newLocation, rotation);
             return preview;
         }
         return null;

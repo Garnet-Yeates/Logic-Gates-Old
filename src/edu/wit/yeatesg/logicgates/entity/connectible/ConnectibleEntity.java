@@ -1,9 +1,14 @@
 package edu.wit.yeatesg.logicgates.entity.connectible;
 
+import edu.wit.yeatesg.logicgates.def.BoundingBox;
 import edu.wit.yeatesg.logicgates.def.Circuit;
 import edu.wit.yeatesg.logicgates.def.LogicGates;
 import edu.wit.yeatesg.logicgates.entity.Entity;
+import edu.wit.yeatesg.logicgates.entity.PointSet;
+import edu.wit.yeatesg.logicgates.entity.PropertyList;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
+import javafx.beans.value.ObservableValue;
+import javafx.scene.canvas.GraphicsContext;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -14,14 +19,15 @@ public abstract class ConnectibleEntity extends Entity {
 
     protected ConnectionList connections;
 
-    public ConnectibleEntity(Circuit c, boolean isPreview) {
-        super(c, isPreview);
+    public ConnectibleEntity(Circuit c, boolean addToCircuit) {
+        super(c, addToCircuit);
         connections = new ConnectionList();
     }
 
-    public void postInit() {
+    @Override
+    public void postInit(boolean addToCircuit) {
         determineOutputDependencies();
-        if (!isPreview) {
+        if (addToCircuit)  {
             c.addEntity(this);
             connectCheck();
             c.refreshTransmissions();
@@ -107,7 +113,7 @@ public abstract class ConnectibleEntity extends Entity {
     protected abstract void connectCheck(ConnectibleEntity e);
 
     public void connectCheck() {
-        if (isInvalid() || isPreview || isDeleted())
+        if (isInvalid() || isDeleted())
             return;
         disconnectAll();
         for (Entity e : c.getAllEntities())
@@ -219,9 +225,6 @@ public abstract class ConnectibleEntity extends Entity {
 
     public abstract boolean isPullableLocation(CircuitPoint gridSnap);
 
-    public static class SuperDependencyCache extends LinkedList<ConnectibleEntity> {
-        boolean isCircular;
-    }
 
     public LinkedList<InputNode> getRelevantInputNodesFor(OutputNode out) {
         LinkedList<InputNode> relevants = new LinkedList<>();
@@ -230,4 +233,7 @@ public abstract class ConnectibleEntity extends Entity {
                 relevants.add((InputNode) inputNode);
         return relevants;
     }
+
+    public abstract ConnectibleEntity clone(Circuit onto);
+
 }

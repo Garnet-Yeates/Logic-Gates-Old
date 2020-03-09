@@ -93,4 +93,9 @@ public class CircuitPoint {
         return new CircuitPoint(x, y, c);
     }
 
+    public CircuitPoint clone(Circuit onto) {
+        return new CircuitPoint(x, y, onto);
+    }
+
+
 }

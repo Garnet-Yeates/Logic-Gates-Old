@@ -32,6 +32,11 @@ public class Vector {
         this(startPoint.x, startPoint.y, endPoint.x, endPoint.y);
     }
 
+    @Override
+    public Vector clone() {
+        return new Vector(x, y);
+    }
+
     public static List<Vector> getDirectionVecs() {
         return Arrays.asList(DIRECTION_VECS);
     }

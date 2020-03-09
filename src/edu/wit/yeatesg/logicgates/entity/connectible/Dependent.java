@@ -174,62 +174,17 @@ public interface Dependent {
             super.clear();
         }
 
-        /*
-
-        // INPUT NODES OR WIRES WIth more than one dependency should be invalidated
-        // WHEN DOING DEPENDENCYCHECK AKA SCANNING ALL OUTPUT NODES, GOING DOWN THE PATH, AND FINDING STUFF
-        // THAT THEY DEPEND ON, WHEN YOU HIT A WIRE, ADD THE OUT NODE TO ITS DEPENDENCY LIST. WHEN YOU HIT
-        // AN INPUT NODE, ADD THAT TO THE DEPENDENCY LIST AS WELL. THEN, GO TO THE PARENT OF THE INPUT NODE
-        // AND ADD THE OUT TO THE DEPENDENCY LIST OF THE PARENT AS WELL. PARENT ENTITIES AKA LOGIC GATES
-        // AND STUFF LIKE THAT WILL OBVIOUSLY HAVE MULTIPLE DEPENDENCIES, BUT THAT IS OKAY AND REQUIRED
-
-
-        // DEPENDENT INTERFACE
-        //   IMPLEMENTED BY WIRE AND INPUTNODE
-        //   'GETDEPENDENCYLIST  METHOD' FOR A REFERENCE TO A FIELD THAT REPRESENTS A DEPENDENCYLIST OF THE IMPLEMENTER
-        //   DependencyList Class
-        //      recursive method getSuperDependencyList(SuperDependencyList addingTo, List<OutputNode> alreadyChecked)
-        //        method to return a super dependency list. This method will look at all of the OutputNodes in the DependencyList,
-        //        get the reference to their parent. If the parent is independent (no input nodes), add it to the 'addingTo' list.
-        //        else, loop through the input nodes of that parent, and call getSuperDependencyList()
-        //        on the dependencyList with the same 'addingTo' and the same 'alreadyChecked'. If we hit an InputNode that was
-        //        already checked, set circular to true and return.
-
-        // FOR GETTING SUPER DEPENDENCIES OF A DEPENDENCYLIST
-
-*/
 
         private void calculateSuperDependencies() {
             superDependencies = new SuperDependencyList();
-            calculateSuperDependencies(superDependencies, new LinkedList<>(), new IgnoreMap(), 0);
-        }
-
-
-        private static class IgnoreMap extends HashMap<Dependent, Integer> {
-
-            public void put(Dependent d) {
-                if (!containsKey(d))
-                    put(d, 0);
-                else
-                    put(d, get(d) + 1);
-            }
-
-            // Returns true if invalid
-            public boolean ignorePoll(Dependent d) {
-                put(d, get(d) - 1);
-                return get(d) == -1;
-            }
-
+            calculateSuperDependencies(superDependencies, new LinkedList<>());
         }
 
 
         // Dependent depend on dependents. Input nodes depend on output nodes which depend on input nodes etc.
         // A dependent is considered a super dependent if it is an OutputNode and has no dependency. The dependency
         // of OutputNodes are pre determined
-        private void calculateSuperDependencies(SuperDependencyList addingTo,
-                                                LinkedList<Dependent> cantRepeat,
-                                                IgnoreMap numTillInvalid,
-                                                int callNum) {
+        private void calculateSuperDependencies(SuperDependencyList addingTo, LinkedList<Dependent> cantRepeat) {
             cantRepeat.add(reference);
             for (Dependent dep : this) {
                 if (cantRepeat.contains(dep)) {
@@ -241,7 +196,7 @@ public interface Dependent {
                 }
                 else {
                     cantRepeat = new LinkedList<>(cantRepeat); // <-- CLONE IS VERY NECESSARY. If 2 different input nodes for a logic gate share a dependency (this is allowed), obviously one sub call will happen at a time, in1, then in2, so if we dont clone the list and the in1 sub-call states that we can't repeat the output node, it shld NOT make it so in2 cant repeat the output node as well!
-                    dep.getDependencyList().calculateSuperDependencies(addingTo, cantRepeat, numTillInvalid, callNum);
+                    dep.getDependencyList().calculateSuperDependencies(addingTo, cantRepeat);
                     if (addingTo.isCircular)
                         return;
                 }
@@ -267,17 +222,6 @@ public interface Dependent {
             public boolean addAll(Collection<? extends OutputNode> c) {
                 throw new UnsupportedOperationException("Cannot be called on SuperDependencyList");
             }
-/*
-            public boolean addAll(SuperDependencyList other) {
-                if (other.isCircular)
-                    isCircular = true;
-                for (OutputNode out : other)
-                    add(out);
-                return true;
-            }*/
         }
     }
-
-
-
 }

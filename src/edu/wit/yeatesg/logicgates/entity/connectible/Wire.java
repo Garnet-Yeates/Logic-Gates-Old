@@ -20,28 +20,40 @@ public class Wire extends ConnectibleEntity implements Dependent {
     protected CircuitPoint startLocation;
     protected CircuitPoint endLocation;
 
-    public Wire(CircuitPoint startLocation, CircuitPoint endLocation, boolean isPreview) {
-        super(startLocation.getCircuit(), isPreview);
+    public Wire(CircuitPoint startLocation, CircuitPoint endLocation, boolean addToCircuit) {
+        super(startLocation.getCircuit(), addToCircuit);
         if ((startLocation.x != endLocation.x && startLocation.y != endLocation.y) || startLocation.equals(endLocation))
             throw new RuntimeException("Invalid Wire");
         this.startLocation = startLocation;
         this.endLocation = endLocation;
         updateInterceptPoints();
-        for (Wire w : c.getAllEntitiesOfType(Wire.class))
-            if (isSimilar(w))
-                throw new RuntimeException("Duplicate/Similar Wire " + startLocation + " " + endLocation );
+        postInit(addToCircuit);
+    }
 
-        System.out.println("Wire Post Init Took " + LogicGates.doTimeTest(this::postInit));
-
+    @Override
+    public void postInit(boolean addToCircuit) {
+        if (addToCircuit) {
+            for (Wire w : c.getAllEntitiesOfType(Wire.class))
+                if (isSimilar(w))
+                    throw new RuntimeException("Duplicate/Similar Wire on Circuit " + startLocation.getCircuit().getCircuitName() + " "
+                            + startLocation + " " + endLocation );
+        }
+        super.postInit(addToCircuit);
     }
 
     public Wire(CircuitPoint startLocation, CircuitPoint endLocation) {
-        this(startLocation, endLocation, false);
+        this(startLocation, endLocation, true);
     }
 
     protected Wire(Circuit c) {
         super(c, false);
     }
+
+    @Override
+    public Wire clone(Circuit onto) {
+        return new Wire(startLocation.clone(onto), endLocation.clone(onto));
+    }
+
 
     // INHERITED FROM DEPENDENT CLASS
 
@@ -175,7 +187,7 @@ public class Wire extends ConnectibleEntity implements Dependent {
 
     @Override
     public void connectCheck(ConnectibleEntity e) {
-        if (isPreview || e.isPreview() || deleted || e.isDeleted())
+        if (deleted || e.isDeleted())
             return;
         for (CircuitPoint edgePoint : getEdgePoints()) {
             if (canConnectTo(e, edgePoint) && e.canConnectTo(this, edgePoint) && !deleted && !e.isDeleted())
@@ -200,7 +212,7 @@ public class Wire extends ConnectibleEntity implements Dependent {
 
     @Override
     public void connectCheck() {
-        if (isPreview || deleted || isInvalid())
+        if (deleted || isInvalid())
             return;
         bisectCheck();
         mergeCheck();
@@ -209,7 +221,7 @@ public class Wire extends ConnectibleEntity implements Dependent {
 
 
     public void connect(ConnectibleEntity e, CircuitPoint atLocation) {
-        if (isInvalid() || deleted || isPreview || e.isInvalid() || e.isDeleted() || e.isPreview())
+        if (isInvalid() || deleted || e.isInvalid() || e.isDeleted())
             throw new RuntimeException("Cannot bisect. At least one of these wires is deleted/invalid/preview");
         if (!atLocation.equals(startLocation) && !atLocation.equals(endLocation))
             throw new RuntimeException("Wires can only be connected at end points! (w1)");
@@ -239,7 +251,7 @@ public class Wire extends ConnectibleEntity implements Dependent {
     }
 
     public void bisectCheck() {
-        if (!deleted && !isPreview && !isInvalid()) {
+        if (!deleted || !isInvalid()) {
             ArrayList<Wire> allWires = c.getAllEntitiesOfType(Wire.class, false);
             for (Wire w : allWires) {
                 if (!w.deleted && !w.equals(this)) {
@@ -251,7 +263,7 @@ public class Wire extends ConnectibleEntity implements Dependent {
     }
 
     public void bisectCheck(Wire other) {
-        if (isInvalid() || deleted || isPreview || other.isInvalid() || other.deleted || other.isPreview)
+        if (isInvalid() || deleted || other.isInvalid() || other.deleted)
             return;
         for (CircuitPoint thisWiresEndpoint : new CircuitPoint[]{startLocation, endLocation}) {
             if (other.getPointsExcludingEdgePoints().contains(thisWiresEndpoint)
@@ -261,7 +273,7 @@ public class Wire extends ConnectibleEntity implements Dependent {
     }
 
     public void bisect(Wire other, CircuitPoint endpointOfThisWire) {
-        if (isInvalid() || deleted || isPreview || other.isInvalid() || other.deleted || other.isPreview)
+        if (isInvalid() || deleted || other.isInvalid() || other.deleted)
             throw new RuntimeException("Cannot bisect. At least one of these wires is deleted/invalid/preview");
         if (!other.getPointsExcludingEdgePoints().contains(endpointOfThisWire))
             throw new RuntimeException("Invalid Wire Bisect. Can't bisect a wire at its edge points");
@@ -284,7 +296,7 @@ public class Wire extends ConnectibleEntity implements Dependent {
     }
 
     public void mergeCheck() {
-        if (!deleted && !isPreview && !isInvalid()) {
+        if (!deleted && !isInvalid()) {
             ArrayList<Wire> allWires = c.getAllEntitiesOfType(Wire.class, false);
             for (Wire w : allWires)
                 if (!w.deleted && !w.equals(this))
@@ -293,7 +305,7 @@ public class Wire extends ConnectibleEntity implements Dependent {
     }
 
     public void mergeCheck(Wire other) {
-        if (isInvalid() || deleted || isPreview || other.isInvalid() || other.deleted || other.isPreview)
+        if (isInvalid() || deleted || other.isInvalid() || other.deleted)
             return;
         for (CircuitPoint edgePoint : new CircuitPoint[]{startLocation, endLocation}) {
             for (CircuitPoint otherEdgePoint : new CircuitPoint[]{other.startLocation, other.endLocation}) {
@@ -309,7 +321,7 @@ public class Wire extends ConnectibleEntity implements Dependent {
     }
 
     public void merge(Wire other, CircuitPoint commonEdgePoint) {
-        if (isInvalid() || deleted || isPreview || other.isInvalid() || other.deleted || other.isPreview)
+        if (isInvalid() || deleted || other.isInvalid() || other.deleted)
             throw new RuntimeException("Cannot merge. At least one of these wires is deleted/invalid/preview");
         other.delete(); // Checks done in delete
         set(commonEdgePoint, other.getOppositeEdgePoint(commonEdgePoint)); // Checks done in set
@@ -404,7 +416,10 @@ public class Wire extends ConnectibleEntity implements Dependent {
     }
 
     public Color getColor() {
-        return getState().getColor();
+        try {
+            return getState().getColor();
+        } catch (Exception e) {e.printStackTrace(); System.exit(0);}
+        return null;
     }
 
     public void draw(GraphicsContext g, boolean drawJunctions) {
@@ -610,7 +625,7 @@ public class Wire extends ConnectibleEntity implements Dependent {
                 final ArrayList<ArrayList<TheoreticalWire>> paths = new ArrayList<>();
                 final Direction currDir = currDirection;
                 final int splitNumFin = splitNum;
-                int maxToTry = 10;
+                int maxToTry = 15;
                 while (potentials.size() > maxToTry + 2*OVERSHOOT_DIST)
                     potentials.remove(potentials.get(potentials.size() - 2*OVERSHOOT_DIST - 1));
                 potentials.multiThreadForEach(theo -> {

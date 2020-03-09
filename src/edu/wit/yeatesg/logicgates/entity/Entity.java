@@ -16,9 +16,13 @@ import java.util.LinkedList;
 
 public abstract class Entity implements Dynamic {
 
-    public Entity(Circuit c, boolean isPreview) {
+    public Entity(Circuit c, boolean addToCircuit) {
         this.c = c;
-        this.isPreview = isPreview;
+    }
+
+    public void postInit(boolean addToCircuit) {
+        if (addToCircuit)
+            c.addEntity(this);
     }
 
 
@@ -26,10 +30,10 @@ public abstract class Entity implements Dynamic {
 
     protected Circuit c;
 
-    protected boolean isPreview;
+    protected boolean preview;
 
-    public boolean isPreview() {
-        return isPreview;
+    public boolean izPreview() {
+        return preview;
     }
 
     public static Entity parseEntity(Circuit c, boolean isPreview, String s) {
@@ -44,7 +48,7 @@ public abstract class Entity implements Dynamic {
             double y1 = Double.parseDouble(values[1]);
             double x2 = Double.parseDouble(values[2]);
             double y2 = Double.parseDouble(values[3]);
-            return new Wire(new CircuitPoint(x1, y1, c), new CircuitPoint(x2, y2, c), isPreview);
+            return new Wire(new CircuitPoint(x1, y1, c), new CircuitPoint(x2, y2, c));
         }
         return null;
     }
@@ -174,6 +178,13 @@ public abstract class Entity implements Dynamic {
                                                               PermitList exceptions,
                                                               boolean strictWithWires);
 
+
+
+
+    public void setPreview(boolean b) {
+        preview = b;
+    }
+
     public static class InterceptPermit {
         public Entity entity;
         public CircuitPoint allowedToConnectAt;
@@ -248,4 +259,10 @@ public abstract class Entity implements Dynamic {
     public abstract void draw(GraphicsContext g);
 
     public abstract int getLineWidth();
+
+    public abstract Entity clone(Circuit onto);
+
+    public void duplicate() {
+        clone(c);
+    }
 }

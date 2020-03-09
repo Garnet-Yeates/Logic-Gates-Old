@@ -1,5 +1,6 @@
 package edu.wit.yeatesg.logicgates.entity.connectible;
 
+import edu.wit.yeatesg.logicgates.def.Circuit;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 
 import java.util.ArrayList;
@@ -135,10 +136,13 @@ public class ConnectionList extends ArrayList<ConnectionNode> {
         return super.remove(o);
     }
 
+    /**
+     * Obtains a shallow clone of this ConnectionList
+     * @return a shallow clone of this ConnectionList
+     */
     @Override
     public ConnectionList clone() {
-        ConnectionList clone = new ConnectionList();
-        clone.addAll(this);
-        return clone;
+        return (ConnectionList) super.clone();
+
     }
 }

@@ -2,6 +2,7 @@ package edu.wit.yeatesg.logicgates.gui;
 
 import edu.wit.yeatesg.logicgates.def.Circuit;
 import edu.wit.yeatesg.logicgates.entity.Entity;
+import edu.wit.yeatesg.logicgates.entity.EntityList;
 
 import javax.xml.stream.XMLEventReader;
 import javax.xml.stream.XMLInputFactory;
@@ -126,6 +127,7 @@ public class Project {
         return project;
     }
 
+
     public static class LoadFailedException extends Exception {
         private String message;
         public LoadFailedException(String message) { this.message = message; }
@@ -134,7 +136,6 @@ public class Project {
 
     private void setEntityDefaults(ArrayList<Entity> entityDefaults) {
     }
-
 
     public void setGUI(MainGUI gui) {
         this.gui = gui;
@@ -153,9 +154,15 @@ public class Project {
     }
 
     public void addCircuit(Circuit c) {
-        circuits.add(c);
-        if (circuits.size() == 1)
-            setCurrentCircuit(c); // If this is the only circuit, obviously we want it to be the current one
+        if (!c.getCircuitName().contains("theoretical")) {
+            for (Circuit other : getCircuits())
+                if (other.getCircuitName().equalsIgnoreCase(c.getCircuitName()))
+                    throw new RuntimeException("Duplicate Circuit \"" + c.getCircuitName()
+                            + "\" On Project \"" + getProjectName() + "\"");
+            circuits.add(c);
+            if (circuits.size() == 1)
+                setCurrentCircuit(c); // If this is the only circuit, obviously we want it to be the current one
+        }
     }
 
     public EditorPanel getEditorPanel() {

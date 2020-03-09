@@ -1,5 +1,6 @@
 package edu.wit.yeatesg.logicgates.entity.connectible;
 
+import edu.wit.yeatesg.logicgates.def.Circuit;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 import edu.wit.yeatesg.logicgates.points.PanelDrawPoint;
 import javafx.scene.canvas.GraphicsContext;
@@ -15,6 +16,10 @@ public class ConnectionNode {
        this.location = location;
        this.connectedTo = connectedTo;
        this.parent = connectingFrom;
+   }
+
+   public ConnectionNode clone(Circuit onto) {
+       return new ConnectionNode(location.clone(onto), parent.clone(onto), connectedTo.clone(onto));
    }
 
    public ConnectionNode(CircuitPoint location, ConnectibleEntity connectingFrom) {
@@ -67,10 +72,8 @@ public class ConnectionNode {
         return false;
     }
 
-    public void draw(GraphicsContext g) {
 
-
-    }
+    public void draw(GraphicsContext g) { }
 
     @Override
     public String toString() {
