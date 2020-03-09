@@ -31,7 +31,8 @@ public abstract class ConnectibleEntity extends Entity {
             c.addEntity(this);
             connectCheck();
             c.refreshTransmissions();
-            c.getEditorPanel().repaint();
+            if (!c.getCircuitName().contains("theoretical"))
+                c.getEditorPanel().repaint(c);
         }
     }
 
@@ -123,7 +124,7 @@ public abstract class ConnectibleEntity extends Entity {
                 && !e.equals(this))
                     connectCheck((ConnectibleEntity) e);
         c.refreshTransmissions();
-        c.getEditorPanel().repaint();
+        c.getEditorPanel().repaint(c);
 
     }
 

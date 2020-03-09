@@ -154,7 +154,7 @@ public class MainGUI extends Application {
         stage.setMinWidth(EDITOR_MIN_SIZE + LEFT_MIN_WIDTH + 75);
         borderPane.setPrefSize(1250, 750);
 
-        editorPanel.repaint();
+        editorPanel.repaint(currProject.getCurrentCircuit());
 
         postInit();
     }
@@ -168,7 +168,7 @@ public class MainGUI extends Application {
     }
 
     public void postInit() {
-        editorPanel.repaint();
+        editorPanel.repaint(currProject.getCurrentCircuit());
         Circuit c = currProject.getCurrentCircuit();
         new InputBlock(new CircuitPoint(-5, 3, c), Direction.rotationFromCardinal("EAST"));
         new InputBlock(new CircuitPoint(-5, 7, c), Direction.rotationFromCardinal("EAST"));
