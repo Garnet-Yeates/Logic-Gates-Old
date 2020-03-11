@@ -3,6 +3,7 @@ package edu.wit.yeatesg.logicgates.points;
 import edu.wit.yeatesg.logicgates.def.BoundingBox;
 import edu.wit.yeatesg.logicgates.def.Circuit;
 import edu.wit.yeatesg.logicgates.def.Vector;
+import edu.wit.yeatesg.logicgates.entity.Entity;
 
 public class CircuitPoint {
 
@@ -54,16 +55,6 @@ public class CircuitPoint {
                 " ]";
     }
 
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        CircuitPoint that = (CircuitPoint) o;
-        return this.x == that.x &&
-                this.y == that.y &&
-                this.c == that.c;
-    }
-
     public boolean isInLineWith(CircuitPoint other) {
         return x == other.x || y == other.y;
     }
@@ -80,22 +71,51 @@ public class CircuitPoint {
         return (!(xdiff == 0 && ydiff == 0) && (xdiff <= 1 || ydiff <= 1));
     }
 
-    public boolean intercepts(BoundingBox b) {
-        return b.intercepts(this);
-    }
-
     /**
      * Clones this CircuitPoint
      * @return a clone of this CircuitPoint
      */
     @Override
     public CircuitPoint clone() {
+        return getSimilar();
+    }
+
+
+    public CircuitPoint getSimilar() {
         return new CircuitPoint(x, y, c);
     }
+
+    @Override
+    public boolean equals(Object o) {
+        return o instanceof CircuitPoint && ((CircuitPoint) o).isSimilar(this);
+    }
+
+    public boolean isSimilar(CircuitPoint other) {
+        return other.x == x && other.y == y;
+    }
+
+    public boolean intercepts(BoundingBox b) {
+        return b.intercepts(this);
+    }
+
+    public boolean intercepts(CircuitPoint other) {
+        return isSimilar(other);
+    }
+
+    public boolean intercepts(Entity e) {
+        return e.intercepts(this);
+    }
+
+
 
     public CircuitPoint clone(Circuit onto) {
         return new CircuitPoint(x, y, onto);
     }
+
+    public String toParsableString() {
+        return x + "," + y;
+    }
+
 
 
 }

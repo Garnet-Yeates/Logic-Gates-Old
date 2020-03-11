@@ -115,7 +115,7 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
 
         ConnectionNode connectNode = getNodeAt(pts.get(0));
         connectNode.draw(g);
-        // Draw Circle Inside
+        // Draw Circle Insidec
         CircuitPoint centerPoint = pts.get(5);
         g.setFill(getColor());
         int circleSize = (int) (c.getScale() * 1.35);
@@ -130,7 +130,7 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
     }
 
     @Override
-    public PointSet getInterceptPoints() {
+    public PointSet getInterceptPointsRef() {
         return getBoundingBox().getGridPointsWithin();
     }
 
@@ -188,6 +188,16 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
 
 
     @Override
+    public boolean isSimilar(Entity other) {
+        return (other instanceof InputBlock && ((InputBlock) other).origin.equals(origin));
+    }
+
+    @Override
+    public Entity getSimilarEntity() {
+        return new InputBlock(origin.getSimilar(), rotation, false);
+    }
+
+    @Override
     public String getDisplayName() {
         return "Input Block";
     }
@@ -199,10 +209,6 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
     // if the bounding box intercepts
 
 
-   @Override
-    public boolean equals(Object other) {
-        return (other instanceof InputBlock && ((InputBlock) other).origin.equals(origin));
-    }
 
     @Override
     public String getPropertyTableHeader() {
@@ -241,6 +247,11 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
                 if (!permits.contains(new InterceptPermit(this, p)))
                     return true;
         return false;
+    }
+
+    @Override
+    public String toParsableString() {
+        return "[InputBlock]" + origin.toParsableString() + "," + rotation;
     }
 
     @Override

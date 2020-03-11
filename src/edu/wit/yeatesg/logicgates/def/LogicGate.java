@@ -87,7 +87,7 @@ public class LogicGate extends ConnectibleEntity implements Pokable, Rotatable {
     }
 
     @Override
-    public PointSet getInterceptPoints() {
+    public PointSet getInterceptPointsRef() {
         return new PointSet();
     }
 
@@ -118,13 +118,23 @@ public class LogicGate extends ConnectibleEntity implements Pokable, Rotatable {
     }
 
     @Override
-    public boolean equals(Object other) {
+    public boolean isSimilar(Entity other) {
         return false;
+    }
+
+    @Override
+    public Entity getSimilarEntity() {
+        return null;
     }
 
     @Override
     public boolean doesGenWireInvalidlyInterceptThis(Wire.TheoreticalWire theo, PermitList exceptions, boolean strictWithWires) {
         return false;
+    }
+
+    @Override
+    public String toParsableString() {
+        return null;
     }
 
     @Override

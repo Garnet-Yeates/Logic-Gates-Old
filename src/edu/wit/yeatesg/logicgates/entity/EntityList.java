@@ -193,7 +193,7 @@ public class EntityList<E extends Entity> extends ArrayList<E> {
             threads[i].start();
         }
         for (Thread t : threads)
-            try { t.join(); } catch (InterruptedException ignored) { }
+            try { t.join(); } catch (InterruptedException ignored) { ignored.printStackTrace(); System.exit(0); }
     }
 
 

@@ -6,6 +6,7 @@ import edu.wit.yeatesg.logicgates.entity.Dynamic;
 import edu.wit.yeatesg.logicgates.entity.Property;
 import edu.wit.yeatesg.logicgates.def.Circuit;
 import edu.wit.yeatesg.logicgates.entity.connectible.InputBlock;
+import edu.wit.yeatesg.logicgates.entity.connectible.Wire;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 import javafx.application.Application;
 import javafx.application.Platform;
@@ -170,6 +171,20 @@ public class MainGUI extends Application {
     public void postInit() {
         editorPanel.repaint(currProject.getCurrentCircuit());
         Circuit c = currProject.getCurrentCircuit();
+
+        c.new EntityAddOperation(new Wire(new CircuitPoint(0, 2, c), new CircuitPoint(6, 2, c)));
+        c.saveStateAndAdvance();
+
+        c.new EntityAddOperation(new Wire(new CircuitPoint(3, 2, c), new CircuitPoint(3, 6, c)));
+        c.saveStateAndAdvance();
+
+        c.new EntityAddOperation(new Wire(new CircuitPoint(5, 2, c), new CircuitPoint(5, 6, c)));
+        c.saveStateAndAdvance();
+
+        c.new EntityAddOperation(new Wire(new CircuitPoint(3, 4, c), new CircuitPoint(5, 4, c)));
+        c.saveStateAndAdvance();
+
+
         new InputBlock(new CircuitPoint(-5, 3, c), Direction.rotationFromCardinal("EAST"));
         new InputBlock(new CircuitPoint(-5, 7, c), Direction.rotationFromCardinal("EAST"));
         new InputBlock(new CircuitPoint(-5, 15, c), Direction.rotationFromCardinal("EAST"));
@@ -177,16 +192,15 @@ public class MainGUI extends Application {
         new InputBlock(new CircuitPoint(-5, 33, c), Direction.rotationFromCardinal("EAST"));
         new InputBlock(new CircuitPoint(-5, 37, c), Direction.rotationFromCardinal("EAST"));
 
-
-        new SimpleGateAND(new CircuitPoint(5, 5, c), 270);
-        new SimpleGateAND(new CircuitPoint(15, 5, c), 270);
+     //   new SimpleGateAND(new CircuitPoint(5, 5, c), 270);
+     //   new SimpleGateAND(new CircuitPoint(15, 5, c), 270);
         new SimpleGateAND(new CircuitPoint(5, 15, c), 270);
         new SimpleGateAND(new CircuitPoint(15, 15, c), 270);
         new SimpleGateAND(new CircuitPoint(5, 25, c), 270);
         new SimpleGateAND(new CircuitPoint(15, 25, c), 270);
         new SimpleGateAND(new CircuitPoint(5, 35, c), 270);
-        Circuit theo = c.cloneOntoProject("theoretical");
-        getCurrProject().getCurrentCircuit().deepCloneEntitiesFrom(theo);
+ //       Circuit theo = c.cloneOntoProject("theoretical");
+  //      getCurrProject().getCurrentCircuit().deepCloneEntitiesFrom(theo);
     }
 
     public void setPropertyTable(Dynamic dynamic) {

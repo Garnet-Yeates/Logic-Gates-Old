@@ -44,6 +44,10 @@ public class SimpleGateAND extends ConnectibleEntity implements Rotatable {
         return new SimpleGateAND(origin.clone(onto), rotation);
     }
 
+    @Override
+    public String toParsableString() {
+        return "[SimpleGateAND]" + origin + "," + rotation;
+    }
 
     @Override
     public void determinePowerStateOf(OutputNode outputNode) {
@@ -82,8 +86,8 @@ public class SimpleGateAND extends ConnectibleEntity implements Rotatable {
       //  return (int) (c.getLineWidth() * 0.8);
     }
 
-    @Override
-    public PointSet getInterceptPoints() {
+    @Override // FIXME this doesnt return a ref
+    public PointSet getInterceptPointsRef() {
         return getBoundingBox().getGridPointsWithin();
     }
 
@@ -167,6 +171,16 @@ public class SimpleGateAND extends ConnectibleEntity implements Rotatable {
     }
 
     @Override
+    public boolean isSimilar(Entity other) {
+        return other instanceof SimpleGateAND && ((SimpleGateAND) other).origin.equals(origin);
+    }
+
+    @Override
+    public Entity getSimilarEntity() {
+        return new SimpleGateAND(origin.clone(c), rotation, false);
+    }
+
+    @Override
     public String getDisplayName() {
         return "Simple Gate AND";
     }
@@ -174,10 +188,6 @@ public class SimpleGateAND extends ConnectibleEntity implements Rotatable {
     @Override
     public void onDelete() { }
 
-    @Override
-    public boolean equals(Object other) {
-        return other instanceof SimpleGateAND && ((SimpleGateAND) other).origin.equals(origin);
-    }
 
     @Override
     public boolean doesGenWireInvalidlyInterceptThis(Wire.TheoreticalWire theo, PermitList permits, boolean strictWithWires) {

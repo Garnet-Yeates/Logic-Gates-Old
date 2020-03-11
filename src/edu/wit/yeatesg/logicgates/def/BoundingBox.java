@@ -108,9 +108,7 @@ public class BoundingBox {
     }
 
     public boolean intercepts(Entity e) {
-        if (e instanceof Wire) // More efficient algorithm for wires
-            return intercepts(((Wire) e).getStartLocation()) || intercepts(((Wire) e).getEndLocation());
-        for (CircuitPoint intPoint : e.getInterceptPoints())
+        for (CircuitPoint intPoint : e.getInterceptPoints(false))
             if (intercepts(intPoint))
                 return true;
         return false;

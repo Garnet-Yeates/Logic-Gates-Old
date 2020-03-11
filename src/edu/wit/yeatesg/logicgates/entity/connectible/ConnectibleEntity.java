@@ -15,6 +15,8 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 
+import static edu.wit.yeatesg.logicgates.gui.EditorPanel.*;
+
 public abstract class ConnectibleEntity extends Entity {
 
     protected ConnectionList connections;
@@ -236,5 +238,7 @@ public abstract class ConnectibleEntity extends Entity {
     }
 
     public abstract ConnectibleEntity clone(Circuit onto);
+
+
 
 }
