@@ -1,21 +1,11 @@
 package edu.wit.yeatesg.logicgates.entity.connectible;
 
-import edu.wit.yeatesg.logicgates.def.BoundingBox;
 import edu.wit.yeatesg.logicgates.def.Circuit;
-import edu.wit.yeatesg.logicgates.def.LogicGates;
 import edu.wit.yeatesg.logicgates.entity.Entity;
-import edu.wit.yeatesg.logicgates.entity.PointSet;
-import edu.wit.yeatesg.logicgates.entity.PropertyList;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
-import javafx.beans.value.ObservableValue;
-import javafx.scene.canvas.GraphicsContext;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.LinkedList;
-import java.util.List;
-
-import static edu.wit.yeatesg.logicgates.gui.EditorPanel.*;
 
 public abstract class ConnectibleEntity extends Entity {
 
@@ -29,13 +19,15 @@ public abstract class ConnectibleEntity extends Entity {
     @Override
     public void postInit(boolean addToCircuit) {
         determineOutputDependencies();
-        if (addToCircuit)  {
-            c.addEntity(this);
-            connectCheck();
-            c.refreshTransmissions();
-            if (!c.getCircuitName().contains("theoretical"))
-                c.getEditorPanel().repaint(c);
-        }
+        super.postInit(addToCircuit);
+    }
+
+    @Override
+    public void onAddToCircuit() {
+        super.onAddToCircuit();
+        connectCheck();
+        c.refreshTransmissions();
+        c.getEditorPanel().repaint(c);
     }
 
     protected abstract void determineOutputDependencies();
@@ -86,10 +78,6 @@ public abstract class ConnectibleEntity extends Entity {
 
     // General Connecting, Disconnecting, Pulling Wires
 
-    public void establishVolatileNode(CircuitPoint location) {
-        connections.add(new ConnectionNode(location, this));
-    }
-
     public abstract void connect(ConnectibleEntity e, CircuitPoint atLocation);
 
     public abstract boolean canPullConnectionFrom(CircuitPoint locationOnThisEntity);
@@ -116,18 +104,20 @@ public abstract class ConnectibleEntity extends Entity {
     protected abstract void connectCheck(ConnectibleEntity e);
 
     public void connectCheck() {
-        if (isInvalid() || isDeleted())
+        if (!isInConnectibleState())
             return;
         disconnectAll();
-        for (Entity e : c.getAllEntities())
-            if (e instanceof ConnectibleEntity
-                && e.intercepts(this)
-                && !e.isDeleted()
-                && !e.equals(this))
-                    connectCheck((ConnectibleEntity) e);
-        c.refreshTransmissions();
-        c.getEditorPanel().repaint(c);
+        for (ConnectibleEntity ce : getInterceptingEntities().ofType(ConnectibleEntity.class))
+            connectCheck(ce);
+    }
 
+    public boolean isInConnectibleState() {
+        return !isDeleted() && !isInvalid();
+    }
+
+    public boolean canConnectToGeneral(ConnectibleEntity other) {
+        return other.isInConnectibleState() && isInConnectibleState() && !isSimilar(other) && !hasConnectionTo(other)
+                && !other.hasConnectionTo(this);
     }
 
     // Power flow check -> goes from all user inputs / powers / grounds... basically any absolute beginning of
@@ -145,10 +135,10 @@ public abstract class ConnectibleEntity extends Entity {
 
     public static void checkEntities(CircuitPoint... checking) {
         Circuit c = checking[0].getCircuit();
-        for (CircuitPoint edge : checking) {
-            for (Entity e : c.getAllEntities())
+        for (CircuitPoint p : checking) {
+            for (Entity e : c.getInterceptMap().get(p))
                 if (e instanceof ConnectibleEntity
-                    && e.intercepts(edge)
+                    && e.intercepts(p)
                     && !e.isDeleted())
                         ((ConnectibleEntity) e).connectCheck();
         }

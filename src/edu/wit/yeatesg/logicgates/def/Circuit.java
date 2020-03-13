@@ -6,7 +6,6 @@ import edu.wit.yeatesg.logicgates.gui.EditorPanel;
 import edu.wit.yeatesg.logicgates.gui.Project;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 import edu.wit.yeatesg.logicgates.points.PanelDrawPoint;
-import javafx.application.Platform;
 import javafx.beans.value.ObservableValue;
 import javafx.scene.paint.Color;
 
@@ -15,16 +14,12 @@ import java.util.*;
 
 public class Circuit implements Dynamic {
 
-    public static final Color COL_BG = Color.WHITE;
-    public static final Color COL_GRID = Color.DARKGREY;
-    public static final Color COL_ORIGIN = Color.RED;
-
-    private Project project;
-
     public Circuit(Project p, String circuitName) {
         this.circuitName = circuitName;
         this.project = p;
+        this.new InterceptMap();
         p.addCircuit(this);
+
     }
 
     public Circuit() { }
@@ -35,9 +30,109 @@ public class Circuit implements Dynamic {
         return circuitName;
     }
 
+    private Project project;
+
     public EditorPanel getEditorPanel() {
         return project.getEditorPanel();
     }
+
+
+    private InterceptMap interceptMap;
+
+    public static class InterceptionList extends EntityList<Entity> { }
+
+    public InterceptMap getInterceptMap() {
+        return interceptMap;
+    }
+
+    /**
+     * Intercept map: Used to make the program efficient. Using a limited (however sill big) map size, we can track
+     * interceptions much easier. To get the intercepting entities of an Entity e, instead of having to loop through
+     * {@link Circuit#allEntities} and compare intercept points, we can instead loop through the intercept points of
+     * e, and for each CircuitPoint p, check the [x][y] coordinate of this Array that corresponds to p. This makes
+     * the program MUCH faster because the max iterations is determined by how many intercept points e has, instead
+     * of having to depend on the number of entities in the circuit because of having to loop through a list.
+     */
+    public class InterceptMap {
+
+        public static final int MAP_SIZE = 999; // Must be an odd number for origin to work properly. Don't break this rule.
+        public static final int MAP_OFFSET = ( (MAP_SIZE - 1) / 2 ) + 1 ; // This needs to be added to map.get(x, y) operations
+
+        private InterceptionList[][] map;
+
+        public InterceptMap() {
+            map = new InterceptionList[MAP_SIZE][MAP_SIZE];
+            for (int x = 0; x < map.length; x++)
+                for (int y = 0; y < map.length; y++)
+                    map[x][y] = new InterceptionList();
+            Circuit.this.interceptMap = this;
+        }
+
+        public void addInterceptPoint(int x, int y, Entity e) {
+            System.out.println("Add intercept point at " + x + " " + " " +  y + " for " + e);
+            if (get(x, y).contains(e))
+                throw new RuntimeException("Already Added");
+            get(x, y).add(e);
+        }
+
+        public void addInterceptPoint(CircuitPoint p, Entity e) {
+            addInterceptPoint((int) p.x, (int) p.y, e);
+        }
+
+        public void addInterceptPointsFor(Entity entity) {
+            for (CircuitPoint p : entity.getInterceptPoints()) {
+                addInterceptPoint(p, entity);
+            }
+        }
+
+        public void removeInterceptPoint(int x, int y, Entity e) {
+            System.out.println("Remove intercept point at " + x + " " + " " +  y + " for " + e);
+            if (get(x, y).remove(e))
+                return;
+            throw new RuntimeException("Could not remove interception entry for " + e + " at [" +  x + "]"
+                    + "[" + y + "] because there is no entry for this entity here");
+        }
+
+        public void removeInterceptPoint(CircuitPoint p, Entity e) {
+            removeInterceptPoint((int) p.x, (int) p.y, e);
+        }
+
+        public void removeInterceptPointsFor(Entity e) {
+            for (CircuitPoint intPoint : e.getInterceptPoints())
+                removeInterceptPoint(intPoint, e);
+        }
+
+        public InterceptionList get(int x, int y) {
+            return map[x + MAP_OFFSET][y + MAP_OFFSET];
+        }
+
+        public InterceptionList get(CircuitPoint c) {
+            return get((int) c.x, (int) c.y);
+        }
+
+        public InterceptionList getEntitiesThatIntercept(int x, int y) {
+            return get(x, y);
+        }
+        
+        public InterceptionList getEntitiesThatIntercept(CircuitPoint c) {
+            return getEntitiesThatIntercept((int) c.x, (int) c.y);
+        }
+        
+        public InterceptionList getEntitiesThatIntercept(Entity e) {
+            InterceptionList thatInterceptE = new InterceptionList();
+            for (CircuitPoint intPoint : e.getInterceptPoints())
+                for (Entity otherEntity : getEntitiesThatIntercept(intPoint))
+                    if (!thatInterceptE.contains(otherEntity) && otherEntity != e)
+                        thatInterceptE.add(otherEntity);  // We WANT != here instead of !equals(). This is because
+            return thatInterceptE; // we want to be able to check interceptions for similar entities
+        }                                            // that may be on the circuit
+    }
+
+    public static final Color COL_BG = Color.WHITE;
+    public static final Color COL_GRID = Color.DARKGREY;
+    public static final Color COL_ORIGIN = Color.RED;
+    
+
 
     // Pressing left arrow key on the panel shud shift the origin to the right
     // that means tht nums have to be added to the circuit point to get to the panel point
@@ -161,16 +256,8 @@ public class Circuit implements Dynamic {
         return getEntityList(true);
     }
 
-    public EntityList<Entity> getEntitiesWithinScope(BoundingBox scope) {
-        return scope.getInterceptingEntities();
-    }
-
     public EntityList<Entity> getAllEntitiesThatIntercept(CircuitPoint p) {
-        EntityList<Entity> list = new EntityList<>();
-        for (Entity e : getAllEntities())
-            if (e.intercepts(p))
-                list.add(e);
-        return list;
+        return interceptMap.getEntitiesThatIntercept(p);
     }
 
     public void refreshTransmissions() {
@@ -188,27 +275,27 @@ public class Circuit implements Dynamic {
 
     }
 
-    public LinkedList<Dependent> getDependents() {
-        return Dependent.getDependentEntities(this);
-    }
-
     public EntityList<Entity> getEntityList(boolean clone) {
         return clone ? allEntities.clone() : allEntities;
     }
 
-    public void setEntityList(EntityList<Entity> list) {
-        allEntities = list;
+
+    /**
+     * This should be the ONLY way entities are added to the circuit
+     * @param entity
+     */
+    public void addEntity(Entity entity) {
+        allEntities.add(entity);
+        entity.onAddToCircuit();
     }
 
     public void removeEntity(Entity e) {
+        interceptMap.removeInterceptPointsFor(e);
         if (e instanceof ConnectibleEntity)
             ((ConnectibleEntity) e).disconnectAll();
         boolean removed = allEntities.remove(e);
-        if (removed) e.onDelete();
-    }
-
-    public void addEntity(Entity entity) {
-        allEntities.add(entity);
+        if (removed)
+            e.onDelete();
     }
 
     @SuppressWarnings("unchecked")
@@ -398,52 +485,6 @@ public class Circuit implements Dynamic {
         }
     }
 
-    // If it is a positive set, the opposite should be a deletion
-    // if it is a negative set, the opposite should be an addiiton. negative sets are easier to code im assuming -> false both easy kys
-    public class WireSetOperation extends StateChangeOperation {
-
-        private Wire w;
-        private CircuitPoint edge;
-        private CircuitPoint to;
-
-        public WireSetOperation(Wire w, CircuitPoint edge, CircuitPoint to) {
-            w = w.getSimilarEntity();
-            edge = edge.getSimilar();
-            to = to.getSimilar();
-            this.w = w;
-            this.edge = edge;
-            this.to = to;
-            System.out.println("New WireSetOperation " + this);
-        }
-
-        @Override
-        public StateChangeOperation getOpposite() {
-            return new EntityAddOperation(new Wire(edge, to, false));
-        }
-
-        @Override
-        public void operate() {
-            System.out.println("OPERATE: " + this);
-            for (Entity e : Circuit.this.getEntityList(true))
-                if (e instanceof Wire && e.equals(w))
-                    ((Wire) e).set(edge, to);
-        }
-
-        @Override
-        public ConnectibleEntity getRelevantConnectibleEntity() {
-            return w;
-        }
-
-        @Override
-        public String toString() {
-            return "WireSetOperation{" +
-                    "w=" + w +
-                    ", edge=" + edge +
-                    ", to=" + to +
-                    '}';
-        }
-    }
-
     public class EntityDeleteOperation extends StateChangeOperation {
 
         private Entity deleting;
@@ -463,10 +504,11 @@ public class Circuit implements Dynamic {
         public void operate() {
             System.out.println("OPERATE: " + this);
             System.out.println("DELETE A WIRE THAT IS SIMILAR TO " + deleting);
+            EntityList<Entity> scope = deleting.getInterceptingEntities(); // Whatever we end up deleting/shortening is going to touch this similar wire, 'deleting' in some way
             Circuit c = project.getCurrentCircuit();
             if (deleting instanceof Wire) {
                 Wire del = (Wire) deleting;
-                for (Entity e : c.getEntityList(true)) {
+                for (Entity e : scope) {
                     if ( ( e instanceof Wire && del.eats((Wire) e) ) || del.isSimilar(e)) {
                         e.delete();
                         System.out.println("DELETE " + e + " BECAUSE THE WIRE WE R DELETING EATS IT, OR ITS SIMM SIMMA. SIMM SIMMA? KEYS TO MY BIMMA. " + del.isSimilar(e));
@@ -494,7 +536,7 @@ public class Circuit implements Dynamic {
                     }
                 }
             } else {
-                for (Entity e : Circuit.this.getEntityList(true))
+                for (Entity e : scope)
                     if (e.isSimilar(deleting))
                         e.delete();
             }

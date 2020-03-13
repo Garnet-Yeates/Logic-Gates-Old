@@ -38,29 +38,8 @@ public class EditorPanel extends Pane {
         viewOrigin();
     }
 
-    private Circuit theoreticalCircuit;
-
-    public Circuit getTheoreticalCircuit() {
-        return theoreticalCircuit;
-    }
-
-    public void setTheoreticalCircuit(Circuit theo) {
-        theoreticalCircuit = theo;
-    }
-
-    public boolean hasTheoreticalCircuit() {
-        return theoreticalCircuit != null;
-    }
-
-
     public GraphicsContext getGraphicsContext() {
         return canvas.getGraphicsContext2D();
-    }
-
-    public EntityList<Entity> getScreenScope() {
-        BoundingBox b = new BoundingBox(panelDrawPointAt(0, 0), panelDrawPointAt(canvasWidth(), canvasHeight()), null);
-        b.getExpandedBy(8);
-        return b.getInterceptingEntities();
     }
 
     public void setListeners() {
@@ -168,6 +147,10 @@ public class EditorPanel extends Pane {
         System.out.println("MOUSE PRESS " + e.getButton());
         updateMousePos(e);
         System.out.println(circuitPointAtMouse(true) + " AT MOUSE");
+        System.out.println("INTERCEPT MAP ENTRIES AT MOUSE: ");
+        for (Entity ent : getCurrentCircuit().getInterceptMap().get(circuitPointAtMouse(true))) {
+            System.out.println("  " + ent);
+        }
 
         if (e.getButton() == MouseButton.MIDDLE) {
             // Middle Click Processing
@@ -550,11 +533,7 @@ public class EditorPanel extends Pane {
         if (calledFrom != null && calledFrom.getCircuitName().contains("theoretical"))
             return;
         Project p = currProject;
-        Circuit c = hasTheoreticalCircuit() ? theoreticalCircuit : p.getCurrentCircuit();
-        if (c == theoreticalCircuit) {
-            c.setOffset(p.getCurrentCircuit().getOffset());
-            c.setScale((int) p.getCurrentCircuit().getScale());
-        }
+        Circuit c = getCurrentCircuit();
         Platform.runLater(() -> {
             double width = canvasWidth();
             double height = canvasHeight();
@@ -602,7 +581,6 @@ public class EditorPanel extends Pane {
     private PullPoint currentPullPoint;
 
     private enum PullPointState { DELETE_ONLY, DELETE_ONLY_BUT_CANT, CREATE_DELETE, CREATE }
-
 
     private boolean canUserShiftState = true;
 
@@ -739,16 +717,13 @@ public class EditorPanel extends Pane {
                     theos = theos == null ? new ArrayList<>() : theos;
                     for (Wire t : theos) { // 'new Wire' automatically adds it to the theoretical circuit
                         System.out.println("ADDACIOUS ADD: " + "[[ " + t.getStartLocation().toParsableString() + " " + t.getEndLocation().toParsableString() + " ]]");;
-                        for (Entity ent : getCurrentCircuit().getAllEntities().thatInterceptAny(t.getStartLocation(), t.getEndLocation())) {
-                            System.out.println("THIS HERE ENTITY WAS NEER ADDACIOUS POINTS");
-                        }
                         Wire added = new Wire(t.getStartLocation().clone(), t.getEndLocation().clone());
                         getCurrentCircuit().new EntityAddOperation(new Wire(t.getStartLocation().clone(), t.getEndLocation().clone(), false));
                     }
                 } else { // Delete
                     Wire toModify = getCurrentCircuit().getAllEntitiesOfType(Wire.class).thatInterceptAll(start, end).get(0);
                     toModify.set(start, end);
-                    getCurrentCircuit().new WireSetOperation(toModify, start, end);
+                    getCurrentCircuit().new EntityDeleteOperation(new Wire(start.clone(), end.clone(), false));
                 }
             } else {
                 System.out.println("not creation or deletion");

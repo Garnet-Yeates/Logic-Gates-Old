@@ -75,7 +75,7 @@ public class Vector {
     }
 
     public CircuitPoint addedTo(CircuitPoint point) {
-        return point.getIfModifiedBy(this);
+        return point.isSimilar(point.getGridSnapped()) ? point.getIfModifiedBy(this).getGridSnapped() : point.getIfModifiedBy(this);
     }
 
     public static Vector directionVectorFrom(CircuitPoint from, CircuitPoint to, Direction dir) {

@@ -5,6 +5,7 @@ import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 
 public class PointSet extends ArrayList<CircuitPoint> {
 
@@ -23,6 +24,10 @@ public class PointSet extends ArrayList<CircuitPoint> {
             for (int i = 0, j = 1; j < points.length; i += 2, j += 2)
                 circuitPoints[i / 2] = new CircuitPoint(points[i], points[j], c);
             this.addAll(Arrays.asList(circuitPoints));
+        }
+
+        public PointSet(Collection<CircuitPoint> coll) {
+            super(coll);
         }
 
         public PointSet() {
@@ -54,8 +59,23 @@ public class PointSet extends ArrayList<CircuitPoint> {
             return intersect;
         }
 
+        public PointSet complement(PointSet universe) {
+            PointSet complement = new PointSet(universe);
+            for (CircuitPoint p : universe)
+                if (contains(p))
+                    complement.remove(p);
+            return complement;
+        }
+
     @Override
     public PointSet clone() {
         return (PointSet) super.clone();
+    }
+
+    public PointSet deepClone() {
+       PointSet deepClone = new PointSet(size());
+       for (CircuitPoint p : this)
+           deepClone.add(p.clone());
+       return deepClone;
     }
 }

@@ -83,8 +83,8 @@ public class BoundingBox {
                 new CircuitPoint(p4.x + amount, p4.y + amount, p1.getCircuit()), owner);
     }
 
-    public PointSet getGridPointsWithin() {
-        return gridPointsWithin;
+    public PointSet getInterceptPoints() {
+        return gridPointsWithin.deepClone();
     }
 
     public boolean intercepts(CircuitPoint p) {
@@ -108,13 +108,13 @@ public class BoundingBox {
     }
 
     public boolean intercepts(Entity e) {
-        for (CircuitPoint intPoint : e.getInterceptPoints(false))
+        for (CircuitPoint intPoint : e.getInterceptPoints())
             if (intercepts(intPoint))
                 return true;
         return false;
     }
 
-    public EntityList<Entity> getInterceptingEntities( ) {
+    public EntityList<Entity> getInterceptingEntities() {
         EntityList<Entity> interceptors = new EntityList<>();
         for (Entity e : p1.getCircuit().getAllEntities())
             if (intercepts(e))

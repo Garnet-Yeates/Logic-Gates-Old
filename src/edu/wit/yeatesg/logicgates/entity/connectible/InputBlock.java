@@ -28,6 +28,7 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
         this.origin = origin;
         this.rotation = rotation;
         drawPoints = getRelativePointSet().applyToOrigin(origin, rotation);
+        interceptPoints = getBoundingBox().getInterceptPoints();
         establishOutputNode(drawPoints.get(0));
         out = (OutputNode) getNodeAt(drawPoints.get(0));
         updateInvalidInterceptPoints();
@@ -130,11 +131,6 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
     }
 
     @Override
-    public PointSet getInterceptPointsRef() {
-        return getBoundingBox().getGridPointsWithin();
-    }
-
-    @Override
     public PointSet getInvalidInterceptPoints(Entity e) {
         if (e instanceof Wire)
             return e.getInvalidInterceptPoints(this);
@@ -172,17 +168,15 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
     @Override
     public boolean canConnectTo(ConnectibleEntity e, CircuitPoint at) {
         return e instanceof Wire
+                && canConnectToGeneral(e)
                 && hasNodeAt(at)
-                && (getNumEntitiesConnectedAt(at) == 0)
-                && !e.isDeleted();
+                && (getNumEntitiesConnectedAt(at) == 0);
     }
 
     @Override
     public void connectCheck(ConnectibleEntity e) {
-        if (deleted || e.isDeleted() || isInvalid() || e.isInvalid())
-            return;
         CircuitPoint nodeLoc = drawPoints.get(0);
-        if (canConnectTo(e, nodeLoc) && e.canConnectTo(this, nodeLoc) && !deleted && !e.isDeleted())
+        if (canConnectTo(e, nodeLoc) && e.canConnectTo(this, nodeLoc))
                 connect(e, nodeLoc);
     }
 

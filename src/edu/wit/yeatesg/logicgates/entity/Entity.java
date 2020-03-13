@@ -32,8 +32,12 @@ public abstract class Entity implements Dynamic {
 
     protected boolean preview;
 
-    public boolean izPreview() {
+    public boolean isPreview() {
         return preview;
+    }
+
+    public void onAddToCircuit() {
+        getCircuit().getInterceptMap().addInterceptPointsFor(this);
     }
 
 
@@ -108,28 +112,30 @@ public abstract class Entity implements Dynamic {
 
     public abstract BoundingBox getBoundingBox();
 
-    /**
-     * Returns a reference to this Entity's intercept points
-     * @return a PointSet containing this entities intercept CircuitPoints
-     */
-    protected abstract PointSet getInterceptPointsRef();
+    protected PointSet interceptPoints;
 
-    public PointSet getInterceptPoints(boolean clone) {
-        return clone ? getInterceptPointsRef().clone() : getInterceptPointsRef();
+    public PointSet getInterceptPoints() {
+        return interceptPoints.deepClone();
     }
 
+    public boolean intercepts(Entity e, CircuitPoint at) {
+        return this.getInterceptPoints().contains(at) && e.getInterceptPoints().contains(at);
+    }
 
     public PointSet getInterceptPoints(Entity other) {
-        return getInterceptPoints(false).intersection(other.getInterceptPoints(false));
+        return getInterceptPoints().intersection(other.getInterceptPoints());
     }
 
+    public EntityList<Entity> getInterceptingEntities() {
+        return getCircuit().getInterceptMap().getEntitiesThatIntercept(this);
+    }
 
     public boolean intercepts(Entity other) {
         return getInterceptPoints(other).size() > 0;
     }
 
     public final boolean intercepts(CircuitPoint p) {
-        return getInterceptPoints(false).contains(p);
+        return getInterceptPoints().contains(p);
     }
 
     public boolean intercepts(BoundingBox b) {
@@ -175,7 +181,7 @@ public abstract class Entity implements Dynamic {
 
     public void updateInvalidInterceptPoints(boolean subCall) {
         invalidInterceptPoints.clear();
-        for (Entity other : c.getEntitiesWithinScope(getBoundingBox().getExpandedBy(5))) {
+        for (Entity other : getInterceptingEntities()) {
             PointSet invalidInterceptPoints = getInvalidInterceptPoints(other);
             if (invalidInterceptPoints.size() > 0)
                 invalidInterceptPoints.addAll(getInvalidInterceptPoints(other));
@@ -190,8 +196,8 @@ public abstract class Entity implements Dynamic {
     public EntityList<Entity> getInvalidlyInterceptingEntities() {
         EntityList<Entity> list = new EntityList<>();
         for (CircuitPoint p : invalidInterceptPoints)
-            for (Entity e : getCircuit().getAllEntities())
-                if (e.intercepts(p) && !list.contains(e))
+            for (Entity e : getCircuit().getInterceptMap().get(p))
+                if (!list.contains(e))
                     list.add(e);
         return list.clone();
     }

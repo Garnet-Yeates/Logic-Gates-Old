@@ -6,6 +6,7 @@ import edu.wit.yeatesg.logicgates.entity.connectible.Wire;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.function.Consumer;
 
@@ -13,6 +14,10 @@ public class EntityList<E extends Entity> extends ArrayList<E> {
 
     public EntityList(int size) {
         super(size);
+    }
+
+    public EntityList(Collection<? extends E> list) {
+        super(list);
     }
 
     public EntityList() {
@@ -139,65 +144,6 @@ public class EntityList<E extends Entity> extends ArrayList<E> {
         remove(e);
         return this;
     }
-
-    /**
-     * Represents an Iterable interval [start,end) where start is inclusive and end is exclusive
-     */
-    private static class Interval implements Iterable<Integer> {
-
-        int start;
-        int end;
-
-        public Interval(int start, int end) {
-            this.start = start;
-            this.end = end;
-        }
-
-        public static Interval[] splitIntoIntervals(int range, int numIntervals) {
-            Interval[] intervals = new Interval[numIntervals];
-            for (int i = 0, j = 1; i < numIntervals; i++, j++)
-                intervals[i] = new Interval((i / numIntervals) * range, (j / numIntervals) * range);
-            return intervals;
-        }
-
-        @Override
-        public Iterator<Integer> iterator() {
-            return new IntervalIterator();
-        }
-
-        public class IntervalIterator implements Iterator<Integer> {
-            int curr = start;
-
-            @Override
-            public boolean hasNext() {
-                return curr < end;
-            }
-
-            @Override
-            public Integer next() {
-                return curr++;
-            }
-        }
-    }
-
-    public void multiThreadForEach(Consumer<E> consumer, int numThreads) {
-        Thread[] threads = new Thread[numThreads];
-        Interval[] intervals = Interval.splitIntoIntervals(size(), numThreads);
-        for (int i = 0; i < intervals.length; i++) {
-            Interval interval = intervals[i];
-            threads[i] = new Thread(() -> {
-                interval.iterator().forEachRemaining((index) -> {
-                    consumer.accept(get(index));
-                });
-            });
-            threads[i].start();
-        }
-        for (Thread t : threads)
-            try { t.join(); } catch (InterruptedException ignored) { ignored.printStackTrace(); System.exit(0); }
-    }
-
-
-
 
     @SuppressWarnings("unchecked")
     public EntityList<E> clone() {

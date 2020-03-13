@@ -13,7 +13,6 @@ import javafx.scene.paint.Color;
 
 import static edu.wit.yeatesg.logicgates.entity.connectible.Dependent.*;
 
-import java.util.ArrayList;
 import java.util.LinkedList;
 
 public class SimpleGateAND extends ConnectibleEntity implements Rotatable {
@@ -28,6 +27,7 @@ public class SimpleGateAND extends ConnectibleEntity implements Rotatable {
         this.origin = origin;
         this.rotation = rotation;
         drawPoints = getRelativePointSet().applyToOrigin(origin, rotation);
+        interceptPoints = getBoundingBox().getInterceptPoints();
         establishOutputNode(drawPoints.get(0));
         out = (OutputNode) getNodeAt(drawPoints.get(0));
         establishInputNode(drawPoints.get(7));
@@ -84,11 +84,6 @@ public class SimpleGateAND extends ConnectibleEntity implements Rotatable {
     public int getLineWidth() {
         return c.getLineWidth();
       //  return (int) (c.getLineWidth() * 0.8);
-    }
-
-    @Override // FIXME this doesnt return a ref
-    public PointSet getInterceptPointsRef() {
-        return getBoundingBox().getGridPointsWithin();
     }
 
     @Override
@@ -250,17 +245,15 @@ public class SimpleGateAND extends ConnectibleEntity implements Rotatable {
     @Override
     public boolean canConnectTo(ConnectibleEntity e, CircuitPoint at) {
         return e instanceof Wire
+                && canConnectToGeneral(e)
                 && hasNodeAt(at)
-                && (getNumEntitiesConnectedAt(at) == 0)
-                && !e.isDeleted();
+                && (getNumEntitiesConnectedAt(at) == 0);
     }
 
     @Override
     protected void connectCheck(ConnectibleEntity e) {
-        if (deleted || e.isDeleted() || isInvalid() || e.isInvalid())
-            return;
         for (CircuitPoint nodeLoc : connections.getEmptyConnectionLocations()) {
-            if (canConnectTo(e, nodeLoc) && e.canConnectTo(this, nodeLoc) && !deleted && !e.isDeleted()) {
+            if (canConnectTo(e, nodeLoc) && e.canConnectTo(this, nodeLoc)) {
                 connect(e, nodeLoc);
             }
         }

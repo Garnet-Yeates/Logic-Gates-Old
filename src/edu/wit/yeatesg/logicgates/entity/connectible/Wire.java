@@ -7,11 +7,9 @@ import edu.wit.yeatesg.logicgates.entity.EntityList;
 import edu.wit.yeatesg.logicgates.entity.PointSet;
 import edu.wit.yeatesg.logicgates.def.*;
 import edu.wit.yeatesg.logicgates.entity.PropertyList;
-import edu.wit.yeatesg.logicgates.gui.EditorPanel;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 import edu.wit.yeatesg.logicgates.points.PanelDrawPoint;
 import javafx.beans.value.ObservableValue;
-import javafx.collections.transformation.SortedList;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
@@ -30,15 +28,15 @@ public class Wire extends ConnectibleEntity implements Dependent {
             throw new RuntimeException("Invalid Wire");
         this.startLocation = startLocation;
         this.endLocation = endLocation;
-        updateInterceptPoints();
+        resetInterceptPoints(); // Wire should be the ONLY entity with this method
         postInit(addToCircuit);
     }
 
     @Override
     public void postInit(boolean addToCircuit) {
         if (addToCircuit) {
-            for (Wire w : c.getAllEntitiesOfType(Wire.class)) {
-                if (isSimilar(w))
+            for (Wire w : getInterceptingEntities().ofType(Wire.class)) {
+                if (isSimilar(w) || eats(w) || w.eats(this))
                     throw new RuntimeException("Duplicate/Similar Wire on Circuit " + startLocation.getCircuit().getCircuitName() + " "
                             + startLocation + " " + endLocation);
             }
@@ -53,13 +51,52 @@ public class Wire extends ConnectibleEntity implements Dependent {
      * @return
      */
     public CircuitPoint getFirstEdgePoint() {
-        return getDirection() == Direction.HORIZONTAL ? (
+        return isHorizontal() ? (
                 startLocation.x < endLocation.x ? startLocation : endLocation)
-                : (startLocation.y < endLocation.y ? startLocation : endLocation);
+                : (startLocation.y < endLocation.y ? startLocation : endLocation).getSimilar();
     }
 
     public CircuitPoint getSecondEdgePoint() {
         return getOppositeEdgePoint(getFirstEdgePoint());
+    }
+
+    /**
+     * Iterator that goes from
+     * @return
+     */
+    public Iterator<CircuitPoint> edgeToEdgeIterator() {
+        CircuitPoint firstEdge = getFirstEdgePoint();
+        CircuitPoint secondEdge = getSecondEdgePoint();
+        return new Iterator<>() {
+            int size = getLength();
+            int cursor = 0;
+            Vector dir = new Vector(firstEdge, secondEdge).getUnitVector();
+            CircuitPoint curr = firstEdge.getSimilar();
+
+            @Override
+            public boolean hasNext() {
+                return cursor < size;
+            }
+
+            @Override
+            public CircuitPoint next() {
+                CircuitPoint returning = curr.getSimilar();
+                cursor++;
+                curr = dir.addedTo(curr);
+                System.out.println("next() returns " + returning);
+                return returning;
+            }
+        };
+    }
+
+    /**
+     * Doesn't look at interceptPoints.size() because we use this method when we are updating the interceptpoints
+     * @return
+     */
+    public int getLength() {
+        CircuitPoint first = getFirstEdgePoint(); // If horizontal, first is the left point
+        CircuitPoint second = getSecondEdgePoint(); // If vertical, first is higher
+        return isHorizontal() ? (int) (second.x - first.x) + 1 : (int) (second.y - first.y) + 1;
     }
 
     @Override
@@ -67,9 +104,6 @@ public class Wire extends ConnectibleEntity implements Dependent {
         return new Wire(startLocation.clone(c), endLocation.clone(c), false);
     }
 
-    public int getLength() {
-        return interceptPoints.size();
-    }
 
     public boolean eats(Wire other) {
         return intercepts(other.getStartLocation()) && intercepts(other.getEndLocation()) && getLength() > other.getLength();
@@ -126,30 +160,34 @@ public class Wire extends ConnectibleEntity implements Dependent {
         return "Wire";
     }
 
+
+
     /**
-     * Obtains a direct reference to this Wire's interceptPoints
-     * @return a PointSet representing all of the intercept points of this Wire
+     * Note to self: Wire should be the only Entity whose intercept points can be updated without the entity
+     * having to be deleted and reconstructed. This is because of the special property that Wires have where they
+     * merge and bisect each other.
      */
-    @Override
-    public PointSet getInterceptPointsRef() {
-        return interceptPoints;
-    }
-
-    private PointSet interceptPoints;
-
-    public void updateInterceptPoints() {
+    public void resetInterceptPoints() {
+        PointSet oldInterceptPoints = interceptPoints;
         interceptPoints = new PointSet();
-        if (startLocation.x == endLocation.x) {
-            CircuitPoint lower = startLocation.y > endLocation.y ? startLocation : endLocation;
-            CircuitPoint higher = lower == startLocation ? endLocation : startLocation;
-            for (int y = (int) higher.y; y <= lower.y; y++)
-                interceptPoints.add(new CircuitPoint(higher.x, y, c));
-        } else {
-            CircuitPoint lefter = startLocation.x > endLocation.x ? endLocation : startLocation;
-            CircuitPoint righter = lefter == startLocation ? endLocation : startLocation;
-            for (int x = (int) lefter.x; x <= righter.x; x++)
-                interceptPoints.add(new CircuitPoint(x, lefter.y, c));
+        if (oldInterceptPoints != null && oldInterceptPoints.size() == interceptPoints.size())
+            throw new RuntimeException("Invalid UpdateInterceptPoints. The size of the PointSet is not different");
+        else {
+            edgeToEdgeIterator().forEachRemaining(intPoint -> interceptPoints.add(intPoint));
+            if (oldInterceptPoints != null) {
+                if (oldInterceptPoints.size() > interceptPoints.size()) { // Negative wire set, remove intercept entries
+                    System.out.println("Negative set");
+                    for (CircuitPoint p : interceptPoints.intersection(oldInterceptPoints).complement(oldInterceptPoints))
+                        c.getInterceptMap().removeInterceptPoint(p, this);
+                } else { // Positive set, add intercept entries
+                    System.out.println("Positive set");
+                    for (CircuitPoint p : oldInterceptPoints.intersection(interceptPoints).complement(interceptPoints))
+                        c.getInterceptMap().addInterceptPoint(p, this);
+                }
+            }
         }
+
+
     }
 
     @Override
@@ -184,15 +222,15 @@ public class Wire extends ConnectibleEntity implements Dependent {
     public PointSet getInterceptPoints(Entity other) {
         if (other instanceof Wire) {
             if (((Wire) other).getDirection() == getDirection())
-                return other.getInterceptPoints(false).intersection(getInterceptPoints(false));
+                return other.getInterceptPoints().intersection(getInterceptPoints());
             else {
                 PointSet interceptPoints = new PointSet();
                 for (CircuitPoint edgePoint : getEdgePoints())
-                    for (CircuitPoint otherPoint : other.getInterceptPoints(false))
+                    for (CircuitPoint otherPoint : other.getInterceptPoints())
                         if (edgePoint.equals(otherPoint) && !interceptPoints.contains(otherPoint))
                             interceptPoints.add(edgePoint);
                 for (CircuitPoint otherEdgePoint : ((Wire) other).getEdgePoints())
-                    for (CircuitPoint thisPoint : getInterceptPoints(false))
+                    for (CircuitPoint thisPoint : getInterceptPoints())
                         if (otherEdgePoint.equals(thisPoint) && !interceptPoints.contains(thisPoint))
                             interceptPoints.add(thisPoint);
                 return interceptPoints;
@@ -211,8 +249,18 @@ public class Wire extends ConnectibleEntity implements Dependent {
         return startLocation.x == endLocation.x ? Direction.VERTICAL : Direction.HORIZONTAL;
     }
 
+    public boolean isVertical() {
+        return getDirection() == Direction.VERTICAL;
+    }
+
+    public boolean isHorizontal() {
+        return getDirection() == Direction.HORIZONTAL;
+    }
+
     public PointSet getPointsExcludingEdgePoints() {
-        PointSet pts = getInterceptPoints(true);
+        System.out.println("getPointsExcludingEdgePointsFor " + this);
+        System.out.println("getInterceptPoints size " + getInterceptPoints().size());
+        PointSet pts = getInterceptPoints();
         pts.remove(0);
         pts.remove(pts.size() - 1);
         return pts;
@@ -223,8 +271,6 @@ public class Wire extends ConnectibleEntity implements Dependent {
 
     @Override
     public void connectCheck() {
-        if (deleted || isInvalid())
-            return;
         bisectCheck();
         mergeCheck();
         super.connectCheck();
@@ -232,20 +278,15 @@ public class Wire extends ConnectibleEntity implements Dependent {
 
     @Override
     public void connectCheck(ConnectibleEntity e) {
-        if (deleted || e.isDeleted())
-            return;
         for (CircuitPoint edgePoint : getEdgePoints()) {
-            if (canConnectTo(e, edgePoint) && e.canConnectTo(this, edgePoint) && !deleted && !e.isDeleted())
+            if (canConnectTo(e, edgePoint) && e.canConnectTo(this, edgePoint))
                 connect(e, edgePoint);
         }
     }
 
     @Override
     public boolean canConnectTo(ConnectibleEntity e, CircuitPoint at) {
-        if (isEdgePoint(at)
-                && !hasConnectionTo(e)
-                && connections.size() < 4
-                && !e.isDeleted()) {
+        if (isEdgePoint(at) && connections.size() < 4 && canConnectToGeneral(e)) {
             if (e instanceof Wire) {
                 Wire other = (Wire) e;
                 return getDirection() != other.getDirection() || other.getNumOtherEdgePointsAt(at) > 1;
@@ -257,20 +298,9 @@ public class Wire extends ConnectibleEntity implements Dependent {
 
 
     public void connect(ConnectibleEntity e, CircuitPoint atLocation) {
-        if (isInvalid() || deleted || e.isInvalid() || e.isDeleted())
-            throw new RuntimeException("Cannot connect. At least one of these wires is deleted/invalid/preview");
-        if (!atLocation.equals(startLocation) && !atLocation.equals(endLocation))
-            throw new RuntimeException("Wires can only be connected at end points! (w1)");
-        if (hasConnectionTo(e) || e.hasConnectionTo(this))
-            throw new RuntimeException(this + " is Already Connected To " + e);
         if (!canConnectTo(e, atLocation) || !e.canConnectTo(this, atLocation))
             throw new RuntimeException("canConnectTo returned false");
         if (e instanceof Wire) {
-            Wire w = (Wire) e;
-            if (!atLocation.equals(w.startLocation) && !atLocation.equals(w.endLocation))
-                throw new RuntimeException("Wires can only be connected at end points! (w2)");
-            if (w.getDirection() == getDirection() && w.getNumOtherEdgePointsAt(atLocation) == 1)
-                throw new RuntimeException("These wires cannot connect because they need to be merged");
             connections.add(new ConnectionNode(atLocation, this, e));
             e.connections.add(new ConnectionNode(atLocation, e, this));
         } else if (e instanceof InputBlock) {
@@ -300,8 +330,8 @@ public class Wire extends ConnectibleEntity implements Dependent {
         private Wire[] resultingWires = new Wire[2];
 
         public WireBisect(Wire w1, Wire w2, CircuitPoint bisectPoint) {
-            if (w1.isInvalid() || w1.deleted || w2.isInvalid() || w2.deleted)
-                throw new RuntimeException("At least one of the Wires is deleted or invalid or any combo of those");
+            if (!w1.isInConnectibleState() || !w2.isInConnectibleState() || w1.isSimilar(w2))
+                throw new RuntimeException("At least one of the Wires is deleted or invalid or similar or any combo of those");
             if (w1.getCircuit() != w2.getCircuit()
                     || !w1.getEdgePoints().contains(bisectPoint)
                     || w2.getEdgePoints().contains(bisectPoint)
@@ -332,23 +362,13 @@ public class Wire extends ConnectibleEntity implements Dependent {
 
     }
 
-    public WireBisect getBisect(Wire other) {
-        if (isInvalid() || deleted || other.isInvalid() || other.deleted)
-            return null;
-        for (CircuitPoint thisWiresEndpoint : new CircuitPoint[]{startLocation, endLocation}) {
-            if (other.interceptsExcludingEdgePoints(thisWiresEndpoint)
-                    && other.getDirection() != getDirection()) // This means it is bisecting the wire
-                return new WireBisect(this, other, thisWiresEndpoint);
-        }
-        return null;
-    }
 
     public void bisectCheck() {
-        if (deleted || isInvalid())
+        if (!isInConnectibleState())
             return;
-        ArrayList<Wire> allWires = c.getAllEntitiesOfType(Wire.class, false);
-        for (Wire w : allWires) {
-            if (!w.deleted && !w.equals(this)) {
+        ArrayList<Wire> interceptingWires = getInterceptingEntities().ofType(Wire.class);
+        for (Wire w : interceptingWires) {
+            if (w.isInConnectibleState() && !w.isSimilar(this)) {
                 bisectCheck(w);
                 w.bisectCheck(this);
             }
@@ -357,9 +377,9 @@ public class Wire extends ConnectibleEntity implements Dependent {
     }
 
     public WireBisect bisectCheck(Wire other) {
-        if (isInvalid() || deleted || other.isInvalid() || other.deleted)
+        if (!isInConnectibleState() || !other.isInConnectibleState() || isSimilar(other))
             return null;
-        for (CircuitPoint thisWiresEndpoint : new CircuitPoint[]{startLocation, endLocation}) {
+        for (CircuitPoint thisWiresEndpoint : new CircuitPoint[]{ startLocation, endLocation }) {
             if (other.getPointsExcludingEdgePoints().contains(thisWiresEndpoint)
                     && other.getDirection() != getDirection()) {// This means it is bisecting the wire
                 WireBisect bisect = new WireBisect(this, other, thisWiresEndpoint);
@@ -398,8 +418,8 @@ public class Wire extends ConnectibleEntity implements Dependent {
                 throw new RuntimeException("These 2 wires are on a different Circuit in memory");
             if (!w1.getEdgePoints().contains(common) || !w2.getEdgePoints().contains(common))
                 throw new RuntimeException("These 2 wires do not share a common edge point");
-            if (w1.isInvalid() || w1.deleted || w2.isInvalid() || w2.deleted)
-                throw new RuntimeException("At least one of the Wires is deleted or invalid or any combo of those");
+            if (!w1.isInConnectibleState() || !w2.isInConnectibleState() || w1.isSimilar(w2))
+                throw new RuntimeException("At least one of the Wires is deleted or invalid or similar or any combo of those");
             this.c = w1.getCircuit();
             this.w1p = w1p;
             this.w2p = w2p;
@@ -409,10 +429,9 @@ public class Wire extends ConnectibleEntity implements Dependent {
         }
 
         public void doMerge() {
+            System.out.println("DO MERGE FOR W1 (" + w1 + ") AND W2 (" + w2 + "). DELETE W2, W1.SET(COMMON, OTHER EDGE OF W2)" );
             w2.delete(); // Checks done in delete
             w1.set(common, w2.getOppositeEdgePoint(common)); // Checks done in set
-            c.refreshTransmissions();
-            c.getEditorPanel().repaint(c);
         }
 
         public Wire getWireSimilarToResult() {
@@ -440,41 +459,22 @@ public class Wire extends ConnectibleEntity implements Dependent {
         }
     }
 
-    public WireMerge getMerge(Wire other) {
-        if (isInvalid() || deleted || other.isInvalid() || other.deleted)
-            return null;
-        for (CircuitPoint edgePoint : new CircuitPoint[]{startLocation, endLocation}) {
-            for (CircuitPoint otherEdgePoint : new CircuitPoint[]{other.startLocation, other.endLocation}) {
-                if (edgePoint.equals(otherEdgePoint)
-                        && other.getDirection() == getDirection()
-                        && !isSimilar(other)
-                        && !(other.deleted || deleted)
-                        && (other.getNumOtherEdgePointsAt(edgePoint) < 2)) { // TODO getNumOtherEdgePoints has n efficiency, not so great. Maybe later when disconnectAll() is calle, i can cache a list of the old ConnectionNodes (ONLY clone the node themselves, not their connectedto or any other data). And use those to check the required minumum # connections
-                    return new WireMerge(this, other, this.getOppositeEdgePoint(edgePoint), edgePoint, other.getOppositeEdgePoint(edgePoint));
-                }
-            }
-        }
-        return null;
-    }
-
     public void mergeCheck() {
-        if (deleted || isInvalid())
+        if (!isInConnectibleState())
             return;
-        ArrayList<Wire> allWires = c.getAllEntitiesOfType(Wire.class, false);
-        for (Wire w : allWires)
-            if (!w.deleted && !w.equals(this))
+        ArrayList<Wire> intercepingWires = getInterceptingEntities().ofType(Wire.class);
+        for (Wire w : intercepingWires)
+            if (!w.isSimilar(this) && w.isInConnectibleState())
                 mergeCheck(w);
     }
 
     public void mergeCheck(Wire other) {
-        if (isInvalid() || deleted || other.isInvalid() || other.deleted)
+        if (other.isSimilar(this) || !isInConnectibleState() || !other.isInConnectibleState())
             return;
         for (CircuitPoint edgePoint : new CircuitPoint[]{startLocation, endLocation}) {
             for (CircuitPoint otherEdgePoint : new CircuitPoint[]{other.startLocation, other.endLocation}) {
                 if (edgePoint.equals(otherEdgePoint)
                         && other.getDirection() == getDirection()
-                        && !isSimilar(other)
-                        && !(other.deleted || deleted)
                         && (other.getNumOtherEdgePointsAt(edgePoint) < 2)) {
                     WireMerge merge = new WireMerge(this, other,
                             this.getOppositeEdgePoint(edgePoint), edgePoint, other.getOppositeEdgePoint(edgePoint));
@@ -485,21 +485,11 @@ public class Wire extends ConnectibleEntity implements Dependent {
     }
 
     /**
-     * Extremely inefficient method. If this were to be called on every Entity in the Circuit, the efficiency will
-     * be N^2. The only reason this method is necessary is because sometimes we need to check lower bounds of
-     * connected entities. For example, in order for a wire to merge with another wire, the number of connections
-     * at the shared point for each of the wires must be 1. If there are 2 connections there, then it is bisected.
-     * Normally I would just use getNumEntitiesConnectedAt(), but this isn't possibl with lower bound checking right now
-     * because when connect/merge/bisectCheck is called, ALL entities are disconnected, so almost 100% of the time
-     * the lower bound condition willl return true. That is why for lower bounds I use getNumEdgePoints at. For upper
-     * bound checks it doesnt matter because you are checking a maximum so you can use getNumentitiesConnected at.
-     * Potential Solution: When disconnectAll() is called, save a list of the connection locations and use that.
-     * @param edgeOfThisWire
-     * @return
+     * No longer inefficient thanks to interceptMap
      */
     public int getNumOtherEdgePointsAt(CircuitPoint edgeOfThisWire) {
         int num = 0;
-        ArrayList<Wire> otherWires = c.getAllEntitiesOfType(Wire.class).except(this);
+        ArrayList<Wire> otherWires = getInterceptingEntities().ofType(Wire.class);
         for (Wire w : otherWires)
             if (w.startLocation.equals(edgeOfThisWire) || w.endLocation.equals(edgeOfThisWire))
                 num++;
@@ -525,17 +515,17 @@ public class Wire extends ConnectibleEntity implements Dependent {
 
 
     public CircuitPoint getStartLocation() {
-        return startLocation;
+        return startLocation.getSimilar();
     }
 
     public CircuitPoint getEndLocation() {
-        return endLocation;
+        return endLocation.getSimilar();
     }
 
     public LinkedList<CircuitPoint> getEdgePoints() {
         LinkedList<CircuitPoint> edgePoints = new LinkedList<>();
-        edgePoints.add(startLocation);
-        edgePoints.add(endLocation);
+        edgePoints.add(startLocation.getSimilar());
+        edgePoints.add(endLocation.getSimilar());
         return edgePoints;
     }
 
@@ -551,9 +541,9 @@ public class Wire extends ConnectibleEntity implements Dependent {
         if (!isEdgePoint(p))
             throw new RuntimeException();
         if (whichEdgePoint(p).equals("start"))
-            return endLocation;
+            return endLocation.getSimilar();
         else
-            return startLocation;
+            return startLocation.getSimilar();
 
     }
 
@@ -570,7 +560,7 @@ public class Wire extends ConnectibleEntity implements Dependent {
             startLocation = to;
         } else if (whichEdgePoint(edgePoint).equals("end"))
             endLocation = to;
-        updateInterceptPoints();
+        resetInterceptPoints();
         if (checkAfter)
             checkEntities(edgePoint, startLocation, endLocation, to);
         c.refreshTransmissions();
@@ -587,7 +577,7 @@ public class Wire extends ConnectibleEntity implements Dependent {
     public Color getColor() {
         try {
             return getState().getColor();
-        } catch (Exception e) {e.printStackTrace(); System.exit(0);}
+        } catch (Exception e) { System.out.println("No color for " + this); e.printStackTrace(); System.exit(0);}
         return null;
     }
 
@@ -779,17 +769,12 @@ public class Wire extends ConnectibleEntity implements Dependent {
                                                              int order,
                                                              boolean strictWithWires) {
             PermitList permitList = new PermitList();
-            int expansion = (SPLIT_DIST + OVERSHOOT_DIST) * order;
-            BoundingBox scopeBox = new BoundingBox(start, end, null);
-            scopeBox = scopeBox.getExpandedBy(expansion);
-            EntityList<Entity> scope = scopeBox.getInterceptingEntities();
-            return genWirePath(start, end, new ArrayList<>(), scope, initialDir, maxLength, 0, order, permitList, strictWithWires);
+            return genWirePath(start, end, new ArrayList<>(), initialDir, maxLength, 0, order, permitList, strictWithWires);
         }
 
         private ArrayList<TheoreticalWire> genWirePath(CircuitPoint start,
                                                               CircuitPoint end,
                                                               ArrayList<TheoreticalWire> currPath,
-                                                              EntityList<? extends Entity> scope,
                                                               Direction currDirection,
                                                               int maxLength,
                                                               int splitNum,
@@ -810,9 +795,9 @@ public class Wire extends ConnectibleEntity implements Dependent {
             // No supplied direction: try 2 directions in this case, use shortest of both
             if (currDirection == null) {
                 ArrayList<ArrayList<TheoreticalWire>> paths = new ArrayList<>();
-                paths.add(genWirePath(start, end, currPath, scope, Direction.HORIZONTAL, maxLength, splitNum,
+                paths.add(genWirePath(start, end, currPath, Direction.HORIZONTAL, maxLength, splitNum,
                         tryAllTillLength, permits, strictWithWires));
-                paths.add(genWirePath(start, end, currPath, scope, Direction.VERTICAL, maxLength, splitNum,
+                paths.add(genWirePath(start, end, currPath, Direction.VERTICAL, maxLength, splitNum,
                         tryAllTillLength, permits, strictWithWires));
                 return getShortestPath(paths);
             }
@@ -820,7 +805,7 @@ public class Wire extends ConnectibleEntity implements Dependent {
             // If start is in line with end
             if (start.isInLineWith(end)) {
                 currDirection = directionVecFromInLinePoints(start, end).getGeneralDirection(); // Fix dir potentially
-                TheoreticalWire potentialWire = getLongestSubWire(start, end, currPath, scope, permits, strictWithWires);
+                TheoreticalWire potentialWire = getLongestSubWire(start, end, currPath, permits, strictWithWires);
                 if (potentialWire != null && potentialWire.getEndLocation().equals(end)) {
                     currPath.add(potentialWire);
                     return currPath;
@@ -838,7 +823,7 @@ public class Wire extends ConnectibleEntity implements Dependent {
                     for (Vector v : orthogonals) {
                         CircuitPoint orthogonalEnd = v.getMultiplied(SPLIT_DIST).addedTo(orthogonalStart);
                         ArrayList<TheoreticalWire> subWires = getAllSubWires(orthogonalStart, orthogonalEnd,
-                                currPath, scope, permits, strictWithWires);
+                                currPath, permits, strictWithWires);
                         potentials.addAll(subWires);
                     }
                     ArrayList<ArrayList<TheoreticalWire>> paths = new ArrayList<>();
@@ -848,7 +833,7 @@ public class Wire extends ConnectibleEntity implements Dependent {
                         PermitList exceptionsClone = new PermitList(permits);
                         exceptionsClone.add(new InterceptPermit(theo, theo.getEndLocation()));
                         ArrayList<TheoreticalWire> generated = genWirePath(theo.getEndLocation(), end,
-                                currPathClone, scope, currDirection, maxLength, splitNum, tryAllTillLength,
+                                currPathClone, currDirection, maxLength, splitNum, tryAllTillLength,
                                 exceptionsClone, strictWithWires); // Don't switch dir because we already did perpendicular
                         if (generated != null)
                             paths.add(generated);
@@ -863,8 +848,7 @@ public class Wire extends ConnectibleEntity implements Dependent {
                 CircuitPoint trying = getPointInLineWith(start, end, currDirection);
                 if (currPath.size() < tryAllTillLength) { // SMART ALGORITHM, TRIES ALL SUB PATHS, BUT LESS EFFICIENT
                     // Calculate potentials from start to end
-                    EntityList<TheoreticalWire> pots = getAllSubWires(start, trying, currPath,
-                            scope, permits, strictWithWires);
+                    EntityList<TheoreticalWire> pots = getAllSubWires(start, trying, currPath, permits, strictWithWires);
 
                     // Pots is ordered Longest(at index 0) -> Shortest(at index len - 1). The longer the wire is,
                     // the closer it is to the user's mouse so we want to prioriize the longer ones if trying regular
@@ -885,7 +869,7 @@ public class Wire extends ConnectibleEntity implements Dependent {
                             PermitList permitsClone = new PermitList(permits);
                             permitsClone.add(new InterceptPermit(theo, theo.getEndLocation()));
                             generated = genWirePath(theo.getEndLocation(), end,
-                                    currPathClone, scope, nextDir, maxLength, splitNum, tryAllTillLength,
+                                    currPathClone, nextDir, maxLength, splitNum, tryAllTillLength,
                                     permitsClone, strictWithWires);
                             if (generated != null)
                                 paths.add(generated);
@@ -898,26 +882,25 @@ public class Wire extends ConnectibleEntity implements Dependent {
                         // Calculate potentials from start to trying + overshoot. Exclude potentials already done
                         Vector overShootVec = directionVecFromInLinePoints(start, trying).getMultiplied(OVERSHOOT_DIST);
                         CircuitPoint tryingPlusOne = overShootVec.getDivided(OVERSHOOT_DIST).addedTo(trying);
-                        pots.addAll(getAllSubWires(start, overShootVec.addedTo(trying), tryingPlusOne, currPath, scope,
+                        pots.addAll(getAllSubWires(start, overShootVec.addedTo(trying), tryingPlusOne, currPath,
                                 permits, strictWithWires));
                         // Calculate potentials from start to start + undershoot
                         Vector underShootVec = overShootVec.getMultiplied(-1);
                         CircuitPoint underShootPoint = underShootVec.addedTo(start);
-                        pots.addAll(getAllSubWires(start, underShootPoint, currPath,
-                                scope, permits, strictWithWires));
+                        pots.addAll(getAllSubWires(start, underShootPoint, currPath, permits, strictWithWires));
                         // Sort it so the shorter wires are first. For over/under shoot, we prioritize shorter wires
-                        pots.sort(Comparator.comparingInt(eachWire -> eachWire.getInterceptPoints(false).size()));
+                        pots.sort(Comparator.comparingInt(Wire::getLength));
                     } while (!tryingOverUnder);
 
                     return null;
 
                 } else { // LESS INTELLIGENT ALGORITHM, TRIES THE CLOSEST SUB WIRE TO END, MUCH MORE EFFICIENT
-                    TheoreticalWire potential = getLongestSubWire(start, trying, currPath, scope, permits, strictWithWires);
+                    TheoreticalWire potential = getLongestSubWire(start, trying, currPath, permits, strictWithWires);
                     if (potential != null) {
                         currPath.add(potential);
                         Direction nextDirection = currDirection.getPerpendicular();
                         permits.add(new InterceptPermit(potential, potential.getEndLocation()));
-                        return genWirePath(potential.getEndLocation(), end, currPath, scope, nextDirection, maxLength,
+                        return genWirePath(potential.getEndLocation(), end, currPath, nextDirection, maxLength,
                                 splitNum, tryAllTillLength, permits, strictWithWires);
                     }
                     return null;
@@ -928,18 +911,16 @@ public class Wire extends ConnectibleEntity implements Dependent {
 
         public static TheoreticalWire getLongestSubWire(CircuitPoint start, CircuitPoint end,
                                                         List<TheoreticalWire> alsoCantIntercept,
-                                                        EntityList<? extends Entity> scope,
                                                         PermitList exceptions,
                                                         boolean strictWithWires) {
-            return getLongestSubWire(start, end, start, alsoCantIntercept, scope, exceptions, strictWithWires);
+            return getLongestSubWire(start, end, start, alsoCantIntercept, exceptions, strictWithWires);
         }
 
         public static TheoreticalWire getLongestSubWire(CircuitPoint start, CircuitPoint end, CircuitPoint stop,
                                                         List<TheoreticalWire> alsoCantIntercept,
-                                                        EntityList<? extends Entity> scope,
                                                         PermitList exceptions,
                                                         boolean strictWithWires) {
-            ArrayList<TheoreticalWire> subWires = getSubWires(start, end, stop, alsoCantIntercept, scope,
+            ArrayList<TheoreticalWire> subWires = getSubWires(start, end, stop, alsoCantIntercept,
                     exceptions, strictWithWires, true);
             return subWires.size() == 0 ? null : subWires.get(0);
         }
@@ -947,20 +928,18 @@ public class Wire extends ConnectibleEntity implements Dependent {
         public static EntityList<TheoreticalWire> getAllSubWires(CircuitPoint start,
                                                                  CircuitPoint end,
                                                                  List<TheoreticalWire> alsoCantIntercept,
-                                                                 EntityList<? extends Entity> scope,
                                                                  PermitList exceptions,
                                                                  boolean strictWithWires) {
-            return getAllSubWires(start, end, start, alsoCantIntercept, scope, exceptions, strictWithWires);
+            return getAllSubWires(start, end, start, alsoCantIntercept, exceptions, strictWithWires);
         }
 
         public static EntityList<TheoreticalWire> getAllSubWires(CircuitPoint start,
                                                                  CircuitPoint end,
                                                                  CircuitPoint stop,
                                                                  List<TheoreticalWire> alsoCantIntercept,
-                                                                 EntityList<? extends Entity> scope,
                                                                  PermitList exceptions,
                                                                  boolean strictWithWires) {
-            return getSubWires(start, end, stop, alsoCantIntercept, scope, exceptions, strictWithWires, false);
+            return getSubWires(start, end, stop, alsoCantIntercept, exceptions, strictWithWires, false);
         }
 
 
@@ -968,7 +947,6 @@ public class Wire extends ConnectibleEntity implements Dependent {
                                                               CircuitPoint end,
                                                               CircuitPoint stop,
                                                               List<TheoreticalWire> cantIntercept,
-                                                              EntityList<? extends Entity> scope,
                                                               PermitList exceptions,
                                                               boolean strictWithWires,
                                                               boolean stopAtFirst) {
@@ -979,7 +957,7 @@ public class Wire extends ConnectibleEntity implements Dependent {
             end = end.clone();
             while (!end.equals(stop)) {
                 TheoreticalWire potentialWire = new TheoreticalWire(start, end);
-                boolean canPlace = canPlaceWithoutInterceptingAnything(potentialWire, cantIntercept, scope,
+                boolean canPlace = canPlaceWithoutInterceptingAnything(potentialWire, cantIntercept,
                         exceptions, strictWithWires);
                 if (canPlace) {
                     potentials.add(potentialWire);
@@ -995,10 +973,9 @@ public class Wire extends ConnectibleEntity implements Dependent {
 
         public static boolean canPlaceWithoutInterceptingAnything(TheoreticalWire wire,
                                                                   List<? extends Entity> alsoCantIntercept,
-                                                                  EntityList<? extends Entity> scope,
                                                                   PermitList exceptions,
                                                                   boolean strictWithWires) {
-            for (Entity e : scope)
+            for (Entity e : wire.getInterceptingEntities())
                 if (e.doesGenWireInvalidlyInterceptThis(wire, exceptions, strictWithWires))
                     return false;
             for (Entity e : alsoCantIntercept)
@@ -1010,7 +987,7 @@ public class Wire extends ConnectibleEntity implements Dependent {
         public static int getNumUnitsCovered(ArrayList<TheoreticalWire> path) {
             int units = 0;
             for (TheoreticalWire w : path)
-                units += w.getInterceptPoints(false).size();
+                units += w.getLength();
             return units;
         }
 
@@ -1042,7 +1019,7 @@ public class Wire extends ConnectibleEntity implements Dependent {
                 throw new RuntimeException("Invalid Theoretical Wire " + start + " to " + end);
             this.startLocation = start;
             this.endLocation = end;
-            updateInterceptPoints();
+            resetInterceptPoints();
         }
 
         private Color color = Color.ORANGE;
