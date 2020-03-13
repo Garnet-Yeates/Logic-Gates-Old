@@ -26,8 +26,6 @@ public abstract class ConnectibleEntity extends Entity {
     public void onAddToCircuit() {
         super.onAddToCircuit();
         connectCheck();
-        c.refreshTransmissions();
-        c.getEditorPanel().repaint(c);
     }
 
     protected abstract void determineOutputDependencies();
@@ -80,7 +78,7 @@ public abstract class ConnectibleEntity extends Entity {
 
     public abstract void connect(ConnectibleEntity e, CircuitPoint atLocation);
 
-    public abstract boolean canPullConnectionFrom(CircuitPoint locationOnThisEntity);
+    public abstract boolean canCreateWireFrom(CircuitPoint locationOnThisEntity);
 
     public abstract void disconnect(ConnectibleEntity e);
 
@@ -216,7 +214,7 @@ public abstract class ConnectibleEntity extends Entity {
 
     public abstract void determinePowerStateOf(OutputNode outputNode);
 
-    public abstract boolean isPullableLocation(CircuitPoint gridSnap);
+    public abstract boolean canPullPointGoHere(CircuitPoint gridSnap);
 
 
     public LinkedList<InputNode> getRelevantInputNodesFor(OutputNode out) {

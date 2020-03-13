@@ -10,6 +10,7 @@ public class InputNode extends ConnectionNode implements Dependent {
 
     public InputNode(CircuitPoint location, ConnectibleEntity connectingFrom, ConnectibleEntity connectedTo) {
         super(location, connectingFrom, connectedTo);
+        setState(State.UNDETERMINED);
     }
 
     public InputNode(CircuitPoint location, ConnectibleEntity connectingFrom) {

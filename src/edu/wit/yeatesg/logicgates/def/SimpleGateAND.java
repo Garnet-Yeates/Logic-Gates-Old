@@ -70,7 +70,7 @@ public class SimpleGateAND extends ConnectibleEntity implements Rotatable {
     }
 
     @Override
-    public boolean isPullableLocation(CircuitPoint gridSnap) {
+    public boolean canPullPointGoHere(CircuitPoint gridSnap) {
         return hasNodeAt(gridSnap);
     }
 
@@ -233,7 +233,7 @@ public class SimpleGateAND extends ConnectibleEntity implements Rotatable {
     }
 
     @Override
-    public boolean canPullConnectionFrom(CircuitPoint locationOnThisEntity) {
+    public boolean canCreateWireFrom(CircuitPoint locationOnThisEntity) {
         return connections.hasNodeAt(locationOnThisEntity) && getNodeAt(locationOnThisEntity).getConnectedTo() == null;
     }
 

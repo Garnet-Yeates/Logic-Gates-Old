@@ -147,7 +147,7 @@ public class Wire extends ConnectibleEntity implements Dependent {
     public void determinePowerStateOf(OutputNode outputNode) { /* Not Implemented For Wire, Has Volatile Nodes */ }
 
     @Override
-    public boolean isPullableLocation(CircuitPoint gridSnap) {
+    public boolean canPullPointGoHere(CircuitPoint gridSnap) {
         return intercepts(gridSnap);
     }
 
@@ -258,8 +258,6 @@ public class Wire extends ConnectibleEntity implements Dependent {
     }
 
     public PointSet getPointsExcludingEdgePoints() {
-        System.out.println("getPointsExcludingEdgePointsFor " + this);
-        System.out.println("getInterceptPoints size " + getInterceptPoints().size());
         PointSet pts = getInterceptPoints();
         pts.remove(0);
         pts.remove(pts.size() - 1);
@@ -313,7 +311,6 @@ public class Wire extends ConnectibleEntity implements Dependent {
             connections.add(new ConnectionNode(atLocation, this, e));
             gate.getNodeAt(atLocation).connectedTo = this;
         }
-        c.refreshTransmissions();
     }
 
 
@@ -352,8 +349,6 @@ public class Wire extends ConnectibleEntity implements Dependent {
             resultingWires[1] = new Wire(created.getStartLocation(), created.getEndLocation(), false);
             w2.connectCheck();
             w1.connectCheck();
-            c.refreshTransmissions();
-            c.getEditorPanel().repaint(c);
         }
 
         public LinkedList<Wire> getSimilarResultingWires() {
@@ -497,15 +492,15 @@ public class Wire extends ConnectibleEntity implements Dependent {
     }
 
     @Override
-    public boolean canPullConnectionFrom(CircuitPoint locationOnThisEntity) {
-        for (Entity e : getCircuit().getAllEntities())
-            if (e instanceof Wire
+    public boolean canCreateWireFrom(CircuitPoint locationOnThisEntity) {
+        for (Entity e : getCircuit().getEntitiesThatIntercept(locationOnThisEntity)) {
+            if (e instanceof Wire // Covers the case where 2 wires make a plus, but aren't connected
                     && !e.equals(this)
-                    && e.intercepts(locationOnThisEntity)
                     && ((Wire) e).getPointsExcludingEdgePoints().intersection(getPointsExcludingEdgePoints())
                         .contains(locationOnThisEntity))
                 return false;
-        return getNumEntitiesConnectedAt(locationOnThisEntity) < 3;
+        }
+        return getNumEntitiesConnectedAt(locationOnThisEntity) < 3; // General case
     }
 
     @Override
@@ -563,7 +558,6 @@ public class Wire extends ConnectibleEntity implements Dependent {
         resetInterceptPoints();
         if (checkAfter)
             checkEntities(edgePoint, startLocation, endLocation, to);
-        c.refreshTransmissions();
     }
 
     @Override
@@ -571,7 +565,6 @@ public class Wire extends ConnectibleEntity implements Dependent {
         disconnectAll();
         deleted = true;
         checkEntities(startLocation, endLocation);
-        c.refreshTransmissions();
     }
 
     public Color getColor() {
@@ -596,10 +589,12 @@ public class Wire extends ConnectibleEntity implements Dependent {
 
     public void drawJunction(GraphicsContext g, CircuitPoint loc) {
         g.setStroke(getColor());
-        g.setFill(getColor());
         int circleSize = (int) (getLineWidth() * 2.3);
         if (circleSize % 2 != 0) circleSize++;
         PanelDrawPoint dp = loc.toPanelDrawPoint();
+        g.setFill(Circuit.COL_BG);
+        g.fillOval(dp.x - circleSize / 2.00, dp.y - circleSize / 2.00, circleSize, circleSize);
+        g.setFill(getColor());
         g.fillOval(dp.x - circleSize / 2.00, dp.y - circleSize / 2.00, circleSize, circleSize);
     }
 
@@ -787,9 +782,9 @@ public class Wire extends ConnectibleEntity implements Dependent {
 
             // Add intercept permits
             if (currPath.size() == 0) // Add permit to start loc so the wires can intercept, if first path
-                for (Entity e : start.getCircuit().getAllEntitiesThatIntercept(start).ofType(ConnectibleEntity.class))
+                for (Entity e : start.getCircuit().getEntitiesThatIntercept(start).ofType(ConnectibleEntity.class))
                     permits.add(new InterceptPermit(e, start));
-            for (ConnectibleEntity ce : start.getCircuit().getAllEntitiesThatIntercept(end).ofType(ConnectibleEntity.class))
+            for (ConnectibleEntity ce : start.getCircuit().getEntitiesThatIntercept(end).ofType(ConnectibleEntity.class))
                 permits.add(new InterceptPermit(ce, end)); // Always add permit to end loc
 
             // No supplied direction: try 2 directions in this case, use shortest of both
@@ -1038,12 +1033,6 @@ public class Wire extends ConnectibleEntity implements Dependent {
             return "Theoretical" + super.toString();
         }
 
-        public static boolean doesAnyWireIntercept(CircuitPoint p) {
-            for (Wire w : p.getCircuit().getAllEntitiesOfType(Wire.class))
-                if (w.intercepts(p))
-                    return true;
-            return false;
-        }
 
     }
 }

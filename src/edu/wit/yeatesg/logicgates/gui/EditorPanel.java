@@ -57,11 +57,16 @@ public class EditorPanel extends Pane {
     }
 
     public void onKeyPressed(KeyEvent e) {
-        Circuit.CircuitStateChain stateController = getCurrentCircuit().stateController();
-        if (e.getCode() == Z && ctrl && stateController.canGoLeft())
+        Circuit c = getCurrentCircuit();
+        Circuit.CircuitStateChain stateController = c.stateController();
+        if (e.getCode() == Z && ctrl && stateController.canGoLeft()) {
             undo();
-        else if (e.getCode() == Y && ctrl && stateController.canGoRight())
+            c.refreshTransmissions();
+        }
+        else if (e.getCode() == Y && ctrl && stateController.canGoRight()) {
             redo();
+            c.refreshTransmissions();
+        }
         if (e.getCode() == DELETE)
             for (Entity en : currSelection)
                 en.delete();;
@@ -102,7 +107,7 @@ public class EditorPanel extends Pane {
 
     public void onMouseMoved(MouseEvent e) {
         CircuitPoint gridSnapAtMouse = circuitPointAtMouse(true);
-        this.new PullPoint(gridSnapAtMouse, gridSnapAtMouse);
+        this.new PullPoint(gridSnapAtMouse, gridSnapAtMouse, false);
         if (!canvas.isFocused())
             canvas.requestFocus();
         if (holdingSpace)
@@ -160,7 +165,6 @@ public class EditorPanel extends Pane {
             // Normal Left Click Processing
             pressPointGrid = circuitPointAtMouse(true);
             pressedOnSelectedEntity = currSelection.intercepts(panelDrawPointAtMouse());
-            this.new PullPoint(pressPointGrid, pressPointGrid);
             determineSelecting();
             repaint(getCurrentCircuit());
         } else if (e.getButton() == MouseButton.SECONDARY) {
@@ -187,7 +191,6 @@ public class EditorPanel extends Pane {
             if (currentPullPoint != null)
                 currentPullPoint.onRelease();
             determineSelectingMouseRelease();
-            this.new PullPoint(circuitPointAtMouse(true), circuitPointAtMouse(true));
             if (currSelectionBox != null)
                 onReleaseSelectionBox();
             pressPointGrid = null;
@@ -481,7 +484,7 @@ public class EditorPanel extends Pane {
 
     private void updatePossiblePullPoint() {
         CircuitPoint gridSnapAtMouse = circuitPointAtMouse(true);
-        this.new PullPoint(gridSnapAtMouse, gridSnapAtMouse);
+        this.new PullPoint(gridSnapAtMouse, gridSnapAtMouse, false);
     }
 
 
@@ -613,32 +616,36 @@ public class EditorPanel extends Pane {
 
         private boolean canDelete;
 
-        private EntityList<ConnectibleEntity> interceptingConnectibles;
 
-        public PullPoint(CircuitPoint location, CircuitPoint originalLoc) {
+        public PullPoint(CircuitPoint location, CircuitPoint originalLoc, boolean lock) {
             super(location.x, location.y, originalLoc.getCircuit());
+
+
+            System.out.println("NEW POOOOIL");
+            this.lock = lock;
             pressPoint = circuitPointAtMouse(true);
-            interceptingConnectibles = getCurrentCircuit().getAllEntitiesOfType(ConnectibleEntity.class).thatIntercept(pressPoint);
+            EntityList<ConnectibleEntity> cesAtStart = getCurrentCircuit().getEntitiesThatIntercept(pressPoint).ofType(ConnectibleEntity.class);
             pullDir = null;
             this.originalLoc = originalLoc;
-            if (!isPullableLocation(pressPoint) || currSelection.size() > 0) {
+            if (!canBePlacedHere(pressPoint) || currSelection.size() > 0) {
+                System.out.println("NULLIFIED");
                 currentPullPoint = null;
                 repaint(getCurrentCircuit());
                 return;
             }
             currentPullPoint = this;
-            if (originalLoc.equals(pressPoint))
+            if (originalLoc.equals(pressPoint) && !lock)
                 for (Wire w : getCurrentCircuit().getAllEntitiesOfType(Wire.class))
                     if (w.isEdgePoint(pressPoint))
                         canDelete = true;
-            if (!canCreateFromAll(interceptingConnectibles))
+            if (!canCreateFromAll(cesAtStart))
                 deleteOnly = true;
             repaint(getCurrentCircuit());
         }
 
-        public boolean isPullableLocation(CircuitPoint location) {
+        public boolean canBePlacedHere(CircuitPoint location) {
             for (ConnectibleEntity ce : getCurrentCircuit().getAllEntitiesOfType(ConnectibleEntity.class))
-                if (ce.isPullableLocation(location))
+                if (ce.canPullPointGoHere(location))
                     return true;
             return false;
         }
@@ -647,69 +654,61 @@ public class EditorPanel extends Pane {
             if (list.isEmpty())
                 return false;
             for (ConnectibleEntity e : list)
-                if (!e.canPullConnectionFrom(pressPoint))
+                if (!e.canCreateWireFrom(pressPoint))
                     return false;
             return true;
         }
 
         public void onDragGridSnapChange() {
-            Circuit currCirc = getCurrentCircuit();
-            System.out.println("ON DRAG GRIDSNAP CHANGE");
+            Circuit c = getCurrentCircuit();
+            CircuitPoint start = pressPoint.clone();
+            CircuitPoint end = circuitPointAtMouse(true);
+
             if (ppStateShift != 0) {
                 ppStateShift--;
-                System.out.println("LEFT/CLIP");
-                currCirc.stateController().goLeft();;
-                currCirc.stateController().clip();
+                c.stateController().goLeft();
+                c.stateController().clip();
             } else
-                currCirc.stateController().clearBuffer();
+                c.stateController().clearBuffer();
 
+            // Re-update intercepting connectibles after the state went back
+            EntityList<ConnectibleEntity> cesAtStart = getCurrentCircuit().getEntitiesThatIntercept(start).ofType(ConnectibleEntity.class);
+            EntityList<ConnectibleEntity> cesAtEnd = c.getEntitiesThatIntercept(end).ofType(ConnectibleEntity.class);
+            EntityList<Wire> startAndEndWires = cesAtStart.thatIntercept(end).ofType(Wire.class);
+            if (startAndEndWires.size() > 1 && !start.isSimilar(end))
+                throw new RuntimeException("Should not intercept 2 wires twice");
+            Wire deleting = !end.isSimilar(start) && startAndEndWires.size() > 0 ? startAndEndWires.get(0) : null;
 
-            boolean deletionThread = false;
-            boolean genThread = false;
-            CircuitPoint potentialReleasePoint = circuitPointAtMouse(true);
-            EntityList<Wire> thatInterceptStartAndRelease = interceptingConnectibles.thatIntercept(potentialReleasePoint).ofType(Wire.class);
-            Wire deleting = !potentialReleasePoint.equals(pressPoint) && thatInterceptStartAndRelease.size() > 0
-                    ? thatInterceptStartAndRelease.get(0) : null;
             if (canDelete && deleting != null && !lock) {
-                deletionThread = true;
+                deleting.set(start, end);
+                getCurrentCircuit().new EntityDeleteOperation(new Wire(start.clone(), end.clone(), false));
             } else {
-                EntityList<ConnectibleEntity> entitiesAtRelease = getCurrentCircuit().getAllEntitiesOfType(ConnectibleEntity.class)
-                        .thatIntercept(potentialReleasePoint);
-                ConnectibleEntity entityAtRelease = entitiesAtRelease.size() > 0 ? entitiesAtRelease.get(0) : null;
-
-                if (!lock && (potentialReleasePoint.equals(pressPoint) // Handle the case of them sliding the pull
-                        || (potentialReleasePoint.is4AdjacentTo(pressPoint) // point to an adjacent location, in which
-                            && isPullableLocation(potentialReleasePoint) // a new PullPoint is assigned to the
-                            && (interceptingConnectibles.get(0).hasConnectionTo(entityAtRelease) // EditorPanel
-                                || interceptingConnectibles.get(0).equals(entityAtRelease))))) {
-                    EditorPanel.this.new PullPoint(potentialReleasePoint, originalLoc);
+                boolean canStillCreate = true;
+                boolean canSlide = false; // If any entity at the start loc of the pullpoint can connect to any entity
+                for (ConnectibleEntity startEntity : cesAtStart) // at the end loc of the pullpoint, or if they are
+                    for (ConnectibleEntity endEntity : cesAtEnd) // equal, we can slide
+                        if (startEntity.hasConnectionTo(endEntity) || startEntity.isSimilar(endEntity))
+                            canSlide = true;
+                if (end.isSimilar(start) // <- Case where they switch preferred dir of Wire path finding
+                        || (!lock // <- Case where they slide the PullPoint to an adjacent connectible
+                            && end.is4AdjacentTo(start)
+                            && PullPoint.this.canBePlacedHere(end))
+                            && canSlide) {
+                    EditorPanel.this.new PullPoint(end, originalLoc, lock);
+                    canStillCreate = false;
                 }
-                else if (!potentialReleasePoint.equals(pressPoint)
-                        && interceptingConnectibles.intersection(entitiesAtRelease).size() == 0) {
+                // by here, we would have returned if the PullPoint is being slid. So this point and forward
+                // covers the case of the user creating wires
+                if (canStillCreate && !end.equals(start) && cesAtStart.intersection(cesAtEnd).size() == 0) {
                     if (pullDir == null) {
-                        Vector dir = new Vector(pressPoint, potentialReleasePoint);
+                        Vector dir = new Vector(start, end);
                         if (Vector.getDirectionVecs().contains(dir)) {
                             if (dir.equals(Vector.LEFT) || dir.equals(Vector.RIGHT))
                                 pullDir = Direction.HORIZONTAL;
                             else
                                 pullDir = Direction.VERTICAL;
                         }
-                    }
-                    genThread = true;
-                }
-            }
-
-            boolean deletionThreadF = deletionThread;
-            boolean genThreadF = genThread;
-
-            CircuitPoint start = pressPoint.clone();
-            CircuitPoint end = potentialReleasePoint.clone();
-
-
-            System.out.println("START DOING PATH CALC");
-            if ((canDelete && deleting != null && deletionThreadF) || (genThreadF && !deleteOnly)) {
-                System.out.println("creation/deletion");
-                if (genThreadF) {
+                    } // <- Update pull dir if it's null
                     WireGenerator generator = new WireGenerator(1);
                     ArrayList<TheoreticalWire> theos = generator.genWirePathLenient(start, end, pullDir, 8);
                     if (theos == null && pullDir != null) // If we couldn't do it in their preferred dir, try the other
@@ -717,30 +716,26 @@ public class EditorPanel extends Pane {
                     theos = theos == null ? new ArrayList<>() : theos;
                     for (Wire t : theos) { // 'new Wire' automatically adds it to the theoretical circuit
                         System.out.println("ADDACIOUS ADD: " + "[[ " + t.getStartLocation().toParsableString() + " " + t.getEndLocation().toParsableString() + " ]]");;
-                        Wire added = new Wire(t.getStartLocation().clone(), t.getEndLocation().clone());
-                        getCurrentCircuit().new EntityAddOperation(new Wire(t.getStartLocation().clone(), t.getEndLocation().clone(), false));
+                        new Wire(t.getStartLocation().clone(), t.getEndLocation().clone());
+                        // Separate add operation from new Wire. because the new wire may be merged etc and make the delete operation invalid
+                        c.new EntityAddOperation(new Wire(t.getStartLocation().clone(), t.getEndLocation().clone(), false));
                     }
-                } else { // Delete
-                    Wire toModify = getCurrentCircuit().getAllEntitiesOfType(Wire.class).thatInterceptAll(start, end).get(0);
-                    toModify.set(start, end);
-                    getCurrentCircuit().new EntityDeleteOperation(new Wire(start.clone(), end.clone(), false));
                 }
-            } else {
-                System.out.println("not creation or deletion");
             }
 
-            if (currCirc.stateController().getBufferLength() > 0) {
-                currCirc.saveStateAndAdvance();
+            if (c.stateController().getBufferLength() > 0) {
+                c.saveStateAndAdvance();
                 ppStateShift++;
             }
 
-            System.out.println("SAVE STATE AND ADVANCE CALL FROM PULL POINT");
-
+            c.refreshTransmissions();
+            repaint(c);
         }
 
         public void onRelease() {
             ppStateShift = 0;
             currentPullPoint = null;
+            EditorPanel.this.new PullPoint(circuitPointAtMouse(true), circuitPointAtMouse(true), false);
             repaint(getCurrentCircuit());
         }
 
@@ -751,12 +746,8 @@ public class EditorPanel extends Pane {
                 droppingAndRestarting = true;
                 CircuitPoint releasePoint = circuitPointAtMouse(true);
                 onRelease();
-                EditorPanel.this.new PullPoint(releasePoint, releasePoint);
-                if (currentPullPoint != null) {
-                    currentPullPoint.lock = true;
-                    currentPullPoint.onDragGridSnapChange();
-
-                }
+                EditorPanel.this.new PullPoint(releasePoint, releasePoint, true);
+                currentPullPoint.onDragGridSnapChange();
             }
         }
 
@@ -791,7 +782,6 @@ public class EditorPanel extends Pane {
                     col = Color.rgb(60, 200, 0, 1);
                     break;
             }
-            if (col != null) {
                 int strokeSize = (int) (getCurrentCircuit().getLineWidth() * 0.8);
                 if (strokeSize % 2 == 0) strokeSize++;
                 int circleSize = (int) (getCurrentCircuit().getScale() / 2.5);
@@ -802,9 +792,10 @@ public class EditorPanel extends Pane {
                 g.setLineWidth(strokeSize);
                 g.setStroke(Color.BLACK);
                 g.strokeOval(dp.x - bigCircleSize/2.00, dp.y - bigCircleSize/2.00, bigCircleSize, bigCircleSize);
-                g.setStroke(col);
-                g.strokeOval(dp.x - circleSize/2.00, dp.y - circleSize/2.00, circleSize, circleSize);
-            }
+                if (col != null) {
+                    g.setStroke(col);
+                    g.strokeOval(dp.x - circleSize/2.00, dp.y - circleSize/2.00, circleSize, circleSize);
+                }
         }
 
         private Color deletionColor = Color.RED;

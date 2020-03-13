@@ -12,7 +12,7 @@ public class OutputNode extends ConnectionNode implements Dependent {
 
     public OutputNode(CircuitPoint location, ConnectibleEntity connectingFrom, ConnectibleEntity connectedTo) {
         super(location, connectingFrom, connectedTo);
-        assert connectedTo instanceof Wire;
+        setState(State.UNDETERMINED);
     }
 
     public OutputNode(CircuitPoint location, ConnectibleEntity connectingFrom) {

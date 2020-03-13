@@ -184,7 +184,6 @@ public class MainGUI extends Application {
         c.new EntityAddOperation(new Wire(new CircuitPoint(3, 4, c), new CircuitPoint(5, 4, c)));
         c.saveStateAndAdvance();
 
-
         new InputBlock(new CircuitPoint(-5, 3, c), Direction.rotationFromCardinal("EAST"));
         new InputBlock(new CircuitPoint(-5, 7, c), Direction.rotationFromCardinal("EAST"));
         new InputBlock(new CircuitPoint(-5, 15, c), Direction.rotationFromCardinal("EAST"));
@@ -192,15 +191,16 @@ public class MainGUI extends Application {
         new InputBlock(new CircuitPoint(-5, 33, c), Direction.rotationFromCardinal("EAST"));
         new InputBlock(new CircuitPoint(-5, 37, c), Direction.rotationFromCardinal("EAST"));
 
- /*    //   new SimpleGateAND(new CircuitPoint(5, 5, c), 270);
-     //   new SimpleGateAND(new CircuitPoint(15, 5, c), 270);
+
         new SimpleGateAND(new CircuitPoint(5, 15, c), 270);
         new SimpleGateAND(new CircuitPoint(15, 15, c), 270);
         new SimpleGateAND(new CircuitPoint(5, 25, c), 270);
         new SimpleGateAND(new CircuitPoint(15, 25, c), 270);
         new SimpleGateAND(new CircuitPoint(5, 35, c), 270);
- //       Circuit theo = c.cloneOntoProject("theoretical");
-  //      getCurrProject().getCurrentCircuit().deepCloneEntitiesFrom(theo);*/
+
+        c.refreshTransmissions();
+        editorPanel.repaint(currProject.getCurrentCircuit());
+
     }
 
     public void setPropertyTable(Dynamic dynamic) {

@@ -25,10 +25,9 @@ public class EntityList<E extends Entity> extends ArrayList<E> {
     }
 
     @SuppressWarnings("unchecked")
-    public <T extends Entity> EntityList<T> ofType(Class<T> type, boolean loopThruClone) {
+    public <T extends Entity> EntityList<T> ofType(Class<T> type) {
         EntityList<T> list = new EntityList<>(size());
-        EntityList<E> iteratingThru = loopThruClone ? clone() : this;
-        for (Entity e : iteratingThru) {
+        for (Entity e : clone()) {
             if (e.getClass().equals(type)) {
                 list.add((T) e);
             } else {
@@ -45,9 +44,6 @@ public class EntityList<E extends Entity> extends ArrayList<E> {
         return list;
     }
 
-    public <T extends Entity> EntityList<T> ofType(Class<T> type) {
-        return ofType(type, false);
-    }
 
     @SuppressWarnings("unchecked")
     public EntityList<E> thatInterceptAll(CircuitPoint... allOfThese) {
@@ -116,34 +112,6 @@ public class EntityList<E extends Entity> extends ArrayList<E> {
         return intersect;
     }
 
-    public EntityList<Wire> getWiresGoingInDirection(Direction dir) {
-        EntityList<Wire> list = new EntityList<>();
-        for (Entity e : this)
-            if (e instanceof Wire && ((Wire) e).getDirection() == dir)
-                list.add((Wire) e);
-        return list;
-    }
-
-    public EntityList<Wire> getWiresGoingInOppositeDirection(Direction dir) {
-        EntityList<Wire> list = new EntityList<>();
-        for (Entity e : this)
-            if (e instanceof Wire && ((Wire) e).getDirection() != dir)
-                list.add((Wire) e);
-        return list;
-    }
-
-    public EntityList<Wire> getWiresGoingInOppositeDirection(Wire w) {
-        return getWiresGoingInOppositeDirection(w.getDirection());
-    }
-
-    public EntityList<Wire> getWiresGoingInSameDirection(Wire w) {
-        return getWiresGoingInDirection(w.getDirection());
-    }
-
-    public EntityList<E> except(Entity e) {
-        remove(e);
-        return this;
-    }
 
     @SuppressWarnings("unchecked")
     public EntityList<E> clone() {

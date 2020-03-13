@@ -39,7 +39,15 @@ public class Circuit implements Dynamic {
 
     private InterceptMap interceptMap;
 
-    public static class InterceptionList extends EntityList<Entity> { }
+    public static class InterceptionList extends EntityList<Entity> {
+
+        @Override
+        public InterceptionList clone() {
+            InterceptionList clone = new InterceptionList();
+            clone.addAll(this);
+            return clone;
+        }
+    }
 
     public InterceptMap getInterceptMap() {
         return interceptMap;
@@ -68,11 +76,40 @@ public class Circuit implements Dynamic {
             Circuit.this.interceptMap = this;
         }
 
+        private InterceptionList getRef(int x, int y) {
+            return map[x + MAP_OFFSET][y + MAP_OFFSET];
+        }
+
+        public InterceptionList get(int x, int y) {
+            return getRef(x, y).clone();
+        }
+
+        public InterceptionList get(CircuitPoint c) {
+            return get((int) c.x, (int) c.y);
+        }
+
+        public InterceptionList getEntitiesThatIntercept(int x, int y) {
+            return get(x, y);
+        }
+
+        public InterceptionList getEntitiesThatIntercept(CircuitPoint c) {
+            return getEntitiesThatIntercept((int) c.x, (int) c.y);
+        }
+
+        public InterceptionList getEntitiesThatIntercept(Entity e) {
+            InterceptionList thatInterceptE = new InterceptionList();
+            for (CircuitPoint intPoint : e.getInterceptPoints())
+                for (Entity otherEntity : getEntitiesThatIntercept(intPoint))
+                    if (!thatInterceptE.contains(otherEntity) && otherEntity != e)
+                        thatInterceptE.add(otherEntity);  // We WANT != here instead of !equals(). This is because
+            return thatInterceptE; // we want to be able to check interceptions for similar entities
+        }                                            // that may be on the circuit
+
         public void addInterceptPoint(int x, int y, Entity e) {
             System.out.println("Add intercept point at " + x + " " + " " +  y + " for " + e);
-            if (get(x, y).contains(e))
+            if (getRef(x, y).contains(e))
                 throw new RuntimeException("Already Added");
-            get(x, y).add(e);
+            getRef(x, y).add(e);
         }
 
         public void addInterceptPoint(CircuitPoint p, Entity e) {
@@ -87,7 +124,7 @@ public class Circuit implements Dynamic {
 
         public void removeInterceptPoint(int x, int y, Entity e) {
             System.out.println("Remove intercept point at " + x + " " + " " +  y + " for " + e);
-            if (get(x, y).remove(e))
+            if (getRef(x, y).remove(e))
                 return;
             throw new RuntimeException("Could not remove interception entry for " + e + " at [" +  x + "]"
                     + "[" + y + "] because there is no entry for this entity here");
@@ -101,31 +138,6 @@ public class Circuit implements Dynamic {
             for (CircuitPoint intPoint : e.getInterceptPoints())
                 removeInterceptPoint(intPoint, e);
         }
-
-        public InterceptionList get(int x, int y) {
-            return map[x + MAP_OFFSET][y + MAP_OFFSET];
-        }
-
-        public InterceptionList get(CircuitPoint c) {
-            return get((int) c.x, (int) c.y);
-        }
-
-        public InterceptionList getEntitiesThatIntercept(int x, int y) {
-            return get(x, y);
-        }
-        
-        public InterceptionList getEntitiesThatIntercept(CircuitPoint c) {
-            return getEntitiesThatIntercept((int) c.x, (int) c.y);
-        }
-        
-        public InterceptionList getEntitiesThatIntercept(Entity e) {
-            InterceptionList thatInterceptE = new InterceptionList();
-            for (CircuitPoint intPoint : e.getInterceptPoints())
-                for (Entity otherEntity : getEntitiesThatIntercept(intPoint))
-                    if (!thatInterceptE.contains(otherEntity) && otherEntity != e)
-                        thatInterceptE.add(otherEntity);  // We WANT != here instead of !equals(). This is because
-            return thatInterceptE; // we want to be able to check interceptions for similar entities
-        }                                            // that may be on the circuit
     }
 
     public static final Color COL_BG = Color.WHITE;
@@ -252,12 +264,41 @@ public class Circuit implements Dynamic {
 
     private EntityList<Entity> allEntities = new EntityList<>();
 
+    /**
+     * Obtains a shallow clone of all of the Entities that exist on this Circuit
+     * @return
+     */
     public EntityList<Entity> getAllEntities() {
-        return getEntityList(true);
+        return allEntities.clone();
     }
 
-    public EntityList<Entity> getAllEntitiesThatIntercept(CircuitPoint p) {
+    public EntityList<Entity> getEntitiesThatIntercept(CircuitPoint p) {
         return interceptMap.getEntitiesThatIntercept(p);
+    }
+
+    public EntityList<Entity> getEntitiesThatInterceptAll(CircuitPoint... points) {
+        EntityList<Entity> interceptors = new EntityList<>();
+        int iteration = 0;
+        for (CircuitPoint p : points) {
+            if (iteration++ == 0)
+                interceptors.addAll(getEntitiesThatIntercept(p));
+            else {
+                EntityList<Entity> intersection = interceptors.intersection(getEntitiesThatIntercept(p));
+                for (Entity e : intersection)
+                    if (!interceptors.contains(e))
+                        interceptors.add(e);
+            }
+        }
+        return interceptors;
+    }
+
+    public EntityList<Entity> getEntitiesThatInterceptAny(CircuitPoint... points) {
+        EntityList<Entity> interceptors = new EntityList<>();
+        for (CircuitPoint p : points)
+            for (Entity e : getEntitiesThatIntercept(p))
+                if (!interceptors.contains(e))
+                    interceptors.add(e);
+        return interceptors;
     }
 
     public void refreshTransmissions() {
@@ -273,10 +314,6 @@ public class Circuit implements Dynamic {
             Dependent.determinePowerStates(this);
    //     }));
 
-    }
-
-    public EntityList<Entity> getEntityList(boolean clone) {
-        return clone ? allEntities.clone() : allEntities;
     }
 
 
@@ -299,12 +336,8 @@ public class Circuit implements Dynamic {
     }
 
     @SuppressWarnings("unchecked")
-    public <T extends Entity> EntityList<T> getAllEntitiesOfType(Class<T> type, boolean clone) {
-        return allEntities.ofType(type, clone);
-    }
-
     public <T extends Entity> EntityList<T> getAllEntitiesOfType(Class<T> type) {
-        return getAllEntitiesOfType(type, true);
+        return allEntities.ofType(type);
     }
 
     @Override
@@ -332,7 +365,7 @@ public class Circuit implements Dynamic {
     }
 
     public void deepCloneEntitiesFrom(Circuit c) {
-        for (Entity e : c.getEntityList(true))
+        for (Entity e : c.getAllEntities())
             e.clone(this);
     }
 

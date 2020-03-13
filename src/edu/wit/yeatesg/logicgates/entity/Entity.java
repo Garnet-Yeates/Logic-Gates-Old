@@ -5,6 +5,7 @@ import edu.wit.yeatesg.logicgates.def.BoundingBox;
 import edu.wit.yeatesg.logicgates.def.Circuit;
 import edu.wit.yeatesg.logicgates.def.Vector;
 import edu.wit.yeatesg.logicgates.entity.connectible.ConnectibleEntity;
+import edu.wit.yeatesg.logicgates.entity.connectible.Dependent;
 import edu.wit.yeatesg.logicgates.entity.connectible.Wire;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 import javafx.scene.canvas.GraphicsContext;
@@ -37,6 +38,8 @@ public abstract class Entity implements Dynamic {
     }
 
     public void onAddToCircuit() {
+        if (this instanceof Dependent)
+            ((Dependent) this).setState(Dependent.State.UNDETERMINED);
         getCircuit().getInterceptMap().addInterceptPointsFor(this);
     }
 
@@ -84,7 +87,6 @@ public abstract class Entity implements Dynamic {
             double y2 = Double.parseDouble(values[3]);
             return new Wire(new CircuitPoint(x1, y1, c), new CircuitPoint(x2, y2, c));
         }
-        System.out.println("fucked up parse");
         return null;
     }
 

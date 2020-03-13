@@ -10,6 +10,7 @@ import java.util.LinkedList;
 public interface Dependent {
 
     enum State {
+        UNDETERMINED(Color.rgb(125, 125, 125, 1)),
         ON(Color.rgb(50, 199, 0, 1)),
         OFF(Color.rgb(34, 99, 0, 1)),
         PARTIALLY_DEPENDENT(Color.rgb(34, 205, 205, 1)),
