@@ -191,7 +191,6 @@ public class MainGUI extends Application {
         new InputBlock(new CircuitPoint(-5, 33, c), Direction.rotationFromCardinal("EAST"));
         new InputBlock(new CircuitPoint(-5, 37, c), Direction.rotationFromCardinal("EAST"));
 
-
         new SimpleGateAND(new CircuitPoint(5, 15, c), 270);
         new SimpleGateAND(new CircuitPoint(15, 15, c), 270);
         new SimpleGateAND(new CircuitPoint(5, 25, c), 270);

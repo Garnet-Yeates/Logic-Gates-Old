@@ -619,16 +619,12 @@ public class EditorPanel extends Pane {
 
         public PullPoint(CircuitPoint location, CircuitPoint originalLoc, boolean lock) {
             super(location.x, location.y, originalLoc.getCircuit());
-
-
-            System.out.println("NEW POOOOIL");
             this.lock = lock;
             pressPoint = circuitPointAtMouse(true);
             EntityList<ConnectibleEntity> cesAtStart = getCurrentCircuit().getEntitiesThatIntercept(pressPoint).ofType(ConnectibleEntity.class);
             pullDir = null;
             this.originalLoc = originalLoc;
             if (!canBePlacedHere(pressPoint) || currSelection.size() > 0) {
-                System.out.println("NULLIFIED");
                 currentPullPoint = null;
                 repaint(getCurrentCircuit());
                 return;
@@ -680,8 +676,9 @@ public class EditorPanel extends Pane {
             Wire deleting = !end.isSimilar(start) && startAndEndWires.size() > 0 ? startAndEndWires.get(0) : null;
 
             if (canDelete && deleting != null && !lock) {
-                deleting.set(start, end);
+                // DO THE OPERATION FIRST SO IT CAN PROPERLY CHECK THE SPECIAL CASE WHERE THE DELETED WIRE CAUSES A BISECT
                 getCurrentCircuit().new EntityDeleteOperation(new Wire(start.clone(), end.clone(), false));
+                deleting.set(start, end);
             } else {
                 boolean canStillCreate = true;
                 boolean canSlide = false; // If any entity at the start loc of the pullpoint can connect to any entity

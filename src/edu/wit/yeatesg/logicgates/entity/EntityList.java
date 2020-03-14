@@ -7,8 +7,6 @@ import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Iterator;
-import java.util.function.Consumer;
 
 public class EntityList<E extends Entity> extends ArrayList<E> {
 
@@ -112,9 +110,38 @@ public class EntityList<E extends Entity> extends ArrayList<E> {
         return intersect;
     }
 
+    public EntityList<E> except(Entity e) {
+        remove(e);
+        return this;
+    }
+
 
     @SuppressWarnings("unchecked")
     public EntityList<E> clone() {
         return (EntityList<E>) super.clone();
+    }
+
+    public EntityList<Wire> getWiresGoingInSameDirection(Direction dir) {
+        EntityList<Wire> list = new EntityList<>();
+        for (Entity e : this)
+            if (e instanceof Wire && ((Wire) e).getDirection() == dir)
+                list.add((Wire) e);
+        return list;
+    }
+
+    public EntityList<Wire> getWiresGoingInOppositeDirection(Direction dir) {
+        EntityList<Wire> list = new EntityList<>();
+        for (Entity e : this)
+            if (e instanceof Wire && ((Wire) e).getDirection() != dir)
+                list.add((Wire) e);
+        return list;
+    }
+
+    public EntityList<Wire> getWiresGoingInOppositeDirection(Wire w) {
+        return getWiresGoingInOppositeDirection(w.getDirection());
+    }
+
+    public EntityList<Wire> getWiresGoingInSameDirection(Wire w) {
+        return getWiresGoingInSameDirection(w.getDirection());
     }
 }

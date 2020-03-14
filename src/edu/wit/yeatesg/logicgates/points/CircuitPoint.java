@@ -4,6 +4,7 @@ import edu.wit.yeatesg.logicgates.def.BoundingBox;
 import edu.wit.yeatesg.logicgates.def.Circuit;
 import edu.wit.yeatesg.logicgates.def.Vector;
 import edu.wit.yeatesg.logicgates.entity.Entity;
+import edu.wit.yeatesg.logicgates.entity.EntityList;
 
 public class CircuitPoint {
 
@@ -106,7 +107,9 @@ public class CircuitPoint {
         return e.intercepts(this);
     }
 
-
+    public EntityList<Entity> getInterceptingEntities() {
+        return c.getInterceptMap().get(this);
+    }
 
     public CircuitPoint clone(Circuit onto) {
         return new CircuitPoint(x, y, onto);

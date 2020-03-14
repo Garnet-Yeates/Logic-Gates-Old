@@ -331,8 +331,10 @@ public class Circuit implements Dynamic {
         if (e instanceof ConnectibleEntity)
             ((ConnectibleEntity) e).disconnectAll();
         boolean removed = allEntities.remove(e);
-        if (removed)
+        if (removed) {
+            e.setDeleted(true);
             e.onDelete();
+        }
     }
 
     @SuppressWarnings("unchecked")
@@ -522,15 +524,38 @@ public class Circuit implements Dynamic {
 
         private Entity deleting;
 
+        private HashMap<CircuitPoint, Direction> causingBisectHere = new HashMap<>();
+
         public EntityDeleteOperation(Entity deleting) {
             deleting = deleting.getSimilarEntity();
             this.deleting = deleting;
+            if (deleting instanceof Wire) {
+                Wire del = (Wire) deleting;
+                for (CircuitPoint delEdge : del.getEdgePoints()) {
+                    EntityList<Wire> wiresInOppositeDir = delEdge.getInterceptingEntities().except(del)
+                            .getWiresGoingInOppositeDirection(del);
+                    if (wiresInOppositeDir.size() == 1) {
+                        boolean touchesEdgePoint = false;
+                        Wire inOppositeDir = wiresInOppositeDir.get(0);
+                        for (CircuitPoint edge : inOppositeDir.getEdgePoints())
+                            if (edge.intercepts(delEdge))
+                                touchesEdgePoint = true;
+                        if (!touchesEdgePoint) {
+                            causingBisectHere.put(delEdge, del.getDirection().getPerpendicular());
+                            System.out.println("FUCKY DUC");
+                        }
+                    }
+
+                }
+            }
             System.out.println("Delete Operation " + this);
         }
 
         @Override
         public StateChangeOperation getOpposite() {
-            return new EntityAddOperation(deleting);
+            EntityAddOperation addOp = new EntityAddOperation(deleting);
+            addOp.setCausingMergeMap(causingBisectHere);
+            return addOp;
         }
 
         @Override
@@ -592,10 +617,16 @@ public class Circuit implements Dynamic {
 
         private Entity adding;
 
+        private HashMap<CircuitPoint, Direction> causingMergeMap = new HashMap<>();
+
         public EntityAddOperation(Entity adding) {
             adding = adding.getSimilarEntity();
             this.adding = adding;
             System.out.println("EntityAddOperation " + this);
+        }
+
+        public void setCausingMergeMap(HashMap<CircuitPoint, Direction> causingMergeMap) {
+            this.causingMergeMap = causingMergeMap;
         }
 
         @Override
@@ -607,6 +638,18 @@ public class Circuit implements Dynamic {
         public void operate() {
             System.out.println("OPERATE: " + this);
             Entity.parseEntity(Circuit.this, false, adding.toParsableString());
+            if (adding instanceof Wire) {
+                for (CircuitPoint p : causingMergeMap.keySet()) {
+                    System.out.println("CAUSING MERGE AT " + p + " IN DIR " + causingMergeMap.get(p));
+                    Direction mergeDir = causingMergeMap.get(p);
+                    EntityList<Wire> deleting = p.getInterceptingEntities()
+                            .getWiresGoingInOppositeDirection(mergeDir);
+                    deleting.clone().forEach(Wire::delete);
+                    // After these are deleted, the other wires will merge back together
+                    new Wire(deleting.get(0).getFirstEdgePoint(), deleting.get(1).getSecondEdgePoint());
+                    // Now add these back to fix the wire bridge
+                }
+            }
 
         }
 

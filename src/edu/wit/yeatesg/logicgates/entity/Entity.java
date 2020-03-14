@@ -38,6 +38,7 @@ public abstract class Entity implements Dynamic {
     }
 
     public void onAddToCircuit() {
+        deleted = false;
         if (this instanceof Dependent)
             ((Dependent) this).setState(Dependent.State.UNDETERMINED);
         getCircuit().getInterceptMap().addInterceptPointsFor(this);
@@ -98,8 +99,7 @@ public abstract class Entity implements Dynamic {
         return c;
     }
 
-    public void delete() {
-        deleted = true;
+    public final void delete() {
         c.removeEntity(this);
     }
 
@@ -228,6 +228,10 @@ public abstract class Entity implements Dynamic {
     }
 
     public abstract String toParsableString();
+
+    public void setDeleted(boolean b) {
+        deleted = b;
+    }
 
     public static class InterceptPermit {
         public Entity entity;
