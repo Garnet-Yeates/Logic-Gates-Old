@@ -55,6 +55,16 @@ public class BoundingBox {
 
     }
 
+    public double getRight() {
+        return p4.x;
+    }
+
+    public double getLeft() {
+        return p1.x;
+    }
+
+
+
     public int getDrawWidth() {
         return (int) (getWidth() * p1.getCircuit().getScale());
     }
@@ -76,9 +86,7 @@ public class BoundingBox {
         this(corner1.toCircuitPoint(), corner2.toCircuitPoint(), owner);
     }
 
-    public BoundingBox getExpandedBy(int amount) {
-        if (amount < 1)
-            throw new RuntimeException("Invalid Expansion");
+    public BoundingBox getExpandedBy(double amount) {
         return new BoundingBox(new CircuitPoint(p1.x - amount, p1.y - amount, p1.getCircuit()),
                 new CircuitPoint(p4.x + amount, p4.y + amount, p1.getCircuit()), owner);
     }
@@ -87,24 +95,14 @@ public class BoundingBox {
         return gridPointsWithin.deepClone();
     }
 
-    public boolean intercepts(CircuitPoint p) {
-        return intercepts(p, true);
-    }
-
     public boolean intercepts(PanelDrawPoint p) {
-        return intercepts(p.toCircuitPoint(), true);
+        return intercepts(p.toCircuitPoint());
     }
 
-    public boolean intercepts(CircuitPoint p, boolean expandIfInline) {
-        double thresh = 0.3;  // 0.3 cp out
-        if ((p1.x == p4.x || p1.y == p4.y) && expandIfInline)
-            return new BoundingBox(new CircuitPoint(p1.x - thresh, p1.y - thresh, p1.getCircuit()),
-                    new CircuitPoint(p4.x + thresh, p4.y + thresh, p4.getCircuit()), owner).intercepts(p, true);
+    public boolean intercepts(CircuitPoint p) {
+        if ((p1.x == p4.x || p1.y == p4.y))
+            return getExpandedBy(0.3).intercepts(p);
         return p.x >= p1.x && p.x <= p4.x && p.y >= p1.y && p.y <= p4.y;
-    }
-
-    public boolean intercepts(PanelDrawPoint p, boolean expandIfInLine) {
-        return intercepts(p.toCircuitPoint(), true);
     }
 
     public boolean intercepts(Entity e) {

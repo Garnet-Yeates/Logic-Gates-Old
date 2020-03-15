@@ -108,7 +108,7 @@ public class CircuitPoint {
     }
 
     public EntityList<Entity> getInterceptingEntities() {
-        return c.getInterceptMap().get(this);
+        return c.getInterceptMap().get(this.getGridSnapped());
     }
 
     public CircuitPoint clone(Circuit onto) {

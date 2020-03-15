@@ -121,6 +121,14 @@ public class EntityList<E extends Entity> extends ArrayList<E> {
         return (EntityList<E>) super.clone();
     }
 
+    @SuppressWarnings("unchecked")
+    public EntityList<E> deepClone() {
+        EntityList<E> deepClone = new EntityList<>();
+        for (Entity e : this)
+            deepClone.add((E) e.getSimilarEntity());
+        return deepClone;
+    }
+
     public EntityList<Wire> getWiresGoingInSameDirection(Direction dir) {
         EntityList<Wire> list = new EntityList<>();
         for (Entity e : this)

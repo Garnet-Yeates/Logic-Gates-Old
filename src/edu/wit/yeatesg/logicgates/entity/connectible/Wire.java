@@ -23,7 +23,6 @@ public class Wire extends ConnectibleEntity implements Dependent {
 
     public Wire(CircuitPoint startLocation, CircuitPoint endLocation, boolean addToCircuit) {
         super(startLocation.getCircuit(), addToCircuit);
-        System.out.println("new wire: " + startLocation + " " + endLocation + " add to circ? " + addToCircuit);
         if ((startLocation.x != endLocation.x && startLocation.y != endLocation.y) || startLocation.equals(endLocation))
             throw new RuntimeException("Invalid Wire");
         this.startLocation = startLocation;
@@ -34,16 +33,18 @@ public class Wire extends ConnectibleEntity implements Dependent {
 
     @Override
     public void postInit(boolean addToCircuit) {
-        if (addToCircuit) {
-            for (Wire w : getInterceptingEntities().ofType(Wire.class)) {
-                if (isSimilar(w) || eats(w) || w.eats(this))
-                    throw new RuntimeException("Duplicate/Similar Wire on Circuit " + startLocation.getCircuit().getCircuitName() + " "
-                            + startLocation + " " + endLocation);
-            }
-        }
         super.postInit(addToCircuit);
     }
 
+    @Override
+    public boolean preAddToCircuit() {
+        for (Wire w : getInterceptingEntities().ofType(Wire.class)) {
+            if (isSimilar(w) || eats(w) || w.eats(this))
+                throw new RuntimeException("Duplicate/Similar Wire on Circuit " + startLocation.getCircuit().getCircuitName() + " "
+                        + startLocation + " " + endLocation);
+        }
+        return true;
+    }
 
     /**
      * Returns the lefter edge point of this wire is horizontal, returns the higher edge point of this wire if
@@ -83,7 +84,6 @@ public class Wire extends ConnectibleEntity implements Dependent {
                 CircuitPoint returning = curr.getSimilar();
                 cursor++;
                 curr = dir.addedTo(curr);
-                System.out.println("next() returns " + returning);
                 return returning;
             }
         };
@@ -686,9 +686,6 @@ public class Wire extends ConnectibleEntity implements Dependent {
         return false;
     }
 
-
-
-
     @Override
     public boolean canMove() {
         return false;
@@ -854,7 +851,7 @@ public class Wire extends ConnectibleEntity implements Dependent {
                     boolean triedRegular = false;
                     do {
                         tryingOverUnder = triedRegular;
-                        int maxToTry = 4;
+                        int maxToTry = 8;
                         ArrayList<TheoreticalWire> generated;
                         ArrayList<ArrayList<TheoreticalWire>> paths = new ArrayList<>();
                         for (int i = 0; i < pots.size() && i < maxToTry; i++) {
@@ -887,8 +884,6 @@ public class Wire extends ConnectibleEntity implements Dependent {
                         pots.sort(Comparator.comparingInt(Wire::getLength));
                     } while (!tryingOverUnder);
 
-                    return null;
-
                 } else { // LESS INTELLIGENT ALGORITHM, TRIES THE CLOSEST SUB WIRE TO END, MUCH MORE EFFICIENT
                     TheoreticalWire potential = getLongestSubWire(start, trying, currPath, permits, strictWithWires);
                     if (potential != null) {
@@ -898,8 +893,8 @@ public class Wire extends ConnectibleEntity implements Dependent {
                         return genWirePath(potential.getEndLocation(), end, currPath, nextDirection, maxLength,
                                 splitNum, tryAllTillLength, permits, strictWithWires);
                     }
-                    return null;
                 }
+                return null;
             }
         }
 

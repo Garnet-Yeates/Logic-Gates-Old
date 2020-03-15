@@ -37,6 +37,11 @@ public abstract class Entity implements Dynamic {
         return preview;
     }
 
+    public boolean preAddToCircuit() {
+        return true;
+        // Maybe update invalid intercept points here
+    }
+
     public void onAddToCircuit() {
         deleted = false;
         if (this instanceof Dependent)

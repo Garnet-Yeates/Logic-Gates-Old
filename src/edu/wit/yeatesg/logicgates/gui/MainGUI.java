@@ -149,7 +149,7 @@ public class MainGUI extends Application {
         stage.setTitle("Logic Gates");
         stage.show();
 
-        setPropertyTable(editorPanel.getCurrentCircuit());
+        setPropertyTable(editorPanel.c());
 
         stage.setMinHeight(menuBar.getMinHeight() + EDITOR_MIN_SIZE + 125);
         stage.setMinWidth(EDITOR_MIN_SIZE + LEFT_MIN_WIDTH + 75);
@@ -172,17 +172,10 @@ public class MainGUI extends Application {
         editorPanel.repaint(currProject.getCurrentCircuit());
         Circuit c = currProject.getCurrentCircuit();
 
-        c.new EntityAddOperation(new Wire(new CircuitPoint(0, 2, c), new CircuitPoint(6, 2, c)));
-        c.saveStateAndAdvance();
-
-        c.new EntityAddOperation(new Wire(new CircuitPoint(3, 2, c), new CircuitPoint(3, 6, c)));
-        c.saveStateAndAdvance();
-
-        c.new EntityAddOperation(new Wire(new CircuitPoint(5, 2, c), new CircuitPoint(5, 6, c)));
-        c.saveStateAndAdvance();
-
-        c.new EntityAddOperation(new Wire(new CircuitPoint(3, 4, c), new CircuitPoint(5, 4, c)));
-        c.saveStateAndAdvance();
+        c.addWithStateOperation(new Wire(new CircuitPoint(0, 2, c), new CircuitPoint(6, 2, c), false));
+        c.addWithStateOperation(new Wire(new CircuitPoint(3, 2, c), new CircuitPoint(3, 6, c), false));
+        c.addWithStateOperation(new Wire(new CircuitPoint(5, 2, c), new CircuitPoint(5, 6, c), false));
+        c.addWithStateOperation(new Wire(new CircuitPoint(3, 4, c), new CircuitPoint(5, 4, c), false));
 
         new InputBlock(new CircuitPoint(-5, 3, c), Direction.rotationFromCardinal("EAST"));
         new InputBlock(new CircuitPoint(-5, 7, c), Direction.rotationFromCardinal("EAST"));

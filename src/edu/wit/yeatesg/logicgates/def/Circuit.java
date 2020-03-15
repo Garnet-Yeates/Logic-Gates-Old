@@ -106,7 +106,6 @@ public class Circuit implements Dynamic {
         }                                            // that may be on the circuit
 
         public void addInterceptPoint(int x, int y, Entity e) {
-            System.out.println("Add intercept point at " + x + " " + " " +  y + " for " + e);
             if (getRef(x, y).contains(e))
                 throw new RuntimeException("Already Added");
             getRef(x, y).add(e);
@@ -123,7 +122,6 @@ public class Circuit implements Dynamic {
         }
 
         public void removeInterceptPoint(int x, int y, Entity e) {
-            System.out.println("Remove intercept point at " + x + " " + " " +  y + " for " + e);
             if (getRef(x, y).remove(e))
                 return;
             throw new RuntimeException("Could not remove interception entry for " + e + " at [" +  x + "]"
@@ -317,13 +315,33 @@ public class Circuit implements Dynamic {
     }
 
 
+
     /**
      * This should be the ONLY way entities are added to the circuit
      * @param entity
      */
     public void addEntity(Entity entity) {
-        allEntities.add(entity);
-        entity.onAddToCircuit();
+        if (entity.preAddToCircuit()) {
+            allEntities.add(entity);
+            entity.onAddToCircuit();
+        }
+    }
+
+    /**
+     * ONLY CALL ON ENITIES THAT HAVE NOT BEEN ADDED YET. IF YOU WANT TO TRACK STATE CHANGES WHEN CREATING ENTITIES,
+     * USE 'FALSE' IN THE 'addToCircuit' PARAM THEN CALL THIS
+     * @return
+     */
+    public EntityAddOperation addWithStateOperation(Entity entity, boolean appendStateImmediately) {
+        EntityAddOperation op = new EntityAddOperation(entity.getSimilarEntity());
+        addEntity(entity);
+        if (appendStateImmediately)
+            appendCurrentStateChanges();
+        return op;
+    }
+
+    public EntityAddOperation addWithStateOperation(Entity entity) {
+        return addWithStateOperation(entity, true);
     }
 
     public void removeEntity(Entity e) {
@@ -385,8 +403,8 @@ public class Circuit implements Dynamic {
         return stateTracker;
     }
 
-    public void saveStateAndAdvance() {
-        stateTracker.saveStateAndAdvance();
+    public void appendCurrentStateChanges() {
+        stateTracker.appendCurrentStateChanges();
     }
 
     public void clearStateChangeBuffer() {
@@ -410,10 +428,11 @@ public class Circuit implements Dynamic {
             appendState(operations.toArray(new StateChangeOperation[0]));
         }
 
-        public void saveStateAndAdvance() {
-            System.out.println("SAVE STATE AND ADVANCE CALLED. STATE HAS BEEN APPENDED, BUFFER CLEARED");
-            appendState(currChangeBuffer);
-            currChangeBuffer.clear();
+        public void appendCurrentStateChanges() {
+            if (!currChangeBuffer.isEmpty()) {
+                appendState(currChangeBuffer);
+                currChangeBuffer.clear();
+            }
         }
 
         public void appendState(StateChangeOperation... operations) {
@@ -452,12 +471,20 @@ public class Circuit implements Dynamic {
             startListening();
         }
 
-        public boolean canGoLeft() {
+        public boolean hasLeft() {
             return curr.left != null;
         }
 
-        public boolean canGoRight() {
+        public boolean hasRight() {
             return curr.right != null;
+        }
+
+        public CircuitState getRight() {
+            return curr.right;
+        }
+
+        public CircuitState getLeft() {
+            return curr.left;
         }
 
         public int getBufferLength() {
@@ -493,7 +520,7 @@ public class Circuit implements Dynamic {
             return listening;
         }
 
-        private class CircuitState {
+        public class CircuitState {
 
             private ArrayList<StateChangeOperation> toGoRight = new ArrayList<>();
             private ArrayList<StateChangeOperation> toGoLeft = new ArrayList<>();
@@ -505,18 +532,64 @@ public class Circuit implements Dynamic {
 
     public abstract class StateChangeOperation {
 
+        public StateChangeOperation(boolean track) {
+            if (track)
+                stateTracker.onOperationOccurrence(this);
+        }
+
         public StateChangeOperation() {
-            stateTracker.onOperationOccurrence(this);
+            this(true);
         }
 
         public abstract StateChangeOperation getOpposite();
 
         public abstract void operate();
+    }
 
-        public abstract ConnectibleEntity getRelevantConnectibleEntity();
+    public class SelectOperation extends StateChangeOperation {
 
-        public boolean hasReleventConnectibleEntity() {
-            return getRelevantConnectibleEntity() != null;
+        public Entity selecting;
+
+        public SelectOperation(Entity selected) {
+            this.selecting = selected.getSimilarEntity();
+        }
+
+        @Override
+        public DeselectOperation getOpposite() {
+            return new DeselectOperation(selecting);
+        }
+
+        @Override
+        public void operate() {
+            for (Entity e : selecting.getInterceptingEntities())
+                if (e.isSimilar(selecting))
+                    getEditorPanel().getCurrentSelection().selectWithoutOperation(e);
+        }
+    }
+
+    public class DeselectOperation extends StateChangeOperation {
+
+        public Entity deselecting;
+
+        public DeselectOperation(Entity deselected) {
+            this(deselected, true);
+        }
+
+        public DeselectOperation(Entity deselected, boolean track) {
+            super(track);
+            this.deselecting = deselected.getSimilarEntity();
+        }
+
+        @Override
+        public SelectOperation getOpposite() {
+            return new SelectOperation(deselecting);
+        }
+
+        @Override
+        public void operate() {
+            for (Entity e : deselecting.getInterceptingEntities())
+                if (e.isSimilar(deselecting))
+                    getEditorPanel().getCurrentSelection().deselectWithoutOperation(e);
         }
     }
 
@@ -567,7 +640,7 @@ public class Circuit implements Dynamic {
             if (deleting instanceof Wire) {
                 Wire del = (Wire) deleting;
                 for (Entity e : scope) {
-                    if ( ( e instanceof Wire && del.eats((Wire) e) ) || del.isSimilar(e)) {
+                    if ((e instanceof Wire && del.eats((Wire) e)) || del.isSimilar(e)) {
                         e.delete();
                         System.out.println("DELETE " + e + " BECAUSE THE WIRE WE R DELETING EATS IT, OR ITS SIMM SIMMA. SIMM SIMMA? KEYS TO MY BIMMA. " + del.isSimilar(e));
                     } else if (e instanceof Wire && ((Wire) e).eats(del)) {
@@ -598,11 +671,6 @@ public class Circuit implements Dynamic {
                     if (e.isSimilar(deleting))
                         e.delete();
             }
-        }
-
-        @Override
-        public ConnectibleEntity getRelevantConnectibleEntity() {
-            return deleting instanceof ConnectibleEntity ? (ConnectibleEntity) deleting : null;
         }
 
         @Override
@@ -644,18 +712,20 @@ public class Circuit implements Dynamic {
                     Direction mergeDir = causingMergeMap.get(p);
                     EntityList<Wire> deleting = p.getInterceptingEntities()
                             .getWiresGoingInOppositeDirection(mergeDir);
-                    deleting.clone().forEach(Wire::delete);
+                    deleting.deepClone().forEach(wire -> {
+                        System.out.println("DELEET: " + wire);
+                        removeEntity(wire);
+                    });
                     // After these are deleted, the other wires will merge back together
-                    new Wire(deleting.get(0).getFirstEdgePoint(), deleting.get(1).getSecondEdgePoint());
-                    // Now add these back to fix the wire bridge
+                    if (deleting.get(0).getFirstEdgePoint().isSimilar(deleting.get(1).getSecondEdgePoint())) {
+                        new Wire(deleting.get(0).getSecondEdgePoint(), deleting.get(1).getFirstEdgePoint());
+                    } else {
+                        new Wire(deleting.get(0).getFirstEdgePoint(), deleting.get(1).getSecondEdgePoint());
+                    }
+
                 }
             }
 
-        }
-
-        @Override
-        public ConnectibleEntity getRelevantConnectibleEntity() {
-            return adding instanceof ConnectibleEntity ? (ConnectibleEntity) adding : null;
         }
 
         @Override
@@ -677,12 +747,6 @@ public class Circuit implements Dynamic {
         public void operate() {
 
         }
-
-        @Override
-        public ConnectibleEntity getRelevantConnectibleEntity() {
-            return null;
-        }
-
     }
 
 }
