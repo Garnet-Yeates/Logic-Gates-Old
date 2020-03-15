@@ -196,9 +196,6 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
         return "Input Block";
     }
 
-    @Override
-    public void onDelete() { }
-
     // TODO might have to fix intercepts for inputblock, might have to add a method 'fuzzyIntercepts' which checks
     // if the bounding box intercepts
 

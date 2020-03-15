@@ -562,8 +562,7 @@ public class Wire extends ConnectibleEntity implements Dependent {
 
     @Override
     public void onDelete() {
-        disconnectAll();
-        deleted = true;
+        super.onDelete();
         checkEntities(startLocation, endLocation);
     }
 

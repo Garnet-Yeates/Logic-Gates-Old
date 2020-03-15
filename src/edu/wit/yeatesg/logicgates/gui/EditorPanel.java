@@ -327,7 +327,7 @@ public class EditorPanel extends Pane {
          * Always going to push 1 set of 2 types operations: deselect all, then delete all
          */
         public void deleteSelection() {
-            Selection deepClone = new Selection(this);
+            Selection deepClone = deepClone();
             if (deselectAllWithStateOperation(false)) {
                 for (Entity e : deepClone)
                     c().new EntityDeleteOperation(e).operate();

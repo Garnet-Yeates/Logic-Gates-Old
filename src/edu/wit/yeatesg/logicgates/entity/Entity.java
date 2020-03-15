@@ -108,7 +108,9 @@ public abstract class Entity implements Dynamic {
         c.removeEntity(this);
     }
 
-    public abstract void onDelete();
+    public void onDelete() {
+        deleted = true;
+    }
 
     public boolean isDeleted() {
         return deleted;
@@ -233,10 +235,6 @@ public abstract class Entity implements Dynamic {
     }
 
     public abstract String toParsableString();
-
-    public void setDeleted(boolean b) {
-        deleted = b;
-    }
 
     public static class InterceptPermit {
         public Entity entity;

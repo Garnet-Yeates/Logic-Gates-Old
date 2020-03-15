@@ -348,9 +348,7 @@ public class Circuit implements Dynamic {
         interceptMap.removeInterceptPointsFor(e);
         if (e instanceof ConnectibleEntity)
             ((ConnectibleEntity) e).disconnectAll();
-        boolean removed = allEntities.remove(e);
-        if (removed) {
-            e.setDeleted(true);
+        if (allEntities.remove(e)) {
             e.onDelete();
         }
     }
@@ -615,7 +613,6 @@ public class Circuit implements Dynamic {
                                 touchesEdgePoint = true;
                         if (!touchesEdgePoint) {
                             causingBisectHere.put(delEdge, del.getDirection().getPerpendicular());
-                            System.out.println("FUCKY DUC");
                         }
                     }
 
@@ -633,8 +630,6 @@ public class Circuit implements Dynamic {
 
         @Override
         public void operate() {
-            System.out.println("OPERATE: " + this);
-            System.out.println("DELETE A WIRE THAT IS SIMILAR TO " + deleting);
             EntityList<Entity> scope = deleting.getInterceptingEntities(); // Whatever we end up deleting/shortening is going to touch this similar wire, 'deleting' in some way
             Circuit c = project.getCurrentCircuit();
             if (deleting instanceof Wire) {
@@ -642,9 +637,7 @@ public class Circuit implements Dynamic {
                 for (Entity e : scope) {
                     if ((e instanceof Wire && del.eats((Wire) e)) || del.isSimilar(e)) {
                         e.delete();
-                        System.out.println("DELETE " + e + " BECAUSE THE WIRE WE R DELETING EATS IT, OR ITS SIMM SIMMA. SIMM SIMMA? KEYS TO MY BIMMA. " + del.isSimilar(e));
                     } else if (e instanceof Wire && ((Wire) e).eats(del)) {
-                        System.out.println(e + " E INSTANCEOF WIRE AND E EATS THE WIRE WE R TRYING TO DEL");
                         CircuitPoint sharedEdge = null;
                         Wire eater = (Wire) e; // eater eats del so we know it intercepts both of del's edge points, but
                         for (CircuitPoint eaterEge : eater.getEdgePoints())   // del def doesn't intercept both of eater's
@@ -652,7 +645,6 @@ public class Circuit implements Dynamic {
                                 if (eaterEge.equals(delEdge))
                                     sharedEdge = eaterEge.getSimilar(); // In this case they share an edge point <-- this is the case where one of each of theirs touch
                         if (sharedEdge != null) {
-                            System.out.println("SHARED EDGE EAT");
                             CircuitPoint delsOtherEdge = del.getOppositeEdgePoint(sharedEdge);
                             CircuitPoint eatersOppositeEdge = eater.getOppositeEdgePoint(sharedEdge);
                             eater.set(sharedEdge.clone(c), delsOtherEdge.clone(c));

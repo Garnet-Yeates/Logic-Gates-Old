@@ -181,10 +181,6 @@ public class SimpleGateAND extends ConnectibleEntity implements Rotatable {
     }
 
     @Override
-    public void onDelete() { }
-
-
-    @Override
     public boolean doesGenWireInvalidlyInterceptThis(Wire.TheoreticalWire theo, PermitList permits, boolean strictWithWires) {
         permits = new PermitList(permits);
         if (theo.invalidlyIntercepts(this))
