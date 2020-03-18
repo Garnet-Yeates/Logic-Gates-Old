@@ -49,7 +49,7 @@ public abstract class ConnectibleEntity extends Entity {
         return (hasOutputNodes() && !hasInputNodes());
     }
 
-    public void calculateDependedBy() {
+    public final void calculateDependedBy() {
         for (ConnectionNode node : connections)
             if (node instanceof OutputNode)
                 ((OutputNode) node).calculateDependedBy();
@@ -110,12 +110,11 @@ public abstract class ConnectibleEntity extends Entity {
     }
 
     public boolean isInConnectibleState() {
-        return !isDeleted() && !isInvalid();
+        return existsInCircuit() && !isInvalid();
     }
 
     public boolean canConnectToGeneral(ConnectibleEntity other) {
-        return other.isInConnectibleState() && isInConnectibleState() && !isSimilar(other) && !hasConnectionTo(other)
-                && !other.hasConnectionTo(this);
+        return isInConnectibleState() && !isSimilar(other) && !hasConnectionTo(other);
     }
 
     // Power flow check -> goes from all user inputs / powers / grounds... basically any absolute beginning of
@@ -136,8 +135,7 @@ public abstract class ConnectibleEntity extends Entity {
         for (CircuitPoint p : checking) {
             for (Entity e : c.getInterceptMap().get(p))
                 if (e instanceof ConnectibleEntity
-                    && e.intercepts(p)
-                    && !e.isDeleted())
+                    && ((ConnectibleEntity) e).isInConnectibleState())
                         ((ConnectibleEntity) e).connectCheck();
         }
     }

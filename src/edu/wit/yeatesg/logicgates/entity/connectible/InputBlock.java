@@ -28,6 +28,7 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
         this.origin = origin;
         this.rotation = rotation;
         drawPoints = getRelativePointSet().applyToOrigin(origin, rotation);
+        getCircuit().pushIntoMapRange(drawPoints);
         interceptPoints = getBoundingBox().getInterceptPoints();
         establishOutputNode(drawPoints.get(0));
         out = (OutputNode) getNodeAt(drawPoints.get(0));
@@ -75,6 +76,7 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
     @Override
     public RelativePointSet getRelativePointSet() {
         RelativePointSet drawPointRelative = new RelativePointSet();
+        Circuit c = getCircuit();
         drawPointRelative.add(0, 0, c); // Origin (bottom middle) is 0
         drawPointRelative.add(-1, 0, c); // bottom left is 1
         drawPointRelative.add(-1, -2, c); // top left is 2
@@ -99,6 +101,7 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
     public void draw(GraphicsContext g) {
         PanelDrawPoint drawPoint;
         PointSet pts = drawPoints;
+        Circuit c = getCircuit();
         g.setLineWidth(getLineWidth());
 
         // Draw Border
@@ -127,7 +130,7 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
 
     @Override
     public int getLineWidth() {
-        return c.getLineWidth();
+        return getCircuit().getLineWidth();
     }
 
     @Override

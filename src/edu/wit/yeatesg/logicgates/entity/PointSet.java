@@ -1,6 +1,7 @@
 package edu.wit.yeatesg.logicgates.entity;
 
 import edu.wit.yeatesg.logicgates.def.Circuit;
+import edu.wit.yeatesg.logicgates.def.Vector;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 
 import java.util.ArrayList;
@@ -77,5 +78,16 @@ public class PointSet extends ArrayList<CircuitPoint> {
        for (CircuitPoint p : this)
            deepClone.add(p.clone());
        return deepClone;
+    }
+
+    /**
+     * Mutates the Points in this PointSet
+     * @param v
+     */
+    public void addVectorToAllPoints(Vector v) {
+        for (CircuitPoint p : this) {
+            p.x += v.x;
+            p.y += v.y;
+        }
     }
 }

@@ -172,23 +172,27 @@ public class MainGUI extends Application {
         editorPanel.repaint(currProject.getCurrentCircuit());
         Circuit c = currProject.getCurrentCircuit();
 
-        c.addWithStateOperation(new Wire(new CircuitPoint(0, 2, c), new CircuitPoint(6, 2, c), false));
-        c.addWithStateOperation(new Wire(new CircuitPoint(3, 2, c), new CircuitPoint(3, 6, c), false));
-        c.addWithStateOperation(new Wire(new CircuitPoint(5, 2, c), new CircuitPoint(5, 6, c), false));
-        c.addWithStateOperation(new Wire(new CircuitPoint(3, 4, c), new CircuitPoint(5, 4, c), false));
+        new InputBlock(new CircuitPoint(13, -5, c), 0);
+        new InputBlock(new CircuitPoint(17, -5, c), 0);
 
-        new InputBlock(new CircuitPoint(-5, 3, c), Direction.rotationFromCardinal("EAST"));
-        new InputBlock(new CircuitPoint(-5, 7, c), Direction.rotationFromCardinal("EAST"));
-        new InputBlock(new CircuitPoint(-5, 15, c), Direction.rotationFromCardinal("EAST"));
-        new InputBlock(new CircuitPoint(-5, 25, c), Direction.rotationFromCardinal("EAST"));
-        new InputBlock(new CircuitPoint(-5, 33, c), Direction.rotationFromCardinal("EAST"));
-        new InputBlock(new CircuitPoint(-5, 37, c), Direction.rotationFromCardinal("EAST"));
+        new InputBlock(new CircuitPoint(23, -5, c), 0);
+        new InputBlock(new CircuitPoint(27, -5, c), 0);
 
-        new SimpleGateAND(new CircuitPoint(5, 15, c), 270);
-        new SimpleGateAND(new CircuitPoint(15, 15, c), 270);
-        new SimpleGateAND(new CircuitPoint(5, 25, c), 270);
-        new SimpleGateAND(new CircuitPoint(15, 25, c), 270);
-        new SimpleGateAND(new CircuitPoint(5, 35, c), 270);
+        new InputBlock(new CircuitPoint(33, -5, c), 0);
+        new InputBlock(new CircuitPoint(37, -5, c), 0);
+
+        new SimpleGateAND(new CircuitPoint(15, 5, c), 0);
+        new SimpleGateAND(new CircuitPoint(25, 5, c), 0);
+        new SimpleGateAND(new CircuitPoint(35, 5, c), 0);
+
+        new SimpleGateAND(new CircuitPoint(20, 15, c), 0);
+
+        new SimpleGateAND(new CircuitPoint(30, 15, c), 0);
+
+
+// 14, -9
+        // 16, -9
+
 
         c.refreshTransmissions();
         editorPanel.repaint(currProject.getCurrentCircuit());

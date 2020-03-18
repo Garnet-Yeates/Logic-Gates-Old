@@ -52,22 +52,6 @@ public class EntityList<E extends Entity> extends ArrayList<E> {
         return interceptors;
     }
 
-    public EntityList<E> thatAreNotDeleted() {
-        EntityList<E> list = new EntityList<>();
-        for (E entity : this)
-            if (!entity.isDeleted())
-                list.add(entity);
-        return list;
-    }
-
-    public EntityList<E> thatAreDeleted() {
-        EntityList<E> list = new EntityList<>();
-        for (E entity : this)
-            if (entity.isDeleted())
-                list.add(entity);
-        return list;
-    }
-
     public EntityList<E> thatInterceptNone(CircuitPoint... noneOfThese) {
         EntityList<E> thatInterceptNone = this.clone();
         for (E entity : this)

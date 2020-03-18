@@ -42,20 +42,18 @@ public class OutputNode extends ConnectionNode implements Dependent {
         return parent != null && parent.isIndependent();
     }
 
-    private void calculateDependedBy(LinkedList<Wire> checked, Wire connectingWire) {
+    private void calculateDependedBy(Wire connectingWire) {
         if (connectingWire.getFullConnections().size() > 1) {
             for (ConnectibleEntity ce : connectingWire.getConnectedEntities()) {
-                if (ce instanceof Wire && !checked.contains(ce)) {
+                if (ce instanceof Wire && !((Wire) ce).getDependencyList().contains(this)) {
                     Wire w = (Wire) ce;
                     w.getDependencyList().add(this);
-                    checked.add(w);
-                    calculateDependedBy(checked, w);
-                }
-                else {
+                    calculateDependedBy(w);
+                } else {
                     // MUST be ce.getConnectionTo(curr), not curr.getConnectionTo(ce) because curr (should)
                     // always be a wire and wires dont have distinct input/output nodes
                     ConnectionNode node = ce.getConnectionTo(connectingWire);
-                    if (node instanceof InputNode) {
+                    if (node instanceof InputNode && !((InputNode) node).getDependencyList().contains(this)) {
                         ((InputNode) node).getDependencyList().add(this);
                     }
                 }
@@ -65,13 +63,11 @@ public class OutputNode extends ConnectionNode implements Dependent {
 
     // During refreshTransmissions, this should be called on every entity that has OutputNodes
     // TODO make sure output/input nodes connect to wires only
-    public void calculateDependedBy() {
+    public final void calculateDependedBy() {
         if (connectedTo instanceof Wire && getState() != State.ILLOGICAL) {
-            LinkedList<Wire> checked = new LinkedList<>();
             Wire w = (Wire) connectedTo;
-            checked.add(w);
             w.getDependencyList().add(this);
-            calculateDependedBy(checked, w);
+            calculateDependedBy(w);
         }
     }
 

@@ -27,6 +27,7 @@ public class SimpleGateAND extends ConnectibleEntity implements Rotatable {
         this.origin = origin;
         this.rotation = rotation;
         drawPoints = getRelativePointSet().applyToOrigin(origin, rotation);
+        getCircuit().pushIntoMapRange(drawPoints);
         interceptPoints = getBoundingBox().getInterceptPoints();
         establishOutputNode(drawPoints.get(0));
         out = (OutputNode) getNodeAt(drawPoints.get(0));
@@ -82,7 +83,7 @@ public class SimpleGateAND extends ConnectibleEntity implements Rotatable {
 
     @Override
     public int getLineWidth() {
-        return c.getLineWidth();
+        return getCircuit().getLineWidth();
       //  return (int) (c.getLineWidth() * 0.8);
     }
 
@@ -108,6 +109,7 @@ public class SimpleGateAND extends ConnectibleEntity implements Rotatable {
     @Override
     public RelativePointSet getRelativePointSet() {
         RelativePointSet relatives = new RelativePointSet();
+        Circuit c = getCircuit();
         // Origin (middle bot of curve (u shaped curve))
         relatives.add(0, 0, c);
 
@@ -172,7 +174,7 @@ public class SimpleGateAND extends ConnectibleEntity implements Rotatable {
 
     @Override
     public Entity getSimilarEntity() {
-        return new SimpleGateAND(origin.clone(c), rotation, false);
+        return new SimpleGateAND(origin.clone(getCircuit()), rotation, false);
     }
 
     @Override

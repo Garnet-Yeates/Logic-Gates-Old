@@ -19,7 +19,6 @@ public class Circuit implements Dynamic {
         this.project = p;
         this.new InterceptMap();
         p.addCircuit(this);
-
     }
 
     public Circuit() { }
@@ -35,6 +34,8 @@ public class Circuit implements Dynamic {
     public EditorPanel getEditorPanel() {
         return project.getEditorPanel();
     }
+
+
 
 
     private InterceptMap interceptMap;
@@ -64,16 +65,25 @@ public class Circuit implements Dynamic {
     public class InterceptMap {
 
         public static final int MAP_SIZE = 999; // Must be an odd number for origin to work properly. Don't break this rule.
-        public static final int MAP_OFFSET = ( (MAP_SIZE - 1) / 2 ) + 1 ; // This needs to be added to map.get(x, y) operations
+        public static final int MAP_OFFSET = ( (MAP_SIZE - 1) / 2 ); // This needs to be added to map.get(x, y) operations
+        public static final int CP_MIN = -1*MAP_OFFSET;
+        public static final int CP_MAX = MAP_SIZE - 1 - MAP_OFFSET;
 
         private InterceptionList[][] map;
 
+        private BoundingBox boundingBox;
+        
         public InterceptMap() {
             map = new InterceptionList[MAP_SIZE][MAP_SIZE];
             for (int x = 0; x < map.length; x++)
                 for (int y = 0; y < map.length; y++)
                     map[x][y] = new InterceptionList();
             Circuit.this.interceptMap = this;
+            boundingBox = new BoundingBox(new CircuitPoint(CP_MIN, CP_MIN, Circuit.this), new CircuitPoint(CP_MAX, CP_MAX, Circuit.this), null);
+        }
+
+        public BoundingBox getBoundingBox() {
+            return boundingBox.clone();
         }
 
         private InterceptionList getRef(int x, int y) {
@@ -85,6 +95,8 @@ public class Circuit implements Dynamic {
         }
 
         public InterceptionList get(CircuitPoint c) {
+            if (!c.isSimilar(c.getGridSnapped()))
+                throw new RuntimeException("Cannot query intercepting entities for " + c + " because it is not grid-snapped");
             return get((int) c.x, (int) c.y);
         }
 
@@ -93,7 +105,7 @@ public class Circuit implements Dynamic {
         }
 
         public InterceptionList getEntitiesThatIntercept(CircuitPoint c) {
-            return getEntitiesThatIntercept((int) c.x, (int) c.y);
+            return get(c);
         }
 
         public InterceptionList getEntitiesThatIntercept(Entity e) {
@@ -102,8 +114,8 @@ public class Circuit implements Dynamic {
                 for (Entity otherEntity : getEntitiesThatIntercept(intPoint))
                     if (!thatInterceptE.contains(otherEntity) && otherEntity != e)
                         thatInterceptE.add(otherEntity);  // We WANT != here instead of !equals(). This is because
-            return thatInterceptE; // we want to be able to check interceptions for similar entities
-        }                                            // that may be on the circuit
+            return thatInterceptE;                        // we want to be able to check interceptions for similar entities
+        }                                                 // that may not be on the circuit
 
         public void addInterceptPoint(int x, int y, Entity e) {
             if (getRef(x, y).contains(e))
@@ -136,17 +148,53 @@ public class Circuit implements Dynamic {
             for (CircuitPoint intPoint : e.getInterceptPoints())
                 removeInterceptPoint(intPoint, e);
         }
+
+        public void pushIntoRange(PointSet points) {
+            for (CircuitPoint p : points) {
+                while(p.x > InterceptMap.CP_MAX)
+                    points.addVectorToAllPoints(new Vector(-1, 0));
+                while(p.x < InterceptMap.CP_MIN)
+                    points.addVectorToAllPoints(new Vector(1, 0));
+                while(p.y > InterceptMap.CP_MAX)
+                    points.addVectorToAllPoints(new Vector(0, -1));
+                while(p.y < InterceptMap.CP_MIN)
+                    points.addVectorToAllPoints(new Vector(0, 1));
+            }
+        }
+
+        public boolean isInRange(CircuitPoint p) {
+            return p.x >= CP_MIN && p.x <= CP_MAX
+                    && p.y >= CP_MIN && p.y <= CP_MAX;
+        }
     }
+
+    public int getGridMin() {
+        return InterceptMap.CP_MIN;
+    }
+
+    public int getGridMax() {
+        return InterceptMap.CP_MAX;
+    }
+
+
+    public void pushIntoMapRange(PointSet points) {
+        interceptMap.pushIntoRange(points);
+    }
+
+    public void pushIntoMapRange(CircuitPoint... points) {
+        pushIntoMapRange(new PointSet(points));
+    }
+
+    public boolean isInMapRange(CircuitPoint p) {
+        return interceptMap.isInRange(p);
+    }
+
+
+
 
     public static final Color COL_BG = Color.WHITE;
     public static final Color COL_GRID = Color.DARKGREY;
     public static final Color COL_ORIGIN = Color.RED;
-    
-
-
-    // Pressing left arrow key on the panel shud shift the origin to the right
-    // that means tht nums have to be added to the circuit point to get to the panel point
-    // so left means xOff++, for the panel the
 
     /**
      * CircuitPoint to CircuitDrawPoint
@@ -274,30 +322,6 @@ public class Circuit implements Dynamic {
         return interceptMap.getEntitiesThatIntercept(p);
     }
 
-    public EntityList<Entity> getEntitiesThatInterceptAll(CircuitPoint... points) {
-        EntityList<Entity> interceptors = new EntityList<>();
-        int iteration = 0;
-        for (CircuitPoint p : points) {
-            if (iteration++ == 0)
-                interceptors.addAll(getEntitiesThatIntercept(p));
-            else {
-                EntityList<Entity> intersection = interceptors.intersection(getEntitiesThatIntercept(p));
-                for (Entity e : intersection)
-                    if (!interceptors.contains(e))
-                        interceptors.add(e);
-            }
-        }
-        return interceptors;
-    }
-
-    public EntityList<Entity> getEntitiesThatInterceptAny(CircuitPoint... points) {
-        EntityList<Entity> interceptors = new EntityList<>();
-        for (CircuitPoint p : points)
-            for (Entity e : getEntitiesThatIntercept(p))
-                if (!interceptors.contains(e))
-                    interceptors.add(e);
-        return interceptors;
-    }
 
     public void refreshTransmissions() {
    //     System.out.print("Refresh Transmissions Took " + LogicGates.doTimeTest(() -> {
@@ -321,10 +345,14 @@ public class Circuit implements Dynamic {
      * @param entity
      */
     public void addEntity(Entity entity) {
+        if (entity.getCircuit() != this)
+            throw new RuntimeException("Entity does not have a reference to this Circuit in memory");
         if (entity.preAddToCircuit()) {
             allEntities.add(entity);
+            entity.updateInvalidInterceptPoints();
             entity.onAddToCircuit();
         }
+        System.out.println("num entities: " + allEntities.size());
     }
 
     /**
@@ -340,17 +368,14 @@ public class Circuit implements Dynamic {
         return op;
     }
 
-    public EntityAddOperation addWithStateOperation(Entity entity) {
-        return addWithStateOperation(entity, true);
-    }
-
     public void removeEntity(Entity e) {
         interceptMap.removeInterceptPointsFor(e);
         if (e instanceof ConnectibleEntity)
             ((ConnectibleEntity) e).disconnectAll();
         if (allEntities.remove(e)) {
-            e.onDelete();
+            e.onRemovedFromCircuit();
         }
+        System.out.println("num entities: " + allEntities.size());
     }
 
     @SuppressWarnings("unchecked")
@@ -528,15 +553,14 @@ public class Circuit implements Dynamic {
         }
     }
 
+    int opCodeAssign = 0;
+
     public abstract class StateChangeOperation {
 
-        public StateChangeOperation(boolean track) {
-            if (track)
-                stateTracker.onOperationOccurrence(this);
-        }
+        protected int opCode = opCodeAssign++;
 
         public StateChangeOperation() {
-            this(true);
+            stateTracker.onOperationOccurrence(this);
         }
 
         public abstract StateChangeOperation getOpposite();
@@ -570,11 +594,6 @@ public class Circuit implements Dynamic {
         public Entity deselecting;
 
         public DeselectOperation(Entity deselected) {
-            this(deselected, true);
-        }
-
-        public DeselectOperation(Entity deselected, boolean track) {
-            super(track);
             this.deselecting = deselected.getSimilarEntity();
         }
 
@@ -600,6 +619,7 @@ public class Circuit implements Dynamic {
         public EntityDeleteOperation(Entity deleting) {
             deleting = deleting.getSimilarEntity();
             this.deleting = deleting;
+            System.out.println("New " + this);
             if (deleting instanceof Wire) {
                 Wire del = (Wire) deleting;
                 for (CircuitPoint delEdge : del.getEdgePoints()) {
@@ -615,10 +635,10 @@ public class Circuit implements Dynamic {
                             causingBisectHere.put(delEdge, del.getDirection().getPerpendicular());
                         }
                     }
-
                 }
             }
-            System.out.println("Delete Operation " + this);
+            if (!causingBisectHere.isEmpty())
+                System.out.println("CAUSES BISECT");
         }
 
         @Override
@@ -632,14 +652,21 @@ public class Circuit implements Dynamic {
         public void operate() {
             EntityList<Entity> scope = deleting.getInterceptingEntities(); // Whatever we end up deleting/shortening is going to touch this similar wire, 'deleting' in some way
             Circuit c = project.getCurrentCircuit();
+            System.out.println("OPERATE: " + this);
+            boolean didSomething = false;
             if (deleting instanceof Wire) {
                 Wire del = (Wire) deleting;
                 for (Entity e : scope) {
+                    if (!e.existsInCircuit())
+                        continue;
                     if ((e instanceof Wire && del.eats((Wire) e)) || del.isSimilar(e)) {
-                        e.delete();
+                        System.out.println("del eats " + e + " so e is now deleted");
+                        e.remove();
+                        didSomething = true;
                     } else if (e instanceof Wire && ((Wire) e).eats(del)) {
                         CircuitPoint sharedEdge = null;
                         Wire eater = (Wire) e; // eater eats del so we know it intercepts both of del's edge points, but
+                        System.out.println("Our eater is: " + eater);
                         for (CircuitPoint eaterEge : eater.getEdgePoints())   // del def doesn't intercept both of eater's
                             for (CircuitPoint delEdge : del.getEdgePoints())  // edge points (it would be similar in that case). one of each of theirs may touch though
                                 if (eaterEge.equals(delEdge))
@@ -647,28 +674,35 @@ public class Circuit implements Dynamic {
                         if (sharedEdge != null) {
                             CircuitPoint delsOtherEdge = del.getOppositeEdgePoint(sharedEdge);
                             CircuitPoint eatersOppositeEdge = eater.getOppositeEdgePoint(sharedEdge);
+                            System.out.println("eater (" + eater + ") dot set " + sharedEdge + " to " + delsOtherEdge);
                             eater.set(sharedEdge.clone(c), delsOtherEdge.clone(c));
+                            didSomething = true;
                         } else {
                             //           eatFirst = eater.getFirstEdgePoint(); <- Shows how the end points are arranged if these 2 wires were vertical
-                            CircuitPoint delFirst = del.getFirstEdgePoint();
-                            CircuitPoint delSec = del.getSecondEdgePoint();
-                            CircuitPoint eatSecond = eater.getSecondEdgePoint();
+                            CircuitPoint delFirst = del.getLesserEdgePoint();
+                            CircuitPoint delSec = del.getFullerEdgePoint();
+                            CircuitPoint eatSecond = eater.getFullerEdgePoint();
+                            System.out.println("eater (" + eater + ") dot set " + eatSecond + " to " + delFirst);
                             eater.set(eatSecond.clone(c), delFirst.clone(c));
-                            new Wire(delSec.clone(c), eatSecond.clone(c));
+                            Wire newWire = new Wire(delSec.clone(c), eatSecond.clone(c));
+                            System.out.println("Delete operation created " + newWire);
+                            didSomething = true;
                         }
                     }
                 }
             } else {
                 for (Entity e : scope)
                     if (e.isSimilar(deleting))
-                        e.delete();
+                        e.remove();
             }
+
         }
 
         @Override
         public String toString() {
             return "EntityDeleteOperation{" +
-                    "deleting=" + deleting +
+                    "opCode=" + opCode +
+                    ", deleting=" + deleting +
                     '}';
         }
     }
@@ -682,7 +716,7 @@ public class Circuit implements Dynamic {
         public EntityAddOperation(Entity adding) {
             adding = adding.getSimilarEntity();
             this.adding = adding;
-            System.out.println("EntityAddOperation " + this);
+            System.out.println("New " + this);
         }
 
         public void setCausingMergeMap(HashMap<CircuitPoint, Direction> causingMergeMap) {
@@ -709,10 +743,10 @@ public class Circuit implements Dynamic {
                         removeEntity(wire);
                     });
                     // After these are deleted, the other wires will merge back together
-                    if (deleting.get(0).getFirstEdgePoint().isSimilar(deleting.get(1).getSecondEdgePoint())) {
-                        new Wire(deleting.get(0).getSecondEdgePoint(), deleting.get(1).getFirstEdgePoint());
+                    if (deleting.get(0).getLesserEdgePoint().isSimilar(deleting.get(1).getFullerEdgePoint())) {
+                        new Wire(deleting.get(0).getFullerEdgePoint(), deleting.get(1).getLesserEdgePoint());
                     } else {
-                        new Wire(deleting.get(0).getFirstEdgePoint(), deleting.get(1).getSecondEdgePoint());
+                        new Wire(deleting.get(0).getLesserEdgePoint(), deleting.get(1).getFullerEdgePoint());
                     }
 
                 }
@@ -723,7 +757,8 @@ public class Circuit implements Dynamic {
         @Override
         public String toString() {
             return "EntityAddOperation{" +
-                    "adding=" + adding +
+                    "opCode=" + opCode +
+                    ", adding=" + adding +
                     '}';
         }
     }

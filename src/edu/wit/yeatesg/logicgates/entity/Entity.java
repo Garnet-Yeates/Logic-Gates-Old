@@ -1,23 +1,23 @@
 package edu.wit.yeatesg.logicgates.entity;
 
-import com.sun.javafx.scene.paint.GradientUtils;
 import edu.wit.yeatesg.logicgates.def.BoundingBox;
 import edu.wit.yeatesg.logicgates.def.Circuit;
-import edu.wit.yeatesg.logicgates.def.Vector;
 import edu.wit.yeatesg.logicgates.entity.connectible.ConnectibleEntity;
 import edu.wit.yeatesg.logicgates.entity.connectible.Dependent;
 import edu.wit.yeatesg.logicgates.entity.connectible.Wire;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 import javafx.scene.canvas.GraphicsContext;
 
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.LinkedList;
 
 public abstract class Entity implements Dynamic {
 
+    private static int idAssign;
+    protected int id;
+
     public Entity(Circuit c, boolean addToCircuit) {
+        id = idAssign++;
         this.c = c;
     }
 
@@ -29,7 +29,8 @@ public abstract class Entity implements Dynamic {
 
     // General attributes
 
-    protected Circuit c;
+    private Circuit c;
+
 
     protected boolean preview;
 
@@ -42,13 +43,19 @@ public abstract class Entity implements Dynamic {
         // Maybe update invalid intercept points here
     }
 
-    public void onAddToCircuit() {
-        deleted = false;
-        if (this instanceof Dependent)
-            ((Dependent) this).setState(Dependent.State.UNDETERMINED);
-        getCircuit().getInterceptMap().addInterceptPointsFor(this);
+    private boolean inCircuit = false;
+
+    public boolean existsInCircuit() {
+        return inCircuit;
     }
 
+    public void onAddToCircuit() {
+        inCircuit = true;
+        System.out.println(this + " added. in circuit now tr000");
+        getCircuit().getInterceptMap().addInterceptPointsFor(this);
+        if (this instanceof Dependent)
+            ((Dependent) this).setState(Dependent.State.UNDETERMINED);
+    }
 
     /**
      * This method is not overridable because we want our equality checks to be the same as the similarity check
@@ -96,24 +103,25 @@ public abstract class Entity implements Dynamic {
         return null;
     }
 
-    protected boolean deleted = false;
-
     public abstract String getDisplayName();
 
     public Circuit getCircuit() {
         return c;
     }
 
-    public final void delete() {
-        c.removeEntity(this);
+    /**
+     * Removes this Entity from its Circuit
+     */
+    public final void remove() {
+        c.removeEntity(this); // If it was successfully removed, onRemovedFromCircuit() is called
     }
 
-    public void onDelete() {
-        deleted = true;
-    }
-
-    public boolean isDeleted() {
-        return deleted;
+    /**
+     * Called when this Entity is successfully removed from the Entity list of its Circuit. Call super
+     * when overriding this.
+     */
+    public void onRemovedFromCircuit() {
+        inCircuit = false;
     }
 
 

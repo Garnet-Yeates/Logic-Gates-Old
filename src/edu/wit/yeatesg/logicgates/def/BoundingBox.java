@@ -16,8 +16,6 @@ public class BoundingBox {
 
     private Entity owner;
 
-    private PointSet gridPointsWithin;
-
     public BoundingBox(CircuitPoint corner1, CircuitPoint corner2, Entity owner) {
         this.owner = owner;
         Circuit c = corner2.getCircuit();
@@ -46,13 +44,6 @@ public class BoundingBox {
                 p3 = new CircuitPoint(p1.x, p4.y, c);
             }
         }
-        CircuitPoint topLeft = p1.getGridSnapped();
-        CircuitPoint bottomRight = p4.getGridSnapped();
-        gridPointsWithin = new PointSet();
-        for (int y = (int) topLeft.y; y <= bottomRight.y; y++)
-            for (int x = (int) topLeft.x; x <= bottomRight.x; x++)
-                gridPointsWithin.add(new CircuitPoint(x, y, topLeft.getCircuit()));
-
     }
 
     public double getRight() {
@@ -92,7 +83,13 @@ public class BoundingBox {
     }
 
     public PointSet getInterceptPoints() {
-        return gridPointsWithin.deepClone();
+        PointSet gridPointsWithin = new PointSet();
+        CircuitPoint topLeft = p1.getGridSnapped();
+        CircuitPoint bottomRight = p4.getGridSnapped();
+        for (int y = (int) topLeft.y; y <= bottomRight.y; y++)
+            for (int x = (int) topLeft.x; x <= bottomRight.x; x++)
+                gridPointsWithin.add(new CircuitPoint(x, y, topLeft.getCircuit()));
+        return gridPointsWithin;
     }
 
     public boolean intercepts(PanelDrawPoint p) {

@@ -56,20 +56,24 @@ public class CircuitPoint {
                 " ]";
     }
 
+    public boolean isInMapRange() {
+        return c.isInMapRange(this);
+    }
+
     public boolean isInLineWith(CircuitPoint other) {
         return x == other.x || y == other.y;
     }
 
     public boolean is4AdjacentTo(CircuitPoint other) {
-        int xdiff = (int) Math.abs(other.x - this.x);
-        int ydiff = (int) Math.abs(other.y - this.y);
-        return (xdiff == 1 && ydiff == 0 || xdiff == 0 && ydiff == 1);
+        int xDiff = (int) Math.abs(other.x - this.x);
+        int yDiff = (int) Math.abs(other.y - this.y);
+        return (xDiff == 1 && yDiff == 0 || xDiff == 0 && yDiff == 1);
     }
 
     public boolean is8AdjacentTo(CircuitPoint other) {
-        int xdiff = (int) Math.abs(other.x - this.x);
-        int ydiff = (int) Math.abs(other.y - this.y);
-        return (!(xdiff == 0 && ydiff == 0) && (xdiff <= 1 || ydiff <= 1));
+        int xDiff = (int) Math.abs(other.x - this.x);
+        int yDiff = (int) Math.abs(other.y - this.y);
+        return (!(xDiff == 0 && yDiff == 0) && (xDiff <= 1 || yDiff <= 1));
     }
 
     /**

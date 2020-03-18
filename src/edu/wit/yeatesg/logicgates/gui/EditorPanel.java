@@ -213,7 +213,6 @@ public class EditorPanel extends Pane {
             modifyOffset(new Vector(mouseX, mouseY, e.getX(), e.getY()));
             repaint(c());
         }
-        System.out.println("MOUSE DRAG E " + leftDown());
         updateMousePos(e);
         if (leftDown()) {
             if (selectionBoxStartPoint != null)
@@ -332,6 +331,8 @@ public class EditorPanel extends Pane {
                 for (Entity e : deepClone)
                     c().new EntityDeleteOperation(e).operate();
                 c().appendCurrentStateChanges();
+                c().refreshTransmissions();
+                repaint(c());
             }
         }
 
@@ -401,19 +402,21 @@ public class EditorPanel extends Pane {
         for (int x = (int)(-w*0.1); x < w + w*0.1; x += c().getScale()) {
             for (int y = (int)(-h*0.1); y < h + h*0.1; y += c().getScale()) {
                 CircuitPoint gridPoint = circuitPointAt(x, y, true);
-                PanelDrawPoint drawLoc = gridPoint.toPanelDrawPoint();
-                g.setLineWidth(c().getGridLineWidth());
+                if (gridPoint.isInMapRange()) {
+                    PanelDrawPoint drawLoc = gridPoint.toPanelDrawPoint();
+                    g.setLineWidth(c().getGridLineWidth());
 
-                g.setStroke(Circuit.COL_GRID);
-                if (gridPoint.representsOrigin()) {
-                    int strokeSize = c().getLineWidth();
-                    strokeSize *= 1.5;
-                    if (strokeSize == c().getLineWidth())
-                        strokeSize++;
-                    g.setLineWidth(strokeSize);
-                    g.setStroke(Circuit.COL_ORIGIN);
+                    g.setStroke(Circuit.COL_GRID);
+                    if (gridPoint.representsOrigin()) {
+                        int strokeSize = c().getLineWidth();
+                        strokeSize *= 1.5;
+                        if (strokeSize == c().getLineWidth())
+                            strokeSize++;
+                        g.setLineWidth(strokeSize);
+                        g.setStroke(Circuit.COL_ORIGIN);
+                    }
+                    g.strokeLine(drawLoc.x, drawLoc.y, drawLoc.x, drawLoc.y);
                 }
-                g.strokeLine(drawLoc.x, drawLoc.y, drawLoc.x, drawLoc.y);
             }
         }
     }
@@ -658,18 +661,31 @@ public class EditorPanel extends Pane {
         Platform.runLater(() -> {
             double width = canvasWidth();
             double height = canvasHeight();
-
             GraphicsContext gc = canvas.getGraphicsContext2D();
-            gc.clearRect(0, 0, width, height);
-            gc.setFill(Color.WHITE);
+
+
+            gc.setFill(Color.rgb(248, 248, 248, 1));
             gc.fillRect(0, 0, canvasWidth(), canvasHeight());
+
+            gc.setFill(COL_BG);
+            BoundingBox rangeBox = c.getInterceptMap().getBoundingBox().getExpandedBy(0.3);
+            PanelDrawPoint tl = rangeBox.p1.toPanelDrawPoint();
+            PanelDrawPoint tr = rangeBox.p2.toPanelDrawPoint();
+            PanelDrawPoint bl = rangeBox.p3.toPanelDrawPoint();
+            PanelDrawPoint br = rangeBox.p4.toPanelDrawPoint();
+
+            gc.fillRect(tl.x, tl.y, tr.x - tl.x, br.y - tr.y);
+
+            gc.setStroke(Color.BLACK);
+            gc.setLineWidth(1);
+            gc.strokeLine(tl.x, tl.y, bl.x, bl.y); // Top left to bottom left
+            gc.strokeLine(tl.x, tl.y, tr.x, tr.y); // Top left to top right
+            gc.strokeLine(tr.x, tr.y, br.x, br.y); // Top right to bottom right
+            gc.strokeLine(bl.x, bl.y, br.x, br.y); // Bottom left to bottom right
 
             gc.setStroke(Color.PINK);
             gc.setLineWidth(3);
             gc.strokeRect(0, 0, canvasWidth(), canvasHeight());
-
-            gc.setFill(backgroundColor);
-            gc.fillRect(0, 0, getWidth(), getHeight());
 
             drawGridPoints(gc);
 
@@ -830,6 +846,7 @@ public class EditorPanel extends Pane {
                     if (theos == null && pullDir != null) // If we couldn't do it in their preferred dir, try the other
                         theos = generator.genWirePathLenient(start, end, pullDir.getPerpendicular(), 8);
                     theos = theos == null ? new ArrayList<>() : theos;
+                    System.out.println("GEN GEN");
                     for (Wire t : theos) { // 'new Wire' automatically adds it to the theoretical circuit
                         System.out.println("ADDACIOUS ADD: " + "[[ " + t.getStartLocation().toParsableString() + " " + t.getEndLocation().toParsableString() + " ]]");;
                         new Wire(t.getStartLocation().clone(), t.getEndLocation().clone());
