@@ -65,11 +65,21 @@ public class EditorPanel extends Pane {
         Circuit c = c();
         CircuitStateChain stateController = c.stateController();
         if (e.getCode() == Z && ctrl && stateController.hasLeft()) {
-            undo();
+            if (e.isShiftDown()) { // MEGA undo
+                while (true)
+                    if (!undo())
+                        break;
+            } else
+                undo();
             c.refreshTransmissions();
         }
         else if (e.getCode() == Y && ctrl && stateController.hasRight()) {
-            redo();
+            if (e.isShiftDown()) {// MEGA undo
+                while (true)
+                    if (!redo())
+                        break;
+            } else
+                redo();
             c.refreshTransmissions();
         }
         if (e.getCode() == DELETE)
@@ -395,8 +405,6 @@ public class EditorPanel extends Pane {
         }
     }
 
-    public Color backgroundColor = Color.WHITE;
-
     private void drawGridPoints(GraphicsContext g) {
         int w = canvasWidth(), h = canvasHeight();
         for (int x = (int)(-w*0.1); x < w + w*0.1; x += c().getScale()) {
@@ -405,7 +413,6 @@ public class EditorPanel extends Pane {
                 if (gridPoint.isInMapRange()) {
                     PanelDrawPoint drawLoc = gridPoint.toPanelDrawPoint();
                     g.setLineWidth(c().getGridLineWidth());
-
                     g.setStroke(Circuit.COL_GRID);
                     if (gridPoint.representsOrigin()) {
                         int strokeSize = c().getLineWidth();
@@ -725,14 +732,16 @@ public class EditorPanel extends Pane {
         return canUserShiftState;
     }
 
-    private void undo() {
+    private boolean undo() {
         if (canUserShiftState)
-            c().stateController().goLeft();
+            return c().stateController().goLeft();
+        return false;
     }
 
-    private void redo() {
+    private boolean redo() {
         if (canUserShiftState)
-            c().stateController().goRight();
+            return c().stateController().goRight();
+        return false;
     }
 
     private int ppStateShift = 0;

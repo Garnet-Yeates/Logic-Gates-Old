@@ -116,18 +116,18 @@ public class SimpleGateAND extends ConnectibleEntity implements Rotatable {
         relatives.add(0, 0, c);
 
         // Top left of curve
-        relatives.add(-2.5, -2.5, c);
+        relatives.add(-2.49, -2.49, c);
         // Bottom left of curve
-        relatives.add(-2.5, 0.8, c);
+        relatives.add(-2.49, 0.8, c);
         // Bottom right of curve
-        relatives.add(2.5, 0.8, c);
+        relatives.add(2.49, 0.8, c);
         // Top right of curve
-        relatives.add(2.5, -2.5, c);
+        relatives.add(2.49, -2.49, c);
 
         // Top right
-        relatives.add(2.5, -5, c);
+        relatives.add(2.49, -5, c);
         // Top left
-        relatives.add(-2.5, -5, c);
+        relatives.add(-2.49, -5, c);
 
         relatives.add(-1, -5, c); // Input1
         relatives.add(1, -5, c); // Input2

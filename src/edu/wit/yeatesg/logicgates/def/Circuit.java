@@ -480,24 +480,26 @@ public class Circuit implements Dynamic {
             this.curr = curr.right; // not goRight()
         }
 
-        public void goRight() {
-            if (curr.right == null)
-                return;
+        public boolean goRight() {
+            if (!hasRight())
+                return false;
             stopListening();
             currChangeBuffer.clear();
             curr.toGoRight.forEach(StateChangeOperation::operate);
             curr = curr.right;
             startListening();
+            return true;
         }
 
-        public void goLeft() {
-            if (curr.left == null)
-                return;
+        public boolean goLeft() {
+            if (!hasLeft())
+                return false;
             stopListening();
             currChangeBuffer.clear();
             curr.toGoLeft.forEach(StateChangeOperation::operate);
             curr = curr.left;
             startListening();
+            return true;
         }
 
         public boolean hasLeft() {

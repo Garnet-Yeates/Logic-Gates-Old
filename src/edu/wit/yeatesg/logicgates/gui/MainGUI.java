@@ -16,6 +16,9 @@ import javafx.scene.control.Label;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuBar;
 import javafx.scene.control.MenuItem;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyCodeCombination;
+import javafx.scene.input.KeyCombination;
 import javafx.scene.layout.*;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
@@ -40,6 +43,7 @@ public class MainGUI extends Application {
 
     public MainGUI(Stage stage, Project project) {
         start(stage);
+        initGUI();
         Project p = project;
         if (p == null)
             p = new Project("untitled");
@@ -79,6 +83,13 @@ public class MainGUI extends Application {
         }
     }
 
+    private MenuBar menuBar;
+    MenuItem undoMenuItem;
+
+    private void initGUI() {
+
+    }
+
     public void setCurrentProject(Project p) {
         p.setGUI(this);
         this.currProject = p;
@@ -88,7 +99,8 @@ public class MainGUI extends Application {
 
         BorderPane borderPane = new BorderPane();
 
-        MenuBar menuBar = new MenuBar();
+        menuBar = new MenuBar();
+
         Menu fileMenu = new Menu("File");
         MenuItem openMenuItem = new MenuItem("Open...     ");
         openMenuItem.setOnAction((e) -> {
@@ -97,6 +109,27 @@ public class MainGUI extends Application {
         fileMenu.getItems().add(openMenuItem);
         menuBar.getMenus().add(fileMenu);
         borderPane.setTop(menuBar);
+
+        // Edit menu
+
+        Menu editMenu = new Menu("Edit");
+        menuBar.getMenus().add(editMenu);
+
+        undoMenuItem = new MenuItem("Undo");
+        undoMenuItem.setAccelerator(new KeyCodeCombination(KeyCode.Z, KeyCombination.CONTROL_DOWN));
+        editMenu.getItems().add(undoMenuItem);
+
+        MenuItem megaUndoMenuItem = new MenuItem("Mega Undo");
+        megaUndoMenuItem.setAccelerator(new KeyCodeCombination(KeyCode.Z, KeyCombination.CONTROL_DOWN, KeyCombination.SHIFT_DOWN));
+        editMenu.getItems().add(megaUndoMenuItem);
+
+        MenuItem redoMenuItem = new MenuItem("Redo");
+        redoMenuItem.setAccelerator(new KeyCodeCombination(KeyCode.Y, KeyCombination.CONTROL_DOWN));
+        editMenu.getItems().add(redoMenuItem);
+
+        MenuItem megaRedoItem = new MenuItem("Mega Redo");
+        megaRedoItem.setAccelerator(new KeyCodeCombination(KeyCode.Y, KeyCombination.CONTROL_DOWN, KeyCombination.SHIFT_DOWN));
+        editMenu.getItems().add(megaRedoItem);
 
         SplitPane horizSplitPane = new SplitPane();
         horizSplitPane.setOrientation(Orientation.HORIZONTAL);
