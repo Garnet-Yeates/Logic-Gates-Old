@@ -4,6 +4,9 @@ import edu.wit.yeatesg.logicgates.def.Circuit;
 import edu.wit.yeatesg.logicgates.def.Direction;
 import edu.wit.yeatesg.logicgates.entity.*;
 import edu.wit.yeatesg.logicgates.def.BoundingBox;
+import edu.wit.yeatesg.logicgates.entity.connectible.transmission.ConnectionNode;
+import edu.wit.yeatesg.logicgates.entity.connectible.transmission.OutputNode;
+import edu.wit.yeatesg.logicgates.entity.connectible.transmission.Wire;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 import edu.wit.yeatesg.logicgates.points.PanelDrawPoint;
 import javafx.beans.value.ObservableValue;
@@ -12,7 +15,7 @@ import javafx.scene.paint.Color;
 
 import java.util.Arrays;
 
-import static edu.wit.yeatesg.logicgates.entity.connectible.Dependent.*;
+import static edu.wit.yeatesg.logicgates.entity.connectible.transmission.Dependent.*;
 
 public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable {
 
@@ -44,11 +47,11 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
 
 
     @Override
-    protected void determineOutputDependencies() { /* Output Node Dependency List Will Be Empty For Input Nodes */}
+    protected void assignOutputsToInputs() { /* Output Node Dependency List Will Be Empty For Input Nodes */}
 
     @Override
     public void determinePowerStateOf(OutputNode outputNode) {
-        outputNode.setState(powerStatus ? State.ON : State.OFF);
+        outputNode.setPowerStatus(powerStatus ? PowerStatus.ON : PowerStatus.OFF);
     }
 
     @Override
@@ -89,7 +92,7 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
     // Other stuff
 
     public Color getColor() {
-        return out.getState().getColor();
+        return out.getPowerStatus().getColor();
     }
 
     @Override
@@ -154,7 +157,7 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
             throw new RuntimeException("Cannot connect these 2 entities");
         if (!hasNodeAt(atLocation))
             throw new RuntimeException("Can't connect to InputBlock here, no ConnectionNode at this CircuitPoint");
-        getNodeAt(atLocation).connectedTo = e;
+        getNodeAt(atLocation).setConnectedTo(e);
         e.connections.add(new ConnectionNode(atLocation, e, this));
     }
 

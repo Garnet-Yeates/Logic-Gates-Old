@@ -1,6 +1,6 @@
-package edu.wit.yeatesg.logicgates.entity.connectible;
+package edu.wit.yeatesg.logicgates.entity.connectible.transmission;
 
-import edu.wit.yeatesg.logicgates.def.Circuit;
+import edu.wit.yeatesg.logicgates.entity.connectible.ConnectibleEntity;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 import edu.wit.yeatesg.logicgates.points.PanelDrawPoint;
 import javafx.scene.canvas.GraphicsContext;
@@ -10,36 +10,35 @@ public class InputNode extends ConnectionNode implements Dependent {
 
     public InputNode(CircuitPoint location, ConnectibleEntity connectingFrom, ConnectibleEntity connectedTo) {
         super(location, connectingFrom, connectedTo);
-        setState(State.UNDETERMINED);
     }
 
     public InputNode(CircuitPoint location, ConnectibleEntity connectingFrom) {
         this(location, connectingFrom, null);
     }
 
-    protected DependentParentList dependencyList = new DependentParentList(this);
+    protected DependencyList transmitterList = new DependencyList(this);
 
     @Override
-    public DependentParentList getDependencyList() {
-        return dependencyList;
+    public DependencyList dependingOn() {
+        return transmitterList;
     }
 
-    private State state;
+    private PowerStatus powerStatus = PowerStatus.UNDETERMINED;
 
     @Override
-    public void setState(State state) {
-        this.state = state;
+    public void setPowerStatus(PowerStatus status) {
+        this.powerStatus = status;
     }
 
     @Override
-    public State getState() {
-        return state;
+    public PowerStatus getPowerStatus() {
+        return powerStatus;
     }
 
     @Override
     public void draw(GraphicsContext g) {
         g.setStroke(Color.BLACK);
-        g.setFill(getState().getColor());
+        g.setFill(getPowerStatus().getColor());
         int circleSize = (int) (parent.getCircuit().getScale() * 0.4);
         if (circleSize % 2 != 0) circleSize++;
         PanelDrawPoint drawPoint = getLocation().toPanelDrawPoint();

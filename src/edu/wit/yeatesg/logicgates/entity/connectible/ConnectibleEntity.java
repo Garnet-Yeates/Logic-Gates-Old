@@ -2,6 +2,7 @@ package edu.wit.yeatesg.logicgates.entity.connectible;
 
 import edu.wit.yeatesg.logicgates.def.Circuit;
 import edu.wit.yeatesg.logicgates.entity.Entity;
+import edu.wit.yeatesg.logicgates.entity.connectible.transmission.*;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 
 import java.util.ArrayList;
@@ -18,7 +19,7 @@ public abstract class ConnectibleEntity extends Entity {
 
     @Override
     public void postInit(boolean addToCircuit) {
-        determineOutputDependencies();
+        assignOutputsToInputs();
         super.postInit(addToCircuit);
     }
 
@@ -28,10 +29,10 @@ public abstract class ConnectibleEntity extends Entity {
         connectCheck();
     }
 
-    protected abstract void determineOutputDependencies();
+    protected abstract void assignOutputsToInputs();
 
 
-    // Specific Output Entities (entities that can send power)
+    // Specific To Output Entities (entities that can send power)
 
     public void establishOutputNode(CircuitPoint location) {
         connections.add(new OutputNode(location, this));
@@ -45,7 +46,7 @@ public abstract class ConnectibleEntity extends Entity {
         return connections.hasOutputNodes();
     }
 
-    public boolean isIndependent() {
+    public boolean transmitsOnly() {
         return (hasOutputNodes() && !hasInputNodes());
     }
 
@@ -55,9 +56,6 @@ public abstract class ConnectibleEntity extends Entity {
                 ((OutputNode) node).calculateDependedBy();
     }
 
-
-    // Input Entities (entities that receive power)
-    // Input entities depend on output entities. Input nodes depend on output nodes
 
     public void establishInputNode(CircuitPoint location) {
         connections.add(new InputNode(location, this));
@@ -72,13 +70,13 @@ public abstract class ConnectibleEntity extends Entity {
     }
 
 
-
-
     // General Connecting, Disconnecting, Pulling Wires
 
     public abstract void connect(ConnectibleEntity e, CircuitPoint atLocation);
 
     public abstract boolean canCreateWireFrom(CircuitPoint locationOnThisEntity);
+
+    public abstract boolean canPullPointGoHere(CircuitPoint gridSnap);
 
     public abstract void disconnect(ConnectibleEntity e);
 
@@ -211,13 +209,11 @@ public abstract class ConnectibleEntity extends Entity {
     }
 
     public abstract void determinePowerStateOf(OutputNode outputNode);
-
-    public abstract boolean canPullPointGoHere(CircuitPoint gridSnap);
-
+    
 
     public LinkedList<InputNode> getRelevantInputNodesFor(OutputNode out) {
         LinkedList<InputNode> relevants = new LinkedList<>();
-        for (Dependent inputNode : out.getDependencyList())
+        for (Dependent inputNode : out.dependingOn())
             if (inputNode.hasSuperDependencies())
                 relevants.add((InputNode) inputNode);
         return relevants;

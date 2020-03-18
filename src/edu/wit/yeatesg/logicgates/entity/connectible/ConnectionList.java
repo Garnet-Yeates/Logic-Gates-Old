@@ -1,6 +1,8 @@
 package edu.wit.yeatesg.logicgates.entity.connectible;
 
-import edu.wit.yeatesg.logicgates.def.Circuit;
+import edu.wit.yeatesg.logicgates.entity.connectible.transmission.ConnectionNode;
+import edu.wit.yeatesg.logicgates.entity.connectible.transmission.InputNode;
+import edu.wit.yeatesg.logicgates.entity.connectible.transmission.OutputNode;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 
 import java.util.ArrayList;

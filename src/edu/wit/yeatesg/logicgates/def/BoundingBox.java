@@ -3,7 +3,6 @@ package edu.wit.yeatesg.logicgates.def;
 import edu.wit.yeatesg.logicgates.entity.Entity;
 import edu.wit.yeatesg.logicgates.entity.EntityList;
 import edu.wit.yeatesg.logicgates.entity.PointSet;
-import edu.wit.yeatesg.logicgates.entity.connectible.Wire;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 import edu.wit.yeatesg.logicgates.points.PanelDrawPoint;
 import javafx.scene.canvas.GraphicsContext;

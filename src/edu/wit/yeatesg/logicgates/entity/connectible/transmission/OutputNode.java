@@ -1,60 +1,57 @@
-package edu.wit.yeatesg.logicgates.entity.connectible;
+package edu.wit.yeatesg.logicgates.entity.connectible.transmission;
 
-import edu.wit.yeatesg.logicgates.def.Circuit;
+import edu.wit.yeatesg.logicgates.entity.connectible.ConnectibleEntity;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 import edu.wit.yeatesg.logicgates.points.PanelDrawPoint;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
-import java.util.LinkedList;
-
 public class OutputNode extends ConnectionNode implements Dependent {
 
     public OutputNode(CircuitPoint location, ConnectibleEntity connectingFrom, ConnectibleEntity connectedTo) {
         super(location, connectingFrom, connectedTo);
-        setState(State.UNDETERMINED);
     }
 
     public OutputNode(CircuitPoint location, ConnectibleEntity connectingFrom) {
         this(location, connectingFrom, null);
     }
 
-    private DependentParentList dependencies = new DependentParentList(this);
+    private DependencyList receivingFrom = new DependencyList(this);
 
     @Override
-    public DependentParentList getDependencyList() {
-        return dependencies;
+    public DependencyList dependingOn() {
+        return receivingFrom;
     }
 
-    private State state;
+    private PowerStatus powerStatus = PowerStatus.UNDETERMINED;
 
     @Override
-    public void setState(State state) {
-        this.state = state;
+    public void setPowerStatus(PowerStatus status) {
+        this.powerStatus = status;
     }
 
     @Override
-    public State getState() {
-        return state;
+    public PowerStatus getPowerStatus() {
+        return powerStatus;
     }
 
     public boolean isIndependent() {
-        return parent != null && parent.isIndependent();
+        return parent != null && parent.transmitsOnly();
     }
 
     private void calculateDependedBy(Wire connectingWire) {
         if (connectingWire.getFullConnections().size() > 1) {
             for (ConnectibleEntity ce : connectingWire.getConnectedEntities()) {
-                if (ce instanceof Wire && !((Wire) ce).getDependencyList().contains(this)) {
+                if (ce instanceof Wire && !((Wire) ce).dependingOn().contains(this)) {
                     Wire w = (Wire) ce;
-                    w.getDependencyList().add(this);
+                    w.dependingOn().add(this);
                     calculateDependedBy(w);
                 } else {
                     // MUST be ce.getConnectionTo(curr), not curr.getConnectionTo(ce) because curr (should)
                     // always be a wire and wires dont have distinct input/output nodes
                     ConnectionNode node = ce.getConnectionTo(connectingWire);
-                    if (node instanceof InputNode && !((InputNode) node).getDependencyList().contains(this)) {
-                        ((InputNode) node).getDependencyList().add(this);
+                    if (node instanceof InputNode && !((InputNode) node).dependingOn().contains(this)) {
+                        ((InputNode) node).dependingOn().add(this);
                     }
                 }
             }
@@ -64,9 +61,9 @@ public class OutputNode extends ConnectionNode implements Dependent {
     // During refreshTransmissions, this should be called on every entity that has OutputNodes
     // TODO make sure output/input nodes connect to wires only
     public final void calculateDependedBy() {
-        if (connectedTo instanceof Wire && getState() != State.ILLOGICAL) {
+        if (connectedTo instanceof Wire && getPowerStatus() == PowerStatus.UNDETERMINED) {
             Wire w = (Wire) connectedTo;
-            w.getDependencyList().add(this);
+            w.dependingOn().add(this);
             calculateDependedBy(w);
         }
     }
@@ -74,7 +71,7 @@ public class OutputNode extends ConnectionNode implements Dependent {
     @Override
     public void draw(GraphicsContext g) {
         g.setStroke(Color.BLACK);
-        g.setFill(getState().getColor());
+        g.setFill(getPowerStatus().getColor());
         int circleSize = (int) (parent.getCircuit().getScale() * 0.4);
         if (circleSize % 2 != 0) circleSize++;
         PanelDrawPoint drawPoint = getLocation().toPanelDrawPoint();

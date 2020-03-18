@@ -1,12 +1,10 @@
 package edu.wit.yeatesg.logicgates.gui;
 
-import edu.wit.yeatesg.logicgates.def.Direction;
 import edu.wit.yeatesg.logicgates.def.SimpleGateAND;
 import edu.wit.yeatesg.logicgates.entity.Dynamic;
 import edu.wit.yeatesg.logicgates.entity.Property;
 import edu.wit.yeatesg.logicgates.def.Circuit;
 import edu.wit.yeatesg.logicgates.entity.connectible.InputBlock;
-import edu.wit.yeatesg.logicgates.entity.connectible.Wire;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 import javafx.application.Application;
 import javafx.application.Platform;

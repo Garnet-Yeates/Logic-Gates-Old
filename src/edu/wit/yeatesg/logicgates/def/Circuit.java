@@ -2,6 +2,8 @@ package edu.wit.yeatesg.logicgates.def;
 
 import edu.wit.yeatesg.logicgates.entity.*;
 import edu.wit.yeatesg.logicgates.entity.connectible.*;
+import edu.wit.yeatesg.logicgates.entity.connectible.transmission.Dependent;
+import edu.wit.yeatesg.logicgates.entity.connectible.transmission.Wire;
 import edu.wit.yeatesg.logicgates.gui.EditorPanel;
 import edu.wit.yeatesg.logicgates.gui.Project;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
@@ -326,14 +328,18 @@ public class Circuit implements Dynamic {
     public void refreshTransmissions() {
    //     System.out.print("Refresh Transmissions Took " + LogicGates.doTimeTest(() -> {
             Dependent.resetDependencies(this);
-            Dependent.resetStates(this);
+            Dependent.resetPowerStatus(this, true);
             Dependent.calculateDependencies(this);
             Dependent.calculateSuperDependencies(this);
+
             Dependent.illogicalCheck(this);
+
             Dependent.resetDependencies(this);
+            Dependent.resetPowerStatus(this, false); // Only difference from first 4 is 'false' here
             Dependent.calculateDependencies(this);
             Dependent.calculateSuperDependencies(this);
-            Dependent.determinePowerStates(this);
+
+            Dependent.determinePowerStatuses(this);
    //     }));
 
     }

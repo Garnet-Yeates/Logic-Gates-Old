@@ -5,13 +5,17 @@ import edu.wit.yeatesg.logicgates.entity.PointSet;
 import edu.wit.yeatesg.logicgates.entity.PropertyList;
 import edu.wit.yeatesg.logicgates.entity.Rotatable;
 import edu.wit.yeatesg.logicgates.entity.connectible.*;
+import edu.wit.yeatesg.logicgates.entity.connectible.transmission.ConnectionNode;
+import edu.wit.yeatesg.logicgates.entity.connectible.transmission.InputNode;
+import edu.wit.yeatesg.logicgates.entity.connectible.transmission.OutputNode;
+import edu.wit.yeatesg.logicgates.entity.connectible.transmission.Wire;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 import edu.wit.yeatesg.logicgates.points.PanelDrawPoint;
 import javafx.beans.value.ObservableValue;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
-import static edu.wit.yeatesg.logicgates.entity.connectible.Dependent.*;
+import static edu.wit.yeatesg.logicgates.entity.connectible.transmission.Dependent.*;
 
 import java.util.LinkedList;
 
@@ -52,17 +56,15 @@ public class SimpleGateAND extends ConnectibleEntity implements Rotatable {
 
     @Override
     public void determinePowerStateOf(OutputNode outputNode) {
-        if (outputNode.getState() != State.ILLOGICAL) {
+        if (outputNode.getPowerStatus() != PowerStatus.ILLOGICAL) {
             LinkedList<InputNode> relevants = getRelevantInputNodesFor(outputNode);
-            if (relevants.size() == 0 && outputNode.hasConnectedEntity())
-                outputNode.setState(State.PARTIALLY_DEPENDENT);
-            else if (relevants.size() == 0)
-                outputNode.setState(State.NO_DEPENDENT);
-            if (outputNode.getState() == State.OFF) {
-                outputNode.setState(State.ON);
+            if (relevants.size() == 0)
+                outputNode.setPowerStatus(PowerStatus.PARTIALLY_DEPENDENT);
+            if (outputNode.getPowerStatus() == PowerStatus.OFF) {
+                outputNode.setPowerStatus(PowerStatus.ON);
                 for (InputNode n : getRelevantInputNodesFor(outputNode)) {
-                    if (n.getState() == State.OFF) {
-                        outputNode.setState(State.OFF);
+                    if (n.getPowerStatus() == PowerStatus.OFF) {
+                        outputNode.setPowerStatus(PowerStatus.OFF);
                         return;
                     }
                 }
@@ -76,9 +78,9 @@ public class SimpleGateAND extends ConnectibleEntity implements Rotatable {
     }
 
     @Override
-    protected void determineOutputDependencies() {
-        out.getDependencyList().add((InputNode) getNodeAt(drawPoints.get(7)));
-        out.getDependencyList().add((InputNode) getNodeAt(drawPoints.get(8)));
+    protected void assignOutputsToInputs() {
+        out.dependingOn().add((InputNode) getNodeAt(drawPoints.get(7)));
+        out.dependingOn().add((InputNode) getNodeAt(drawPoints.get(8)));
     }
 
     @Override

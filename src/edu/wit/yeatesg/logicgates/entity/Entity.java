@@ -3,8 +3,7 @@ package edu.wit.yeatesg.logicgates.entity;
 import edu.wit.yeatesg.logicgates.def.BoundingBox;
 import edu.wit.yeatesg.logicgates.def.Circuit;
 import edu.wit.yeatesg.logicgates.entity.connectible.ConnectibleEntity;
-import edu.wit.yeatesg.logicgates.entity.connectible.Dependent;
-import edu.wit.yeatesg.logicgates.entity.connectible.Wire;
+import edu.wit.yeatesg.logicgates.entity.connectible.transmission.Wire;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 import javafx.scene.canvas.GraphicsContext;
 
@@ -53,8 +52,6 @@ public abstract class Entity implements Dynamic {
         inCircuit = true;
         System.out.println(this + " added. in circuit now tr000");
         getCircuit().getInterceptMap().addInterceptPointsFor(this);
-        if (this instanceof Dependent)
-            ((Dependent) this).setState(Dependent.State.UNDETERMINED);
     }
 
     /**

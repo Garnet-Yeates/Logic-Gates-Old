@@ -6,7 +6,7 @@ import edu.wit.yeatesg.logicgates.entity.Entity;
 import edu.wit.yeatesg.logicgates.entity.EntityList;
 import edu.wit.yeatesg.logicgates.entity.Pokable;
 import edu.wit.yeatesg.logicgates.entity.connectible.ConnectibleEntity;
-import edu.wit.yeatesg.logicgates.entity.connectible.Wire;
+import edu.wit.yeatesg.logicgates.entity.connectible.transmission.Wire;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 import edu.wit.yeatesg.logicgates.points.PanelDrawPoint;
 import javafx.application.Platform;
@@ -22,7 +22,7 @@ import javafx.scene.paint.Color;
 import javax.swing.Timer;
 import java.util.*;
 
-import static edu.wit.yeatesg.logicgates.entity.connectible.Wire.*;
+import static edu.wit.yeatesg.logicgates.entity.connectible.transmission.Wire.*;
 import static edu.wit.yeatesg.logicgates.def.Circuit.*;
 
 import static javafx.scene.input.KeyCode.*;

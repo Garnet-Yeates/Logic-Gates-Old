@@ -1,4 +1,4 @@
-package edu.wit.yeatesg.logicgates.entity.connectible;
+package edu.wit.yeatesg.logicgates.entity.connectible.transmission;
 
 import edu.wit.yeatesg.logicgates.def.Direction;
 import edu.wit.yeatesg.logicgates.def.Vector;
@@ -7,6 +7,7 @@ import edu.wit.yeatesg.logicgates.entity.EntityList;
 import edu.wit.yeatesg.logicgates.entity.PointSet;
 import edu.wit.yeatesg.logicgates.def.*;
 import edu.wit.yeatesg.logicgates.entity.PropertyList;
+import edu.wit.yeatesg.logicgates.entity.connectible.*;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 import edu.wit.yeatesg.logicgates.points.PanelDrawPoint;
 import javafx.beans.value.ObservableValue;
@@ -121,41 +122,42 @@ public class Wire extends ConnectibleEntity implements Dependent {
     }
 
 
-    // INHERITED FROM DEPENDENT INTERFACE
+    // INHERITED FROM TRANSMITTER INTERFACE
 
-    protected State state;
-    private DependentParentList dependencyList = new DependentParentList(this);
+    private PowerStatus powerStatus = PowerStatus.UNDETERMINED;
+    private DependencyList receivingFrom = new DependencyList(this);
 
     @Override
-    public State getState() {
-        return state;
+    public PowerStatus getPowerStatus() {
+        return powerStatus;
     }
 
     @Override
-    public DependentParentList getDependencyList() {
-        return dependencyList;
+    public DependencyList dependingOn() {
+        return receivingFrom;
     }
 
     @Override
-    public void setState(State state) {
-        this.state = state;
+    public void setPowerStatus(PowerStatus status) {
+        this.powerStatus = status;
     }
 
     @Override
     public void determinePowerStateOf(OutputNode outputNode) { /* Not Implemented For Wire, Has Volatile Nodes */ }
 
-    @Override
-    public boolean canPullPointGoHere(CircuitPoint gridSnap) {
-        return intercepts(gridSnap);
-    }
 
     @Override
-    protected void determineOutputDependencies() { /* Not Implemented For Wire, Has Volatile Nodes */ }
+    protected void assignOutputsToInputs() { /* Not Implemented For Wire, Has Volatile Nodes */ }
 
 
     @Override
     public String getDisplayName() {
         return "Wire";
+    }
+
+    @Override
+    public boolean canPullPointGoHere(CircuitPoint gridSnap) {
+        return intercepts(gridSnap);
     }
 
     /**
@@ -294,7 +296,7 @@ public class Wire extends ConnectibleEntity implements Dependent {
             throw new RuntimeException("canConnectTo returned false");
         if (e instanceof Wire) {
             connections.add(new ConnectionNode(atLocation, this, e));
-            e.connections.add(new ConnectionNode(atLocation, e, this));
+            ((Wire) e).connections.add(new ConnectionNode(atLocation, e, this));
         } else if (e instanceof InputBlock) {
             InputBlock block = (InputBlock) e;
             connections.add(new ConnectionNode(atLocation, this, e));
@@ -458,7 +460,7 @@ public class Wire extends ConnectibleEntity implements Dependent {
 
     public Color getColor() {
         try {
-            return getState().getColor();
+            return getPowerStatus().getColor();
         } catch (Exception e) { System.out.println("No color for " + this); e.printStackTrace(); System.exit(0);}
         return null;
     }
