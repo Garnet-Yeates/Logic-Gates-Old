@@ -5,6 +5,7 @@ import edu.wit.yeatesg.logicgates.def.Circuit;
 import edu.wit.yeatesg.logicgates.def.Vector;
 import edu.wit.yeatesg.logicgates.entity.Entity;
 import edu.wit.yeatesg.logicgates.entity.EntityList;
+import edu.wit.yeatesg.logicgates.entity.connectible.transmission.Wire;
 
 public class CircuitPoint {
 
@@ -85,6 +86,12 @@ public class CircuitPoint {
         return getSimilar();
     }
 
+    public boolean interceptsWireEdgePoint() {
+        for (Wire w : getInterceptingEntities().ofType(Wire.class))
+            if (w.isEdgePoint(this))
+                return true;
+        return false;
+    }
 
     public CircuitPoint getSimilar() {
         return new CircuitPoint(x, y, c);

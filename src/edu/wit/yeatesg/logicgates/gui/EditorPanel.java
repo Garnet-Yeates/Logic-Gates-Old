@@ -63,25 +63,6 @@ public class EditorPanel extends Pane {
 
     public void onKeyPressed(KeyEvent e) {
         Circuit c = c();
-        CircuitStateChain stateController = c.stateController();
-        if (e.getCode() == Z && ctrl && stateController.hasLeft()) {
-            if (e.isShiftDown()) { // MEGA undo
-                while (true)
-                    if (!undo())
-                        break;
-            } else
-                undo();
-            c.refreshTransmissions();
-        }
-        else if (e.getCode() == Y && ctrl && stateController.hasRight()) {
-            if (e.isShiftDown()) {// MEGA undo
-                while (true)
-                    if (!redo())
-                        break;
-            } else
-                redo();
-            c.refreshTransmissions();
-        }
         if (e.getCode() == DELETE)
             currSelection.deleteSelection();
         if (e.getCode() == B)
@@ -274,7 +255,7 @@ public class EditorPanel extends Pane {
 
         public boolean selectWithStateOperation(Entity e, boolean pushImmediate) {
             if (selectWithoutOperation(e)) {
-                c().new SelectOperation(e);
+                c().new SelectOperation(e, true);
                 if (pushImmediate)
                     c().appendCurrentStateChanges();
                 return true;
@@ -306,7 +287,7 @@ public class EditorPanel extends Pane {
 
         public boolean deselectWithStateOperation(Entity e, boolean pushImmediate) {
             if (deselectWithoutOperation(e)) {
-                c().new DeselectOperation(e);
+                c().new DeselectOperation(e, true);
                 if (pushImmediate)
                     c().appendCurrentStateChanges();
                 return true;
@@ -339,7 +320,7 @@ public class EditorPanel extends Pane {
             Selection deepClone = deepClone();
             if (deselectAllWithStateOperation(false)) {
                 for (Entity e : deepClone)
-                    c().new EntityDeleteOperation(e).operate();
+                    c().new EntityDeleteOperation(e, true).operate();
                 c().appendCurrentStateChanges();
                 c().refreshTransmissions();
                 repaint(c());
@@ -671,7 +652,7 @@ public class EditorPanel extends Pane {
             GraphicsContext gc = canvas.getGraphicsContext2D();
 
 
-            gc.setFill(Color.rgb(248, 248, 248, 1));
+            gc.setFill(Color.rgb(240, 240, 240, 1));
             gc.fillRect(0, 0, canvasWidth(), canvasHeight());
 
             gc.setFill(COL_BG);
@@ -692,7 +673,7 @@ public class EditorPanel extends Pane {
 
             gc.setStroke(Color.PINK);
             gc.setLineWidth(3);
-            gc.strokeRect(0, 0, canvasWidth(), canvasHeight());
+      //      gc.strokeRect(0, 0, canvasWidth(), canvasHeight());
 
             drawGridPoints(gc);
 
@@ -732,16 +713,29 @@ public class EditorPanel extends Pane {
         return canUserShiftState;
     }
 
-    private boolean undo() {
+    public boolean undo() {
+        System.out.println("undo");
         if (canUserShiftState)
             return c().stateController().goLeft();
         return false;
     }
 
-    private boolean redo() {
+    public void megaUndo() {
+        while (true)
+            if (!undo())
+                break;
+    }
+
+    public boolean redo() {
         if (canUserShiftState)
             return c().stateController().goRight();
         return false;
+    }
+
+    public void megaRedo() {
+        while (true)
+            if (!redo())
+                break;
     }
 
     private int ppStateShift = 0;
@@ -761,6 +755,7 @@ public class EditorPanel extends Pane {
         public PullPoint(CircuitPoint location, CircuitPoint originalLoc, boolean lock) {
             super(location.x, location.y, originalLoc.getCircuit());
             this.lock = lock;
+    //        ppStateShift = 0;
             pressPoint = circuitPointAtMouse(true);
             if (!canBePlacedHere(pressPoint) || !currSelection.isEmpty() || ctrl) {
                 currentPullPoint = null;
@@ -807,9 +802,13 @@ public class EditorPanel extends Pane {
 
             if (ppStateShift != 0) {
                 ppStateShift--;
+                System.out.println("\nUNDO LAST PATH");
                 c.stateController().goLeft();
+                System.out.println("num entities now: " + c.getNumEntities() + "\n");
             } else
                 c.stateController().clearBuffer();
+
+            String undoMsg = null;
 
             // Re-update intercepting connectibles after the state went back
             EntityList<ConnectibleEntity> cesAtStart = c().getEntitiesThatIntercept(start).ofType(ConnectibleEntity.class);
@@ -821,8 +820,14 @@ public class EditorPanel extends Pane {
 
             if (canDelete && deleting != null && !lock) {
                 // DO THE OPERATION FIRST SO IT CAN PROPERLY CHECK THE SPECIAL CASE WHERE THE DELETED WIRE CAUSES A BISECT
-                c().new EntityDeleteOperation(new Wire(start.clone(), end.clone(), false));
-                deleting.set(start, end);
+               if (new Wire(start, end, false).isSimilar(deleting)) {
+                   c().new EntityDeleteOperation(new Wire(start.clone(), end.clone(), false), true).operate();
+                   undoMsg = "Delete Wire";
+                    // TODO replace with c.deleteWithStateOperation
+               } else {
+                   c().new WireShortenOperation(deleting, start, end).operate();
+                   undoMsg = "Shorten Wire";
+               }
             } else {
                 boolean canStillCreate = true;
                 boolean canSlide = false; // If any entity at the start loc of the pullpoint can connect to any entity
@@ -856,20 +861,24 @@ public class EditorPanel extends Pane {
                         theos = generator.genWirePathLenient(start, end, pullDir.getPerpendicular(), 8);
                     theos = theos == null ? new ArrayList<>() : theos;
                     System.out.println("GEN GEN");
-                    for (Wire t : theos) { // 'new Wire' automatically adds it to the theoretical circuit
-                        System.out.println("ADDACIOUS ADD: " + "[[ " + t.getStartLocation().toParsableString() + " " + t.getEndLocation().toParsableString() + " ]]");;
-                        new Wire(t.getStartLocation().clone(), t.getEndLocation().clone());
-                        // Separate add operation from new Wire. because the new wire may be merged etc and make the delete operation invalid
-                        c.new EntityAddOperation(new Wire(t.getStartLocation().clone(), t.getEndLocation().clone(), false));
+
+                    if (!theos.isEmpty()) {
+                        for (Wire t : theos) { // 'new Wire' automatically adds it to the theoretical circuit
+                            System.out.println("ADDACIOUS ADD: " + "[[ " + t.getStartLocation().toParsableString() + " " + t.getEndLocation().toParsableString() + " ]]");;
+                            new Wire(t.getStartLocation().clone(), t.getEndLocation().clone());
+                            // Separate add operation from new Wire. because the new wire may be merged etc and make the delete operation invalid
+                            c.new EntityAddOperation(new Wire(t.getStartLocation().clone(), t.getEndLocation().clone(), false), true);
+                        }
+                        undoMsg = theos.size() == 1 ? "Create Wire" : "Create " + theos.size() + " Wires";
                     }
+
                 }
             }
 
             if (c.stateController().getBufferLength() > 0) {
-                c.appendCurrentStateChanges();
+                c.appendCurrentStateChanges(undoMsg);
                 ppStateShift++;
             }
-
 
             c.refreshTransmissions();
             repaint(c);

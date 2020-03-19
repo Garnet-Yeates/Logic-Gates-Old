@@ -141,6 +141,10 @@ public class Project {
         this.gui = gui;
     }
 
+    public MainGUI getGUI() {
+        return gui;
+    }
+
     public String getProjectName() {
         return projectName;
     }

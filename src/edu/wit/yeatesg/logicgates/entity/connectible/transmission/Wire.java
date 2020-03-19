@@ -56,14 +56,14 @@ public class Wire extends ConnectibleEntity implements Dependent {
      * vertical
      * @return
      */
-    public CircuitPoint getLesserEdgePoint() {
+    public CircuitPoint getLefterEdgePoint() {
         return isHorizontal() ? (
                 startLocation.x < endLocation.x ? startLocation : endLocation)
                 : (startLocation.y < endLocation.y ? startLocation : endLocation).getSimilar();
     }
 
-    public CircuitPoint getFullerEdgePoint() {
-        return getOppositeEdgePoint(getLesserEdgePoint());
+    public CircuitPoint getRighterEdgePoint() {
+        return getOppositeEdgePoint(getLefterEdgePoint());
     }
 
     /**
@@ -71,8 +71,8 @@ public class Wire extends ConnectibleEntity implements Dependent {
      * @return the edge to edge iterator of this Wire
      */
     public Iterator<CircuitPoint> edgeToEdgeIterator() {
-        CircuitPoint firstEdge = getLesserEdgePoint();
-        CircuitPoint secondEdge = getFullerEdgePoint();
+        CircuitPoint firstEdge = getLefterEdgePoint();
+        CircuitPoint secondEdge = getRighterEdgePoint();
         return new Iterator<>() {
             int size = getLength();
             int cursor = 0;
@@ -102,8 +102,8 @@ public class Wire extends ConnectibleEntity implements Dependent {
      * @return the number of CircuitPoints that this Wire touches
      */
     public int getLength() {
-        CircuitPoint first = getLesserEdgePoint(); // If horizontal, first is the left point
-        CircuitPoint second = getFullerEdgePoint(); // If vertical, first is higher
+        CircuitPoint first = getLefterEdgePoint(); // If horizontal, first is the left point
+        CircuitPoint second = getRighterEdgePoint(); // If vertical, first is higher
         return 1 + (isHorizontal() ? (int) (second.x - first.x) : (int) (second.y - first.y));
     }
 

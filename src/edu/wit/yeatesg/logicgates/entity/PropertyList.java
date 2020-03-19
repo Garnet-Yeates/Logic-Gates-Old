@@ -66,9 +66,6 @@ public class PropertyList extends LinkedList<Property> {
         for (Property prop : this)
             tableView.getItems().add(prop);
 
-        tableView.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
-        tableView.setMaxHeight(210);
-        tableView.setMinHeight(210);
         return tableView;
     }
 }

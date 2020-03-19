@@ -5,10 +5,12 @@ import edu.wit.yeatesg.logicgates.entity.connectible.*;
 import edu.wit.yeatesg.logicgates.entity.connectible.transmission.Dependent;
 import edu.wit.yeatesg.logicgates.entity.connectible.transmission.Wire;
 import edu.wit.yeatesg.logicgates.gui.EditorPanel;
+import edu.wit.yeatesg.logicgates.gui.MainGUI;
 import edu.wit.yeatesg.logicgates.gui.Project;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 import edu.wit.yeatesg.logicgates.points.PanelDrawPoint;
 import javafx.beans.value.ObservableValue;
+import javafx.scene.control.MenuItem;
 import javafx.scene.paint.Color;
 
 import java.util.*;
@@ -38,9 +40,11 @@ public class Circuit implements Dynamic {
     }
 
 
-
-
     private InterceptMap interceptMap;
+
+    public int getNumEntities() {
+        return allEntities.size();
+    }
 
     public static class InterceptionList extends EntityList<Entity> {
 
@@ -367,7 +371,7 @@ public class Circuit implements Dynamic {
      * @return
      */
     public EntityAddOperation addWithStateOperation(Entity entity, boolean appendStateImmediately) {
-        EntityAddOperation op = new EntityAddOperation(entity.getSimilarEntity());
+        EntityAddOperation op = new EntityAddOperation(entity.getSimilarEntity(), true);
         addEntity(entity);
         if (appendStateImmediately)
             appendCurrentStateChanges();
@@ -426,21 +430,25 @@ public class Circuit implements Dynamic {
         this.scale = scale;
     }
 
-    private CircuitStateChain stateTracker = new CircuitStateChain();
+    private CircuitStateChain stateChain = new CircuitStateChain();
 
     public CircuitStateChain stateController() {
-        return stateTracker;
+        return stateChain;
     }
 
     public void appendCurrentStateChanges() {
-        stateTracker.appendCurrentStateChanges();
+        appendCurrentStateChanges(null);
+    }
+
+    public void appendCurrentStateChanges(String undoMsg) {
+        stateChain.appendState(undoMsg);
     }
 
     public void clearStateChangeBuffer() {
-        stateTracker.clearBuffer();
+        stateChain.clearBuffer();
     }
 
-    public static class CircuitStateChain {
+    public class CircuitStateChain {
 
         private CircuitState first;
         private CircuitState curr;
@@ -450,64 +458,103 @@ public class Circuit implements Dynamic {
         public CircuitStateChain() {
             first = new CircuitState();
             curr = first;
-            listening = true;
         }
 
-        public void appendState(List<StateChangeOperation> operations) {
-            appendState(operations.toArray(new StateChangeOperation[0]));
-        }
-
-        public void appendCurrentStateChanges() {
-            if (!currChangeBuffer.isEmpty()) {
-                appendState(currChangeBuffer);
-                currChangeBuffer.clear();
-            }
-        }
-
-        public void appendState(StateChangeOperation... operations) {
+        public void appendState(String undoMessage) {
+            if (currChangeBuffer.isEmpty())
+                return;
             System.out.println("APPEND STATE");
             clip();
-            if (operations == null)
-                throw new RuntimeException();
             CircuitState curr = this.curr;
-            while (curr.right != null)
-                curr = curr.right;
             curr.right = new CircuitState();
             curr.right.left = curr;
-            curr.toGoRight.addAll(Arrays.asList(operations));
-            for (int i = operations.length - 1; i >= 0; i--)
-                curr.right.toGoLeft.add(operations[i].getOpposite());
+            curr.toGoRight.addAll(currChangeBuffer);
+            for (int i = currChangeBuffer.size() - 1; i >= 0; i--)
+                curr.right.toGoLeft.add(currChangeBuffer.get(i).getOpposite());
             this.curr = curr.right; // not goRight()
+            currChangeBuffer.clear();
+            this.curr.setUndoMessage(undoMessage);
+            updateMenuBars();
+        }
+
+        private int getNumToRight() {
+            int num = 0;
+            CircuitState curr = this.curr;
+            while (curr.hasRight()) {
+                num++;
+                curr = curr.right;
+            }
+            return num;
+        }
+
+        private int getNumToLeft() {
+            int num = 0;
+            CircuitState curr = this.curr;
+            while (curr.hasLeft()) {
+                num++;
+                curr = curr.left;
+            }
+            return num;
+        }
+
+        public String getUndoMessage() {
+            return curr.getUndoMessage();
+        }
+
+        public void updateMenuBars() {
+            MainGUI gui = project.getGUI();
+            MenuItem undoItem = gui.getUndoMenuItem();
+            undoItem.setText("Undo ");
+            undoItem.setDisable(true);
+            MenuItem megaUndoItem = gui.getMegaUndoMenuItem();
+            megaUndoItem.setText("Mega Undo ");
+            megaUndoItem.setDisable(true);
+            if (hasLeft()) {
+                undoItem.setText("Undo " + getUndoMessage() + " ");
+                undoItem.setDisable(false);
+                megaUndoItem.setText("Mega Undo (" + getNumToLeft() + " total operations) ");
+                megaUndoItem.setDisable(false);
+            }
+            MenuItem redoItem = gui.getRedoMenuItem();
+            redoItem.setDisable(true);
+            redoItem.setText("Redo ");
+            MenuItem megaRedoItem = gui.getMegaRedoMenuItem();
+            megaRedoItem.setText("Mega Redo ");
+            megaRedoItem.setDisable(true);
+            if (hasRight()) {
+                redoItem.setText("Redo " + getRight().getUndoMessage() + " ");
+                megaRedoItem.setText("Mega Redo (" + getNumToRight() + " total operations) ");
+                redoItem.setDisable(false);
+                megaRedoItem.setDisable(false);
+            }
         }
 
         public boolean goRight() {
             if (!hasRight())
                 return false;
-            stopListening();
             currChangeBuffer.clear();
             curr.toGoRight.forEach(StateChangeOperation::operate);
             curr = curr.right;
-            startListening();
+            updateMenuBars();
             return true;
         }
 
         public boolean goLeft() {
             if (!hasLeft())
                 return false;
-            stopListening();
             currChangeBuffer.clear();
             curr.toGoLeft.forEach(StateChangeOperation::operate);
             curr = curr.left;
-            startListening();
+            updateMenuBars();
             return true;
         }
 
         public boolean hasLeft() {
-            return curr.left != null;
+            return curr.hasLeft();
         }
 
         public boolean hasRight() {
-            return curr.right != null;
+            return curr.hasRight();
         }
 
         public CircuitState getRight() {
@@ -525,6 +572,7 @@ public class Circuit implements Dynamic {
         public void clip() {
             curr.right = null;
             curr.toGoRight.clear();
+            updateMenuBars();
         }
 
         public void clearBuffer() {
@@ -532,32 +580,35 @@ public class Circuit implements Dynamic {
         }
 
         public void onOperationOccurrence(StateChangeOperation op) {
-            if (listening) {
-                currChangeBuffer.add(op);
-            }
+            currChangeBuffer.add(op);
         }
 
-        private boolean listening;
+    }
 
-        public void stopListening() {
-            listening = false;
+    public static class CircuitState {
+
+        private ArrayList<StateChangeOperation> toGoRight = new ArrayList<>();
+        private ArrayList<StateChangeOperation> toGoLeft = new ArrayList<>();
+
+        private CircuitState right = null;
+        private CircuitState left = null;
+
+        private String leftMessage;
+
+        public void setUndoMessage(String message) {
+            leftMessage = message;
         }
 
-        public void startListening() {
-            listening = true;
+        public String getUndoMessage() {
+            return leftMessage != null ? leftMessage : "";
         }
 
-        public boolean isListening() {
-            return listening;
+        public boolean hasLeft() {
+            return left != null;
         }
 
-        public class CircuitState {
-
-            private ArrayList<StateChangeOperation> toGoRight = new ArrayList<>();
-            private ArrayList<StateChangeOperation> toGoLeft = new ArrayList<>();
-
-            private CircuitState right = null;
-            private CircuitState left = null;
+        public boolean hasRight() {
+            return right != null;
         }
     }
 
@@ -567,8 +618,9 @@ public class Circuit implements Dynamic {
 
         protected int opCode = opCodeAssign++;
 
-        public StateChangeOperation() {
-            stateTracker.onOperationOccurrence(this);
+        public StateChangeOperation(boolean track) {
+            if (track)
+                stateChain.onOperationOccurrence(this);
         }
 
         public abstract StateChangeOperation getOpposite();
@@ -580,13 +632,14 @@ public class Circuit implements Dynamic {
 
         public Entity selecting;
 
-        public SelectOperation(Entity selected) {
+        public SelectOperation(Entity selected, boolean track) {
+            super(track);
             this.selecting = selected.getSimilarEntity();
         }
 
         @Override
         public DeselectOperation getOpposite() {
-            return new DeselectOperation(selecting);
+            return new DeselectOperation(selecting, false);
         }
 
         @Override
@@ -601,13 +654,14 @@ public class Circuit implements Dynamic {
 
         public Entity deselecting;
 
-        public DeselectOperation(Entity deselected) {
+        public DeselectOperation(Entity deselected, boolean track) {
+            super(track);
             this.deselecting = deselected.getSimilarEntity();
         }
 
         @Override
         public SelectOperation getOpposite() {
-            return new SelectOperation(deselecting);
+            return new SelectOperation(deselecting, false);
         }
 
         @Override
@@ -618,42 +672,47 @@ public class Circuit implements Dynamic {
         }
     }
 
-    public class EntityDeleteOperation extends StateChangeOperation {
-
-        private Entity deleting;
+    public class WireShortenOperation extends EntityDeleteOperation {
 
         private HashMap<CircuitPoint, Direction> causingBisectHere = new HashMap<>();
 
-        public EntityDeleteOperation(Entity deleting) {
-            deleting = deleting.getSimilarEntity();
-            this.deleting = deleting;
-            System.out.println("New " + this);
-            if (deleting instanceof Wire) {
-                Wire del = (Wire) deleting;
-                for (CircuitPoint delEdge : del.getEdgePoints()) {
-                    EntityList<Wire> wiresInOppositeDir = delEdge.getInterceptingEntities().except(del)
-                            .getWiresGoingInOppositeDirection(del);
-                    if (wiresInOppositeDir.size() == 1) {
-                        boolean touchesEdgePoint = false;
-                        Wire inOppositeDir = wiresInOppositeDir.get(0);
-                        for (CircuitPoint edge : inOppositeDir.getEdgePoints())
-                            if (edge.intercepts(delEdge))
-                                touchesEdgePoint = true;
-                        if (!touchesEdgePoint) {
-                            causingBisectHere.put(delEdge, del.getDirection().getPerpendicular());
-                        }
-                    }
-                }
-            }
+        public WireShortenOperation(Wire shortening, CircuitPoint edge, CircuitPoint to) {
+            super(new Wire(edge, to, false), true);
+            if (new Wire(edge, to, false).isSimilar(shortening))
+                throw new RuntimeException("This should be a delete operation instead");
+            System.out.println("SHORT SHORT");
+            EntityList<Entity> toIntercepting = to.getInterceptingEntities().except(shortening);
+            EntityList<Wire> toInterceptingWires = toIntercepting.ofType(Wire.class);
+            if (!to.interceptsWireEdgePoint()
+                    && toInterceptingWires.getWiresGoingInOppositeDirection(shortening).size() == 1)
+                causingBisectHere.put(to.getSimilar(), shortening.getDirection().getPerpendicular());
             if (!causingBisectHere.isEmpty())
                 System.out.println("CAUSES BISECT");
         }
 
         @Override
         public StateChangeOperation getOpposite() {
-            EntityAddOperation addOp = new EntityAddOperation(deleting);
+            EntityAddOperation addOp = new EntityAddOperation(deleting, false);
             addOp.setCausingMergeMap(causingBisectHere);
             return addOp;
+        }
+    }
+
+
+    public class EntityDeleteOperation extends StateChangeOperation {
+
+        protected Entity deleting;
+
+        public EntityDeleteOperation(Entity deleting, boolean track) {
+            super(track);
+            deleting = deleting.getSimilarEntity();
+            this.deleting = deleting;
+            System.out.println("New " + this);
+        }
+
+        @Override
+        public StateChangeOperation getOpposite() {
+            return new EntityAddOperation(deleting, false);
         }
 
         @Override
@@ -661,40 +720,51 @@ public class Circuit implements Dynamic {
             EntityList<Entity> scope = deleting.getInterceptingEntities(); // Whatever we end up deleting/shortening is going to touch this similar wire, 'deleting' in some way
             Circuit c = project.getCurrentCircuit();
             System.out.println("OPERATE: " + this);
-            boolean didSomething = false;
+
             if (deleting instanceof Wire) {
-                Wire del = (Wire) deleting;
-                for (Entity e : scope) {
-                    if (!e.existsInCircuit())
-                        continue;
-                    if ((e instanceof Wire && del.eats((Wire) e)) || del.isSimilar(e)) {
-                        System.out.println("del eats " + e + " so e is now deleted");
-                        e.remove();
-                        didSomething = true;
-                    } else if (e instanceof Wire && ((Wire) e).eats(del)) {
-                        CircuitPoint sharedEdge = null;
-                        Wire eater = (Wire) e; // eater eats del so we know it intercepts both of del's edge points, but
-                        System.out.println("Our eater is: " + eater);
-                        for (CircuitPoint eaterEge : eater.getEdgePoints())   // del def doesn't intercept both of eater's
-                            for (CircuitPoint delEdge : del.getEdgePoints())  // edge points (it would be similar in that case). one of each of theirs may touch though
-                                if (eaterEge.equals(delEdge))
-                                    sharedEdge = eaterEge.getSimilar(); // In this case they share an edge point <-- this is the case where one of each of theirs touch
-                        if (sharedEdge != null) {
-                            CircuitPoint delsOtherEdge = del.getOppositeEdgePoint(sharedEdge);
-                            CircuitPoint eatersOppositeEdge = eater.getOppositeEdgePoint(sharedEdge);
-                            System.out.println("eater (" + eater + ") dot set " + sharedEdge + " to " + delsOtherEdge);
-                            eater.set(sharedEdge.clone(c), delsOtherEdge.clone(c));
-                            didSomething = true;
-                        } else {
-                            //           eatFirst = eater.getFirstEdgePoint(); <- Shows how the end points are arranged if these 2 wires were vertical
-                            CircuitPoint delFirst = del.getLesserEdgePoint();
-                            CircuitPoint delSec = del.getFullerEdgePoint();
-                            CircuitPoint eatSecond = eater.getFullerEdgePoint();
-                            System.out.println("eater (" + eater + ") dot set " + eatSecond + " to " + delFirst);
-                            eater.set(eatSecond.clone(c), delFirst.clone(c));
-                            Wire newWire = new Wire(delSec.clone(c), eatSecond.clone(c));
-                            System.out.println("Delete operation created " + newWire);
-                            didSomething = true;
+                // Split into deleting subwires
+                ArrayList<CircuitPoint> intervalPoints = new ArrayList<>();
+                intervalPoints.add(((Wire) deleting).getLefterEdgePoint());
+                ((Wire) deleting).edgeToEdgeIterator().forEachRemaining(intPoint -> {
+                    if (intPoint.interceptsWireEdgePoint() && !intervalPoints.contains(intPoint))
+                        intervalPoints.add(intPoint);
+                });
+                if (!intervalPoints.contains(((Wire) deleting).getRighterEdgePoint()))
+                    intervalPoints.add(((Wire) deleting).getRighterEdgePoint());
+                ArrayList<Wire> intervalWires = new ArrayList<>();
+                for (int i = 0, j = 1; j < intervalPoints.size(); i++, j++)
+                    intervalWires.add(new Wire(intervalPoints.get(i).getSimilar(), intervalPoints.get(j).getSimilar(), false));
+                for (Wire del : intervalWires) {
+                    for (Entity e : scope) {
+                        if (!e.existsInCircuit())
+                            continue;
+                        if (del.isSimilar(e)) {
+                            System.out.println("del is sim simma to e, remove e");
+                            e.remove();
+                        } else if (e instanceof Wire && ((Wire) e).eats(del)) {
+                            CircuitPoint sharedEdge = null;
+                            Wire eater = (Wire) e; // eater eats del so we know it intercepts both of del's edge points, but
+                            System.out.println("Our eater is: " + eater);
+                            for (CircuitPoint eaterEge : eater.getEdgePoints())   // del def doesn't intercept both of eater's
+                                for (CircuitPoint delEdge : del.getEdgePoints())  // edge points (it would be similar in that case). one of each of theirs may touch though
+                                    if (eaterEge.equals(delEdge))
+                                        sharedEdge = eaterEge.getSimilar(); // In this case they share an edge point <-- this is the case where one of each of theirs touch
+                            if (sharedEdge != null) {
+                                CircuitPoint delsOtherEdge = del.getOppositeEdgePoint(sharedEdge);
+                                CircuitPoint eatersOppositeEdge = eater.getOppositeEdgePoint(sharedEdge);
+                                System.out.println("eater (" + eater + ") dot set " + sharedEdge + " to " + delsOtherEdge);
+                                eater.set(sharedEdge.clone(c), delsOtherEdge.clone(c));
+                                System.out.println("eater after set: " + eater);
+                            } else {
+                                //           eatFirst = eater.getFirstEdgePoint(); <- Shows how the end points are arranged if these 2 wires were vertical
+                                CircuitPoint delFirst = del.getLefterEdgePoint();
+                                CircuitPoint delSec = del.getRighterEdgePoint();
+                                CircuitPoint eatSecond = eater.getRighterEdgePoint();
+                                System.out.println("eater (" + eater + ") dot set " + eatSecond + " to " + delFirst);
+                                eater.set(eatSecond.clone(c), delFirst.clone(c));
+                                Wire newWire = new Wire(delSec.clone(c), eatSecond.clone(c));
+                                System.out.println("Delete operation created " + newWire);
+                            }
                         }
                     }
                 }
@@ -703,6 +773,7 @@ public class Circuit implements Dynamic {
                     if (e.isSimilar(deleting))
                         e.remove();
             }
+
 
         }
 
@@ -721,7 +792,8 @@ public class Circuit implements Dynamic {
 
         private HashMap<CircuitPoint, Direction> causingMergeMap = new HashMap<>();
 
-        public EntityAddOperation(Entity adding) {
+        public EntityAddOperation(Entity adding, boolean track) {
+            super(track);
             adding = adding.getSimilarEntity();
             this.adding = adding;
             System.out.println("New " + this);
@@ -733,7 +805,7 @@ public class Circuit implements Dynamic {
 
         @Override
         public StateChangeOperation getOpposite() {
-            return new EntityDeleteOperation(adding);
+            return new EntityDeleteOperation(adding, false);
         }
 
         @Override
@@ -751,10 +823,10 @@ public class Circuit implements Dynamic {
                         removeEntity(wire);
                     });
                     // After these are deleted, the other wires will merge back together
-                    if (deleting.get(0).getLesserEdgePoint().isSimilar(deleting.get(1).getFullerEdgePoint())) {
-                        new Wire(deleting.get(0).getFullerEdgePoint(), deleting.get(1).getLesserEdgePoint());
+                    if (deleting.get(0).getLefterEdgePoint().isSimilar(deleting.get(1).getRighterEdgePoint())) {
+                        new Wire(deleting.get(0).getRighterEdgePoint(), deleting.get(1).getLefterEdgePoint());
                     } else {
-                        new Wire(deleting.get(0).getLesserEdgePoint(), deleting.get(1).getFullerEdgePoint());
+                        new Wire(deleting.get(0).getLefterEdgePoint(), deleting.get(1).getRighterEdgePoint());
                     }
 
                 }
@@ -772,6 +844,10 @@ public class Circuit implements Dynamic {
     }
 
     public class MoveOperation extends StateChangeOperation {
+
+        public MoveOperation(boolean track) {
+            super(track);
+        }
 
         @Override
         public StateChangeOperation getOpposite() {
