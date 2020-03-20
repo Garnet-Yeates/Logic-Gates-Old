@@ -75,31 +75,36 @@ public class EditorPanel extends Pane {
             if (e.getCode() == EQUALS && c().canScaleUp()) {
                 c().scaleUp();
                 view(oldCenter);
+                repaint(c);
             } else if (e.getCode() == MINUS && c().canScaleDown()) {
                 c().scaleDown();
                 view(oldCenter);
+                repaint(c);
             }
         }
         if (e.getCode() == SPACE)
             holdingSpace = true;
-        if (e.getCode() == CONTROL) {
-            ctrl = true;
-            currentPullPoint = null;
+        if (e.getCode() == SHIFT) {
+            shift = true;
+            if (ppStateShift == 0)
+                currentPullPoint = null;
+            repaint(c);
         }
         if (e.getCode() == ESCAPE) {
-            currSelection.clear();
-            currConnectionView.clear();
+            currSelection.deselectAllAndTrackStateOperation();
+            c.appendCurrentStateChanges("Deselect All Via Esc");
+            repaint(c);
         }
         if (e.getCode() == P)
             onPoke();
-        repaint(c());
+    //    repaint(c());
     }
 
     public void onKeyReleased(KeyEvent e) {
         if (e.getCode() == KeyCode.SPACE)
             holdingSpace = false;
-        if (e.getCode() == KeyCode.CONTROL)
-            ctrl = false;
+        if (e.getCode() == SHIFT)
+            shift = false;
     }
 
     public void onMouseMoved(MouseEvent e) {
@@ -145,8 +150,11 @@ public class EditorPanel extends Pane {
 
     public void onMousePressed(MouseEvent e) {
         canUserShiftState = false;
+        gridSnapChangedSinceLastPress = false;
         System.out.println("MOUSE PRESS " + e.getButton());
         updateMousePos(e);
+        gridSnapJustChanged = false;
+        System.out.println("MOUSE PRESS: GRID SNAP CHANGE? " + gridSnapJustChanged);
         System.out.println(circuitPointAtMouse(true) + " AT MOUSE");
         System.out.println("INTERCEPT MAP ENTRIES AT MOUSE: ");
         for (Entity ent : c().getInterceptMap().get(circuitPointAtMouse(true))) {
@@ -173,8 +181,8 @@ public class EditorPanel extends Pane {
 
     public void onMouseReleased(MouseEvent e) {
         canUserShiftState = true;
-        System.out.println("MOUSE RELEASE " + e.getButton());
         updateMousePos(e);
+        System.out.println("MOUSE RELEASE " + e.getButton() + " did gridsnap change? " + gridSnapJustChanged);
         if (e.getButton() == MouseButton.MIDDLE) {
             middleReleasePointGrid = circuitPointAtMouse(true);
             if (middlePressPointGrid.equals(middleReleasePointGrid))
@@ -196,6 +204,7 @@ public class EditorPanel extends Pane {
             rightPressPointGrid = null;
         }
         repaint(c());
+        gridSnapJustChanged = false;
     }
 
     public void onMouseDragged(MouseEvent e) {
@@ -208,7 +217,7 @@ public class EditorPanel extends Pane {
         if (leftDown()) {
             if (selectionBoxStartPoint != null)
                 onMouseDragWhileCreatingSelectionBox();
-            if (gridSnapChanged)
+            if (gridSnapJustChanged)
                 onGridSnapChangeWhileDragging();
         }
     }
@@ -244,92 +253,89 @@ public class EditorPanel extends Pane {
 
         @Override
         public boolean add(Entity entity) {
-            throw new UnsupportedOperationException("Use addWithoutOperation(Entity)");
+            throw new UnsupportedOperationException("Use select(Entity)");
         }
 
-        public boolean selectWithoutOperation(Entity entity) {
+        public boolean select(Entity entity) {
+            boolean added = false;
             if (!contains(entity))
-                return super.add(entity);
-            return false;
+                added = super.add(entity);
+            updateConnectionView();
+            return added;
         }
 
-        public boolean selectWithStateOperation(Entity e, boolean pushImmediate) {
-            if (selectWithoutOperation(e)) {
+        public boolean selectAndTrackStateOperation(Entity e) {
+            if (select(e)) {
                 c().new SelectOperation(e, true);
-                if (pushImmediate)
-                    c().appendCurrentStateChanges();
                 return true;
             }
             return false;
         }
 
-        public boolean selectMultipleWithOperation(Collection<? extends Entity> list, boolean pushImmediate) {
-            boolean selectedSomething = false;
+        public EntityList<Entity> selectMultipleAndTrackOperation(Collection<? extends Entity> list) {
+            EntityList<Entity> selected = new EntityList<>();
             for (Entity entity : list)
-                if (selectWithStateOperation(entity, false))
-                    selectedSomething = true;
-            if (selectedSomething) {
-                if (pushImmediate)
-                    c().appendCurrentStateChanges();
-                return true;
-            }
-            return false;
+                if (selectAndTrackStateOperation(entity))
+                    selected.add(entity);
+            return selected;
         }
 
         @Override
         public boolean remove(Object o) {
-            throw new UnsupportedOperationException("Use deselectWithoutOperation(Entity)");
+            throw new UnsupportedOperationException("Use deselect(Entity)");
         }
 
-        public boolean deselectWithoutOperation(Entity e) {
-            return super.remove(e);
+        public boolean deselect(Entity e) {
+            boolean removed = super.remove(e);
+            updateConnectionView();
+            return removed;
         }
 
-        public boolean deselectWithStateOperation(Entity e, boolean pushImmediate) {
-            if (deselectWithoutOperation(e)) {
+        public boolean deselectAndTrackOperation(Entity e) {
+            if (deselect(e)) {
                 c().new DeselectOperation(e, true);
-                if (pushImmediate)
-                    c().appendCurrentStateChanges();
                 return true;
             }
             return false;
         }
 
-        public boolean deselectMultipleWithStateOperation(Collection<? extends Entity> list, boolean pushImmediate) {
-            boolean deselectedSomething = false;
-            for (Entity entity : list) {
-                if (deselectWithStateOperation(entity, false))
-                    deselectedSomething = true;
-            }
-            if (deselectedSomething) {
-                if (pushImmediate)
-                    c().appendCurrentStateChanges();
-                return true;
-            }
-            return false;
+        public EntityList<Entity> deselectMultipleAndTrackStateOperation(Collection<? extends Entity> list) {
+            EntityList<Entity> deselected = new EntityList<>();
+            for (Entity entity : list)
+                if (deselectAndTrackOperation(entity))
+                    deselected.add(entity);
+            return deselected;
         }
 
-        public boolean deselectAllWithStateOperation(boolean pushImmediae) {
-            return deselectMultipleWithStateOperation(this.clone(), pushImmediae);
+        public EntityList<Entity> deselectAllAndTrackStateOperation() {
+            return deselectMultipleAndTrackStateOperation(this.clone());
         }
 
         /**
          * Always going to push 1 set of 2 types operations: deselect all, then delete all
          */
-        public void deleteSelection() {
-            Selection deepClone = deepClone();
-            if (deselectAllWithStateOperation(false)) {
-                for (Entity e : deepClone)
-                    c().new EntityDeleteOperation(e, true).operate();
-                c().appendCurrentStateChanges();
-                c().refreshTransmissions();
-                repaint(c());
-            }
+        public EntityList<Entity> deleteSelection() {
+            EntityList<Entity> removing = deselectAllAndTrackStateOperation().deepClone();
+            for (Entity e : removing)
+                e.removeWithTrackedStateOperation();
+            c().appendCurrentStateChanges("Delete Selection Of " + removing.size() + " Entities");
+            c().refreshTransmissions();
+            repaint(c());
+            return removing;
         }
 
         @Override
         public void clear() {
             throw new UnsupportedOperationException("Use deselectAllWithStateOperation");
+        }
+
+        public void updateConnectionView() {
+            currConnectionView.clear();
+            if (size() == 1 && get(0) instanceof ConnectibleEntity) {
+                ConnectibleEntity selectedConnectible = (ConnectibleEntity) get(0);
+                currConnectionView.addAll(selectedConnectible.getConnectedEntities());
+                currConnectionView.resetTimer();
+            }
         }
 
         public boolean intercepts(PanelDrawPoint p) {
@@ -362,7 +368,7 @@ public class EditorPanel extends Pane {
 
         @Override
         public boolean add(Entity entity) {
-            return selectWithoutOperation(entity);
+            return select(entity);
         }
 
         public void draw(Entity inThisSelection, GraphicsContext g) {
@@ -382,7 +388,7 @@ public class EditorPanel extends Pane {
         @Override
         public void clear() {
             for (Entity e : clone())
-                deselectWithoutOperation(e);
+                deselect(e);
         }
     }
 
@@ -396,7 +402,7 @@ public class EditorPanel extends Pane {
                     g.setLineWidth(c().getGridLineWidth());
                     g.setStroke(Circuit.COL_GRID);
                     if (gridPoint.representsOrigin()) {
-                        int strokeSize = c().getLineWidth();
+                        double strokeSize = c().getLineWidth();
                         strokeSize *= 1.5;
                         if (strokeSize == c().getLineWidth())
                             strokeSize++;
@@ -441,15 +447,17 @@ public class EditorPanel extends Pane {
     }
 
     private CircuitPoint lastGridSnap;
-    boolean gridSnapChanged = false;
+    private boolean gridSnapChangedSinceLastPress = false;
+    private boolean gridSnapJustChanged = false;
 
     public void updateDidGridSnapChange() {
         CircuitPoint gridSnapAtMouse = circuitPointAtMouse(true);
         if (!gridSnapAtMouse.equals(lastGridSnap)) {
             lastGridSnap = gridSnapAtMouse;
-            gridSnapChanged = true;
+            gridSnapJustChanged = true;
+            gridSnapChangedSinceLastPress = true;
         } else {
-            gridSnapChanged = false;
+            gridSnapJustChanged = false;
         }
     }
 
@@ -470,9 +478,8 @@ public class EditorPanel extends Pane {
         return gridSnap ? cp.getGridSnapped() : cp;
     }
 
-
     private boolean movingSelection = false;
-    private boolean ctrl = false;
+    private boolean shift = false;
     private CircuitPoint selectionBoxStartPoint;
 
     @SuppressWarnings("unchecked")
@@ -482,25 +489,26 @@ public class EditorPanel extends Pane {
         selectedSomething = false;
         movingSelection = false;
         CircuitPoint atMouse = circuitPointAtMouse(false);
+        ArrayList<Entity> deselected = new ArrayList<>();
+        EntityList<Entity> selected = new EntityList<>();
+
         if (currentPullPoint != null) {
-            System.out.println("non null pp");
-            currSelection.deselectAllWithStateOperation(false);
-            currConnectionView.clear();
+            deselected.addAll(currSelection);
+            currSelection.deselectAllAndTrackStateOperation();
         } else {
-            System.out.println("null pp");
-            if (!currSelection.isEmpty() && !currSelection.intercepts(atMouse) && !ctrl) {
-                currSelection.deselectAllWithStateOperation(false);
-                currConnectionView.clear();
+            // Condition where they have a current selection, but clicked out of the selection without holding shift
+            if (!currSelection.isEmpty() && !currSelection.intercepts(atMouse) && !shift) {
+                deselected.addAll(currSelection);
+                currSelection.deselectAllAndTrackStateOperation();
             }
-            ArrayList<Entity> deselected = new ArrayList<>();
             if (!currSelection.isEmpty() && currSelection.intercepts(atMouse)) {
-                if (ctrl) {
+                if (shift) {
                     boolean canDeselect = true;
                     for (Entity e : c().getAllEntities()) {
                         if (e.getBoundingBox() != null
                                 && e.getBoundingBox().intercepts(atMouse)
                                 && !currSelection.contains(e)) {
-                            canDeselect = false; // Don't deselect if something isn't selected at where they ctrl clicked
+                            canDeselect = false; // Don't deselect if something isn't selected at where they shift clicked
                         }
                     }
                     for (Entity e : currSelection.clone()) {
@@ -509,10 +517,10 @@ public class EditorPanel extends Pane {
                         }
                     }
                 }
-                currSelection.deselectMultipleWithStateOperation(deselected, false);
+                currSelection.deselectMultipleAndTrackStateOperation(deselected);
             }
 
-            if (currSelection.isEmpty() || ctrl) {
+            if (currSelection.isEmpty() || shift) {
                 ArrayList<Entity> potentialClickSelection = new ArrayList<>();
                 for (Entity e : atMouse.getInterceptingEntities()) {
                     if (e.getBoundingBox() != null
@@ -521,26 +529,32 @@ public class EditorPanel extends Pane {
                         potentialClickSelection.add(e);
                 }
                 if (potentialClickSelection.size() > 0) {
-                    selectedSomething = currSelection.selectMultipleWithOperation(potentialClickSelection, false);
+                    selected.addAll(currSelection.selectMultipleAndTrackOperation(potentialClickSelection));
                 } else
                     selectionBoxStartPoint = circuitPointAtMouse(false);
             }
+            selectedSomething = selected.size() > 0;
 
-            if (!currSelection.isEmpty() && currSelection.intercepts(atMouse) && !ctrl) {
+            if (!currSelection.isEmpty() && currSelection.intercepts(atMouse) && !shift) {
                 movingSelection = true;
             }
+        }
 
-            if (currSelection.size() != 1)
-                currConnectionView.clear();
+        String undoMsg;
+        int numDes = deselected.size();
+        int numSel = selected.size();
+        String desMsg = "Deselect " + numDes + " entit" + (numDes > 1 ? "ies" : "y");
+        String selMsg = "Select " + numSel + " entit" + (numSel > 1 ? "ies" : "y");
 
-            if (currSelection.size() == 1
-                    && currConnectionView.isEmpty()
-                    && currSelection.get(0) instanceof ConnectibleEntity) {
-                ConnectibleEntity selectedConnectible = (ConnectibleEntity) currSelection.get(0);
-                currConnectionView.addAll(selectedConnectible.getConnectedEntities());
-                currConnectionView.resetTimer();
-            }
-            c().appendCurrentStateChanges();
+        // buff len > 0 should be implied, but just in case I put it here
+        if ((numDes > 0 || numSel > 0) && c().stateController().getBufferLength() > 0) {
+            if (numDes > 0 && numSel == 0)
+                undoMsg = desMsg;
+            else if (numDes == 0)
+                undoMsg = selMsg;
+            else
+                undoMsg = desMsg + " and " + selMsg;
+            c().appendCurrentStateChanges(undoMsg);
         }
    }
 
@@ -562,7 +576,9 @@ public class EditorPanel extends Pane {
         }
 
         public void selectEntities() {
-            currSelection.selectMultipleWithOperation(this.getInterceptingEntities(), true);
+            EntityList<Entity> selected = currSelection.selectMultipleAndTrackOperation(this.getInterceptingEntities());
+            if (selected.size() > 0)
+                c().appendCurrentStateChanges("Select " + selected.size() + " entit" + (selected.size() == 1 ? "y" : "ies"));
         }
     }
 
@@ -587,7 +603,7 @@ public class EditorPanel extends Pane {
 
     private void determineSelectingMouseRelease() {
         System.out.println("mouse releese selecting " + currSelection.size());
-        if (pressPointGrid.equals(releasePointGrid) && (currSelection.isEmpty() || ctrl)) {
+        if (pressPointGrid.equals(releasePointGrid) && (currSelection.isEmpty() || shift) && !gridSnapChangedSinceLastPress) {
             if (!pressedOnSelectedEntity && !selectedSomething) {
                 determineSelecting();
             }
@@ -605,9 +621,7 @@ public class EditorPanel extends Pane {
     }
 
     public void onGridSnapChangeWhileDragging() {
-        System.out.println(currentPullPoint + " POIL");
         if (currentPullPoint != null) {
-            System.out.println(currentPullPoint);
             currentPullPoint.onDragGridSnapChange();
         }
         if (movingSelection)
@@ -651,7 +665,6 @@ public class EditorPanel extends Pane {
             double height = canvasHeight();
             GraphicsContext gc = canvas.getGraphicsContext2D();
 
-
             gc.setFill(Color.rgb(240, 240, 240, 1));
             gc.fillRect(0, 0, canvasWidth(), canvasHeight());
 
@@ -673,24 +686,30 @@ public class EditorPanel extends Pane {
 
             gc.setStroke(Color.PINK);
             gc.setLineWidth(3);
-      //      gc.strokeRect(0, 0, canvasWidth(), canvasHeight());
+            //      gc.strokeRect(0, 0, canvasWidth(), canvasHeight());
 
             drawGridPoints(gc);
 
-            for (Entity e : c.getAllEntities())
-                if (!currConnectionView.contains(e))
-                    e.draw(gc);
+            int numDraws = 1;
+            if (c.getScale() <= 10)
+                numDraws = 2;
+            for (int i = 0; i < numDraws; i++) {
+                for (Entity e : c.getAllEntities())
+                    if (!currConnectionView.contains(e))
+                        e.draw(gc);
 
-            for (Entity e : currConnectionView) {
-                e.getBoundingBox().drawBorder(gc);
-                currConnectionView.draw(e, gc);
+                for (Entity e : currConnectionView) {
+                    e.getBoundingBox().drawBorder(gc);
+                    currConnectionView.draw(e, gc);
+                }
+
+                for (Entity e : currSelection)
+                    e.getBoundingBox().paint(gc);
+
+                if (currentPullPoint != null)
+                    currentPullPoint.drawPullPoint(gc);
+
             }
-
-            for (Entity e : currSelection)
-                e.getBoundingBox().paint(gc);
-
-            if (currentPullPoint != null)
-                currentPullPoint.drawPullPoint(gc);
 
             if (currSelectionBox != null)
                 currSelectionBox.paint(gc);
@@ -755,9 +774,9 @@ public class EditorPanel extends Pane {
         public PullPoint(CircuitPoint location, CircuitPoint originalLoc, boolean lock) {
             super(location.x, location.y, originalLoc.getCircuit());
             this.lock = lock;
-    //        ppStateShift = 0;
+            ppStateShift = 0;
             pressPoint = circuitPointAtMouse(true);
-            if (!canBePlacedHere(pressPoint) || !currSelection.isEmpty() || ctrl) {
+            if (!canBePlacedHere(pressPoint) || !currSelection.isEmpty() || shift) {
                 currentPullPoint = null;
                 repaint(c());
                 return;
@@ -820,8 +839,8 @@ public class EditorPanel extends Pane {
 
             if (canDelete && deleting != null && !lock) {
                 // DO THE OPERATION FIRST SO IT CAN PROPERLY CHECK THE SPECIAL CASE WHERE THE DELETED WIRE CAUSES A BISECT
-               if (new Wire(start, end, false).isSimilar(deleting)) {
-                   c().new EntityDeleteOperation(new Wire(start.clone(), end.clone(), false), true).operate();
+               if (new Wire(start, end).isSimilar(deleting)) {
+                   c.removeSimilarEntityAndTrackOperation(new Wire(start.clone(), end.clone()));
                    undoMsg = "Delete Wire";
                     // TODO replace with c.deleteWithStateOperation
                } else {
@@ -846,6 +865,7 @@ public class EditorPanel extends Pane {
                 // by here, we would have returned if the PullPoint is being slid. So this point and forward
                 // covers the case of the user creating wires
                 if (canStillCreate && !end.equals(start) && cesAtStart.intersection(cesAtEnd).size() == 0) {
+                    // Update pull dir if its null
                     if (pullDir == null) {
                         Vector dir = new Vector(start, end);
                         if (Vector.getDirectionVecs().contains(dir)) {
@@ -854,21 +874,14 @@ public class EditorPanel extends Pane {
                             else
                                 pullDir = Direction.VERTICAL;
                         }
-                    } // <- Update pull dir if it's null
+                    }
                     WireGenerator generator = new WireGenerator(1);
                     ArrayList<TheoreticalWire> theos = generator.genWirePathLenient(start, end, pullDir, 8);
                     if (theos == null && pullDir != null) // If we couldn't do it in their preferred dir, try the other
                         theos = generator.genWirePathLenient(start, end, pullDir.getPerpendicular(), 8);
-                    theos = theos == null ? new ArrayList<>() : theos;
-                    System.out.println("GEN GEN");
-
-                    if (!theos.isEmpty()) {
-                        for (Wire t : theos) { // 'new Wire' automatically adds it to the theoretical circuit
-                            System.out.println("ADDACIOUS ADD: " + "[[ " + t.getStartLocation().toParsableString() + " " + t.getEndLocation().toParsableString() + " ]]");;
-                            new Wire(t.getStartLocation().clone(), t.getEndLocation().clone());
-                            // Separate add operation from new Wire. because the new wire may be merged etc and make the delete operation invalid
-                            c.new EntityAddOperation(new Wire(t.getStartLocation().clone(), t.getEndLocation().clone(), false), true);
-                        }
+                    if (theos != null && !theos.isEmpty()) {
+                        for (Wire t : theos) // 'new Wire' automatically adds it to the theoretical circuit
+                            c.addEntityAndTrackOperation(new Wire(t.getStartLocation(), t.getEndLocation()));
                         undoMsg = theos.size() == 1 ? "Create Wire" : "Create " + theos.size() + " Wires";
                     }
 
@@ -893,7 +906,7 @@ public class EditorPanel extends Pane {
         boolean droppingAndRestarting;
 
         public void dropAndRestart() {
-            if (ppStateShift > 0) {
+            if (ppStateShift > 0 && !shift) {
                 droppingAndRestarting = true;
                 CircuitPoint releasePoint = circuitPointAtMouse(true);
                 onRelease();
@@ -929,12 +942,9 @@ public class EditorPanel extends Pane {
                     col = Color.rgb(60, 200, 0, 1);
                     break;
             }
-                int strokeSize = (int) (c().getLineWidth() * 0.8);
-                if (strokeSize % 2 == 0) strokeSize++;
-                int circleSize = (int) (c().getScale() / 2.5);
-                if (circleSize % 2 != 0) circleSize++;
-                int bigCircleSize = (int) (circleSize * 1.5);
-                if (bigCircleSize % 2 != 0) bigCircleSize++;
+                double strokeSize = (c().getLineWidth() * 0.8);
+                double circleSize = (c().getScale() / 2.5);
+                double bigCircleSize = (circleSize * 1.5);
                 PanelDrawPoint dp = currentPullPoint.toPanelDrawPoint();
                 g.setLineWidth(strokeSize);
                 g.setStroke(Color.BLACK);

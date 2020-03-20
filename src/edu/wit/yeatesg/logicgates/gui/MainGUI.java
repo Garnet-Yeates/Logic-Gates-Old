@@ -316,22 +316,22 @@ public class MainGUI extends Application {
         editorPanel.repaint(currProject.getCurrentCircuit());
         Circuit c = currProject.getCurrentCircuit();
 
-        new InputBlock(new CircuitPoint(13, -5, c), 0);
-        new InputBlock(new CircuitPoint(17, -5, c), 0);
+        c.addEntity(new InputBlock(new CircuitPoint(13, -5, c), 0));
+        c.addEntity(new InputBlock(new CircuitPoint(17, -5, c), 0));
 
-        new InputBlock(new CircuitPoint(23, -5, c), 0);
-        new InputBlock(new CircuitPoint(27, -5, c), 0);
+        c.addEntity(new InputBlock(new CircuitPoint(23, -5, c), 0));
+        c.addEntity(new InputBlock(new CircuitPoint(27, -5, c), 0));
 
-        new InputBlock(new CircuitPoint(33, -5, c), 0);
-        new InputBlock(new CircuitPoint(37, -5, c), 0);
+        c.addEntity(new InputBlock(new CircuitPoint(33, -5, c), 0));
+        c.addEntity(new InputBlock(new CircuitPoint(37, -5, c), 0));
 
-        new SimpleGateAND(new CircuitPoint(15, 5, c), 0);
-        new SimpleGateAND(new CircuitPoint(25, 5, c), 0);
-        new SimpleGateAND(new CircuitPoint(35, 5, c), 0);
+        c.addEntity(new SimpleGateAND(new CircuitPoint(15, 5, c), 0));
+        c.addEntity(new SimpleGateAND(new CircuitPoint(25, 5, c), 0));
+        c.addEntity(new SimpleGateAND(new CircuitPoint(35, 5, c), 0));
 
-        new SimpleGateAND(new CircuitPoint(20, 15, c), 0);
+        c.addEntity(new SimpleGateAND(new CircuitPoint(20, 15, c), 0));
 
-        new SimpleGateAND(new CircuitPoint(30, 15, c), 0);
+        c.addEntity(new SimpleGateAND(new CircuitPoint(30, 15, c), 0));
 
 
 // 14, -9

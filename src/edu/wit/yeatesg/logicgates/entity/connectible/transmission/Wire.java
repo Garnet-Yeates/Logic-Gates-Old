@@ -21,34 +21,49 @@ public class Wire extends ConnectibleEntity implements Dependent {
     protected CircuitPoint startLocation;
     protected CircuitPoint endLocation;
 
-    public Wire(CircuitPoint startLocation, CircuitPoint endLocation, boolean addToCircuit) {
-        super(startLocation.getCircuit(), addToCircuit);
+    /**
+     * Constructs a Wire whose startLocation and endLocation are similar to the ones supplied in the parameters
+     * @param startLocation the startLocation for this Wire, which will be cloned
+     * @param endLocation the endLocation for this Wire, which will be cloned
+     */
+    public Wire(CircuitPoint startLocation, CircuitPoint endLocation) {
+        super(startLocation.getCircuit());
+        if (!startLocation.getCircuit().equals(endLocation.getCircuit()))
+            throw new RuntimeException("Points are on different Circuits");
         if ((startLocation.x != endLocation.x && startLocation.y != endLocation.y) || startLocation.equals(endLocation))
             throw new RuntimeException("Invalid Wire");
-        this.startLocation = startLocation;
-        this.endLocation = endLocation;
+        this.startLocation = startLocation.getSimilar();
+        this.endLocation = endLocation.getSimilar();
         getCircuit().pushIntoMapRange(startLocation, endLocation);
-        resetInterceptPoints(); // Wire should be the ONLY entity with this method
-        postInit(addToCircuit);
-    }
-
-    public Wire(CircuitPoint startLocation, CircuitPoint endLocation) {
-        this(startLocation, endLocation, true);
+        resetInterceptPoints(); // <-- Wire should be the ONLY entity with this method
+        postInit();
     }
 
     @Override
-    public void postInit(boolean addToCircuit) {
-        super.postInit(addToCircuit);
+    public Wire clone(Circuit onto) {
+        return new Wire(startLocation.clone(onto), endLocation.clone(onto));
+    }
+
+    public boolean isSimilar(Entity e) {
+        if (!(e instanceof Wire))
+            return false;
+        Wire w = (Wire) e;
+        return (w.startLocation.equals(startLocation) && w.endLocation.equals(endLocation))
+                || (w.startLocation.equals(endLocation) && w.endLocation.equals(startLocation));
     }
 
     @Override
-    public boolean preAddToCircuit() {
+    public String toParsableString() {
+        return "[Wire]" + startLocation.toParsableString() + "," + endLocation.toParsableString();
+    }
+
+    @Override
+    public void preAddToCircuit() {
         for (Wire w : getInterceptingEntities().ofType(Wire.class)) {
             if (isSimilar(w) || eats(w) || w.eats(this))
                 throw new RuntimeException("Duplicate/Similar Wire on Circuit " + startLocation.getCircuit().getCircuitName() + " "
                         + startLocation + " " + endLocation);
         }
-        return true;
     }
 
     /**
@@ -107,18 +122,8 @@ public class Wire extends ConnectibleEntity implements Dependent {
         return 1 + (isHorizontal() ? (int) (second.x - first.x) : (int) (second.y - first.y));
     }
 
-    @Override
-    public Wire getSimilarEntity() {
-        return new Wire(startLocation.getSimilar(), endLocation.getSimilar(), false);
-    }
-
     public boolean eats(Wire other) {
         return intercepts(other.getStartLocation()) && intercepts(other.getEndLocation()) && getLength() > other.getLength();
-    }
-
-    @Override
-    public Wire clone(Circuit onto) {
-        return new Wire(startLocation.clone(onto), endLocation.clone(onto));
     }
 
 
@@ -333,20 +338,15 @@ public class Wire extends ConnectibleEntity implements Dependent {
                 CircuitPoint otherOldStartLoc = other.getStartLocation();
                 other.disconnectAll();
                 other.set(other.startLocation, bisectPoint);
-                new Wire(bisectPoint.getSimilar(), otherOldStartLoc.getSimilar());
+                Wire added = new Wire(bisectPoint.getSimilar(), otherOldStartLoc.getSimilar());
+                added.add();
                 other.connectCheck();
                 connectCheck();
             }
         }
     }
 
-    public boolean isSimilar(Entity e) {
-        if (!(e instanceof Wire))
-            return false;
-        Wire w = (Wire) e;
-        return (w.startLocation.equals(startLocation) && w.endLocation.equals(endLocation))
-                || (w.startLocation.equals(endLocation) && w.endLocation.equals(startLocation));
-    }
+
 
 
     // Merge checks for Wires
@@ -452,11 +452,6 @@ public class Wire extends ConnectibleEntity implements Dependent {
         checkEntities(edgePoint, oldStart, oldEnd, to);
     }
 
-    @Override
-    public void onRemovedFromCircuit() {
-        super.onRemovedFromCircuit();
-        checkEntities(startLocation, endLocation);
-    }
 
     public Color getColor() {
         try {
@@ -480,8 +475,9 @@ public class Wire extends ConnectibleEntity implements Dependent {
 
     public void drawJunction(GraphicsContext g, CircuitPoint loc) {
         g.setStroke(getColor());
-        int circleSize = (int) (getLineWidth() * 2.3);
-        if (circleSize % 2 != 0) circleSize++;
+        double circleSize = (getLineWidth() * 2.1);
+        if (loc.getCircuit().getScale() == 5)
+            circleSize *= 1;
         PanelDrawPoint dp = loc.toPanelDrawPoint();
         g.setFill(Circuit.COL_BG);
         g.fillOval(dp.x - circleSize / 2.00, dp.y - circleSize / 2.00, circleSize, circleSize);
@@ -495,8 +491,8 @@ public class Wire extends ConnectibleEntity implements Dependent {
     }
 
     @Override
-    public int getLineWidth() {
-        return (int) (getCircuit().getLineWidth() * 1.8);
+    public double getLineWidth() {
+        return getCircuit().getLineWidth() * 1.65;
     }
 
 
@@ -520,11 +516,6 @@ public class Wire extends ConnectibleEntity implements Dependent {
                 "start=" + startLocation +
                 ", end=" + endLocation +
                 ", eid=" + id + "}";
-    }
-
-    @Override
-    public String toParsableString() {
-        return "[Wire]" + startLocation.toParsableString() + "," + endLocation.toParsableString();
     }
 
     public static CircuitPoint getPointInLineWith(CircuitPoint start, CircuitPoint end, Direction prefDir) {
@@ -898,7 +889,7 @@ public class Wire extends ConnectibleEntity implements Dependent {
      */
     public static class TheoreticalWire extends Wire {
         public TheoreticalWire(CircuitPoint start, CircuitPoint end) {
-            super(start, end, false);
+            super(start, end);
         }
 
         @Override

@@ -15,14 +15,9 @@ public abstract class Entity implements Dynamic {
     private static int idAssign;
     protected int id;
 
-    public Entity(Circuit c, boolean addToCircuit) {
+    public Entity(Circuit c) {
         id = idAssign++;
         this.c = c;
-    }
-
-    public void postInit(boolean addToCircuit) {
-        if (addToCircuit)
-            c.addEntity(this);
     }
 
 
@@ -37,9 +32,25 @@ public abstract class Entity implements Dynamic {
         return preview;
     }
 
-    public boolean preAddToCircuit() {
-        return true;
-        // Maybe update invalid intercept points here
+    public void preAddToCircuit() {
+        // Maybe update invalid intercept points here and other stuff
+    }
+
+
+    public void add() {
+        c.addEntity(this);
+    }
+
+    public void addWithStateOperation() {
+        c.addEntityAndTrackOperation(this);
+    }
+
+    public void removeEntity() {
+        c.removeEntity(this);
+    }
+
+    public void removeWithTrackedStateOperation() {
+        c.removeSimilarEntityAndTrackOperation(this);
     }
 
     private boolean inCircuit = false;
@@ -50,7 +61,6 @@ public abstract class Entity implements Dynamic {
 
     public void onAddToCircuit() {
         inCircuit = true;
-        System.out.println(this + " added. in circuit now tr000");
         getCircuit().getInterceptMap().addInterceptPointsFor(this);
     }
 
@@ -64,9 +74,9 @@ public abstract class Entity implements Dynamic {
     }
 
     /**
-     * This method should determine whether these two entities would be the same if they existed on the same cirucit.
-     * This method should NOT take into account the circuits of the two entities. It should also not take into account
-     * whether they are deleted, or in preview mode. If they are connectible entities it should not care about their
+     * This method should determine whether these two entities are equivalent in all aspects besides their memory
+     * address (same circuit, same locations etc).This method should not care if one of the entities exists on the
+     * circuit and the other doesn't. If they are connectible entities it should not care about their
      * current connections or anything like that. The only things that should be compared is the type and the determining
      * origin/edge points of the entities. For logic gates it will compare the size, num inputs, nots, etc.
      * @param other the entity that is being checked for similarity
@@ -74,13 +84,17 @@ public abstract class Entity implements Dynamic {
      */
     public abstract boolean isSimilar(Entity other);
 
+    public abstract Entity clone(Circuit onto);
+
     /**
      * Returns an entity where, if {@link #isSimilar(Entity)} is called on it, it will return true. When overriding this
      * method, make sure that you do not add the entity to the circuit (when constructing it, the addToCircuit parameter of
      * the super Entity constructor should be false)
      * @return an entity that is regarded as similar to this one.
      */
-    public abstract Entity getSimilarEntity();
+    public Entity getSimilarEntity() {
+        return clone(c);
+    }
 
 
     public static Entity parseEntity(Circuit c, boolean isPreview, String s) {
@@ -95,7 +109,9 @@ public abstract class Entity implements Dynamic {
             double y1 = Double.parseDouble(values[1]);
             double x2 = Double.parseDouble(values[2]);
             double y2 = Double.parseDouble(values[3]);
-            return new Wire(new CircuitPoint(x1, y1, c), new CircuitPoint(x2, y2, c));
+            Wire added = new Wire(new CircuitPoint(x1, y1, c), new CircuitPoint(x2, y2, c));
+            added.add(); // Same as c.addEntity(added)
+            return added;
         }
         return null;
     }
@@ -118,9 +134,9 @@ public abstract class Entity implements Dynamic {
      * when overriding this.
      */
     public void onRemovedFromCircuit() {
+        c.getInterceptMap().removeInterceptPointsFor(this);
         inCircuit = false;
     }
-
 
     // General Intercepting
 
@@ -314,9 +330,8 @@ public abstract class Entity implements Dynamic {
 
     public abstract void draw(GraphicsContext g);
 
-    public abstract int getLineWidth();
+    public abstract double getLineWidth();
 
-    public abstract Entity clone(Circuit onto);
 
     public void duplicate() {
         clone(c);

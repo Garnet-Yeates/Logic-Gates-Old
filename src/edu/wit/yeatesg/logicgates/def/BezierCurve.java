@@ -28,7 +28,7 @@ public class BezierCurve {
         this(new CurvePolygon(points));
     }
 
-    public void draw(GraphicsContext g, int lineWidth) {
+    public void draw(GraphicsContext g, double lineWidth) {
         g.setStroke(Color.BLACK);
         g.setLineWidth(lineWidth);
 

@@ -6,27 +6,32 @@ import edu.wit.yeatesg.logicgates.entity.connectible.transmission.*;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedList;
 
 public abstract class ConnectibleEntity extends Entity {
 
     protected ConnectionList connections;
 
-    public ConnectibleEntity(Circuit c, boolean addToCircuit) {
-        super(c, addToCircuit);
+    public ConnectibleEntity(Circuit c) {
+        super(c);
         connections = new ConnectionList();
     }
 
-    @Override
-    public void postInit(boolean addToCircuit) {
+    public void postInit() {
         assignOutputsToInputs();
-        super.postInit(addToCircuit);
     }
 
     @Override
     public void onAddToCircuit() {
         super.onAddToCircuit();
         connectCheck();
+    }
+
+    @Override
+    public final void onRemovedFromCircuit() {
+        super.onRemovedFromCircuit();
+        checkEntities(getInterceptPoints());
     }
 
     protected abstract void assignOutputsToInputs();
@@ -126,6 +131,10 @@ public abstract class ConnectibleEntity extends Entity {
 
     public void clearConnectionNodes() {
         connections.clear();
+    }
+
+    public static void checkEntities(Collection<? extends CircuitPoint> checking) {
+        checkEntities(checking.toArray(CircuitPoint[]::new));
     }
 
     public static void checkEntities(CircuitPoint... checking) {

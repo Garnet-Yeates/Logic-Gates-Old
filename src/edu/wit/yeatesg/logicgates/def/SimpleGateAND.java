@@ -27,8 +27,8 @@ public class SimpleGateAND extends ConnectibleEntity implements Rotatable {
     private int rotation;
 
     public SimpleGateAND(CircuitPoint origin, int rotation, boolean addToCircuit) {
-        super(origin.getCircuit(), addToCircuit);
-        this.origin = origin;
+        super(origin.getCircuit());
+        this.origin = origin.getSimilar();
         this.rotation = rotation;
         drawPoints = getRelativePointSet().applyToOrigin(origin, rotation);
         getCircuit().pushIntoMapRange(drawPoints);
@@ -37,7 +37,7 @@ public class SimpleGateAND extends ConnectibleEntity implements Rotatable {
         out = (OutputNode) getNodeAt(drawPoints.get(0));
         establishInputNode(drawPoints.get(7));
         establishInputNode(drawPoints.get(8));
-        postInit(addToCircuit);
+        postInit();
     }
 
     public SimpleGateAND(CircuitPoint origin, int rotation) {
@@ -47,6 +47,11 @@ public class SimpleGateAND extends ConnectibleEntity implements Rotatable {
     @Override
     public SimpleGateAND clone(Circuit onto) {
         return new SimpleGateAND(origin.clone(onto), rotation);
+    }
+
+    @Override
+    public boolean isSimilar(Entity other) {
+        return other instanceof SimpleGateAND && ((SimpleGateAND) other).origin.equals(origin);
     }
 
     @Override
@@ -84,7 +89,7 @@ public class SimpleGateAND extends ConnectibleEntity implements Rotatable {
     }
 
     @Override
-    public int getLineWidth() {
+    public double getLineWidth() {
         return getCircuit().getLineWidth();
       //  return (int) (c.getLineWidth() * 0.8);
     }
@@ -169,15 +174,6 @@ public class SimpleGateAND extends ConnectibleEntity implements Rotatable {
             node.draw(g);
     }
 
-    @Override
-    public boolean isSimilar(Entity other) {
-        return other instanceof SimpleGateAND && ((SimpleGateAND) other).origin.equals(origin);
-    }
-
-    @Override
-    public Entity getSimilarEntity() {
-        return new SimpleGateAND(origin.clone(getCircuit()), rotation, false);
-    }
 
     @Override
     public String getDisplayName() {

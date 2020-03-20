@@ -27,8 +27,8 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
     }
 
     public InputBlock(CircuitPoint origin, int rotation, boolean addToCircuit) {
-        super(origin.getCircuit(), addToCircuit);
-        this.origin = origin;
+        super(origin.getCircuit());
+        this.origin = origin.getSimilar();
         this.rotation = rotation;
         drawPoints = getRelativePointSet().applyToOrigin(origin, rotation);
         getCircuit().pushIntoMapRange(drawPoints);
@@ -36,15 +36,23 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
         establishOutputNode(drawPoints.get(0));
         out = (OutputNode) getNodeAt(drawPoints.get(0));
         updateInvalidInterceptPoints();
-        postInit(addToCircuit);
+        postInit();
     }
 
     @Override
     public InputBlock clone(Circuit c) {
-        InputBlock clone = new InputBlock(origin.clone(c), rotation);
-        return clone;
+        return new InputBlock(origin.clone(c), rotation);
     }
 
+    @Override
+    public boolean isSimilar(Entity other) {
+        return (other instanceof InputBlock && ((InputBlock) other).origin.equals(origin));
+    }
+
+    @Override
+    public String toParsableString() {
+        return "[InputBlock]" + origin.toParsableString() + "," + rotation;
+    }
 
     @Override
     protected void assignOutputsToInputs() { /* Output Node Dependency List Will Be Empty For Input Nodes */}
@@ -125,14 +133,13 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
         // Draw Circle Insidec
         CircuitPoint centerPoint = pts.get(5);
         g.setFill(getColor());
-        int circleSize = (int) (c.getScale() * 1.35);
-        if (circleSize % 2 != 0) circleSize++;
+        double circleSize = (c.getScale() * 1.3);
         drawPoint = centerPoint.toPanelDrawPoint();
         g.fillOval(drawPoint.x - circleSize/2.00, drawPoint.y - circleSize/2.00, circleSize, circleSize);
     }
 
     @Override
-    public int getLineWidth() {
+    public double getLineWidth() {
         return getCircuit().getLineWidth();
     }
 
@@ -188,16 +195,6 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
 
 
     @Override
-    public boolean isSimilar(Entity other) {
-        return (other instanceof InputBlock && ((InputBlock) other).origin.equals(origin));
-    }
-
-    @Override
-    public Entity getSimilarEntity() {
-        return new InputBlock(origin.getSimilar(), rotation, false);
-    }
-
-    @Override
     public String getDisplayName() {
         return "Input Block";
     }
@@ -246,10 +243,6 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
         return false;
     }
 
-    @Override
-    public String toParsableString() {
-        return "[InputBlock]" + origin.toParsableString() + "," + rotation;
-    }
 
     @Override
     public boolean canMove() {

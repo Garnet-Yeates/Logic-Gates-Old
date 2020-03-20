@@ -174,7 +174,7 @@ public interface Dependent
         OFF(Color.rgb(34, 99, 0, 1)),
 
         /** Used to show that this Dependent instance has a dependency, but not a super dependency */
-        PARTIALLY_DEPENDENT(Color.rgb(35, 147, 169, 1)),
+        PARTIALLY_DEPENDENT(Color.rgb(53, 200, 226, 1)),
 
         /** Used to show that this Dependent instance has no partial or super dependencies */
         NO_DEPENDENT(Color.rgb(0, 67, 169, 1)),

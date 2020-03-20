@@ -94,7 +94,7 @@ public class CircuitPoint {
     }
 
     public CircuitPoint getSimilar() {
-        return new CircuitPoint(x, y, c);
+        return clone(c);
     }
 
     @Override
@@ -103,7 +103,7 @@ public class CircuitPoint {
     }
 
     public boolean isSimilar(CircuitPoint other) {
-        return other.x == x && other.y == y;
+        return other.x == x && other.y == y && other.c == c; // Circuit should be same in mem
     }
 
     public boolean intercepts(BoundingBox b) {

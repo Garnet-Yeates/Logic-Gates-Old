@@ -211,7 +211,7 @@ public class Circuit implements Dynamic {
     private int scale = 30;
 
     private static final int SCALE_MAX = 80;
-    private static final int SCALE_MIN = 10;
+    private static final int SCALE_MIN = 5;
     private static final int SCALE_INC = 10;
 
     /**
@@ -227,7 +227,13 @@ public class Circuit implements Dynamic {
     }
 
     public void scaleUp() {
-        scale += canScaleUp() ? SCALE_INC : 0;
+        if (canScaleUp()) {
+            if (scale > 5)
+                scale +=SCALE_INC;
+            else
+                scale += 5;
+        }
+
     }
 
     public boolean canScaleDown() {
@@ -235,31 +241,21 @@ public class Circuit implements Dynamic {
     }
 
     public void scaleDown() {
-        scale -= canScaleDown() ? SCALE_INC : 0;
+        if (canScaleDown()) {
+            if (scale > 10)
+                scale -= SCALE_INC;
+            else
+                scale -= 5;
+        }
+
     }
 
-    public int getLineWidth() {
-        switch (scale) {
-            case 10:
-                return 2;
-            case 20:
-            case 30:
-                return 3;
-            case 40:
-            case 50:
-                return 5;
-            case 60:
-            case 70:
-                return 7;
-            case 80:
-            case 90:
-                return 9;
-            default: return 0;
-        }
+    public double getLineWidth() {
+        return scale * 0.22;
     }
 
     public int getGridLineWidth() {
-        int size = (int) (getLineWidth() / 1.5);
+        int size = (int) (getLineWidth() / 1.75);
         if (size == 0) size++;
         return size;
     }
@@ -314,8 +310,6 @@ public class Circuit implements Dynamic {
         yoff = y;
     }
 
-    private EntityList<Entity> allEntities = new EntityList<>();
-
     /**
      * Obtains a shallow clone of all of the Entities that exist on this Circuit
      * @return
@@ -348,45 +342,101 @@ public class Circuit implements Dynamic {
 
     }
 
-
-
     /**
      * This should be the ONLY way entities are added to the circuit
      * @param entity
      */
     public void addEntity(Entity entity) {
-        if (entity.getCircuit() != this)
-            throw new RuntimeException("Entity does not have a reference to this Circuit in memory");
-        if (entity.preAddToCircuit()) {
-            allEntities.add(entity);
-            entity.updateInvalidInterceptPoints();
-            entity.onAddToCircuit();
-        }
-        System.out.println("num entities: " + allEntities.size());
+        allEntities.add(entity);
     }
+
+    public void addEntityAndTrackOperation(Entity entity) {
+        allEntities.addAndTrackStateOperation(entity);
+    }
+
+    public void removeEntity(Entity entity) {
+        allEntities.remove(entity);
+    }
+
+    public void removeSimilarEntityAndTrackOperation(Entity notOnCircuit) {
+        allEntities.removeSimilarEntityAndTrackOperation(notOnCircuit);
+    }
+
+    public void removeSimilarEntity(Entity notOnCircuit) {
+        allEntities.removeSimilarEntity(notOnCircuit);
+    }
+
 
     /**
      * ONLY CALL ON ENITIES THAT HAVE NOT BEEN ADDED YET. IF YOU WANT TO TRACK STATE CHANGES WHEN CREATING ENTITIES,
      * USE 'FALSE' IN THE 'addToCircuit' PARAM THEN CALL THIS
      * @return
      */
-    public EntityAddOperation addWithStateOperation(Entity entity, boolean appendStateImmediately) {
-        EntityAddOperation op = new EntityAddOperation(entity.getSimilarEntity(), true);
-        addEntity(entity);
-        if (appendStateImmediately)
-            appendCurrentStateChanges();
-        return op;
+
+
+    private CircuitEntityList<Entity> allEntities = new CircuitEntityList<>();
+
+    private class CircuitEntityList<E extends Entity> extends EntityList<E> {
+
+        @Override
+        public boolean add(E entity) {
+            if (entity.existsInCircuit())
+                throw new RuntimeException("Entity already exists in Circuit");
+            if (entity.getCircuit() != Circuit.this)
+                throw new RuntimeException("Entity does not have a reference to this Circuit in memory");
+            super.add(entity);
+            entity.updateInvalidInterceptPoints();
+            entity.onAddToCircuit();
+            System.out.println("[+1][" + allEntities.size() + "]" + "ADD "  + entity);
+            return true;
+        }
+
+
+        @Override
+        public boolean remove(Object o) {
+            if (o instanceof Entity && super.remove(o)) {
+                Entity e = (Entity) o;
+                if (!e.existsInCircuit())
+                    throw new RuntimeException("Cannot remove entity; it does not exist in the Circuit");
+                if (o instanceof ConnectibleEntity)
+                    ((ConnectibleEntity) e).disconnectAll();
+                e.onRemovedFromCircuit();
+                System.out.println("[-1][" + allEntities.size() + "]" + "DEL "  + o);
+                return true;
+            }
+            throw new RuntimeException("Could not remove");
+        }
+
+        @SuppressWarnings("unchecked")
+        public void addAndTrackStateOperation(Entity entity) {
+            Entity forOperation = entity.getSimilarEntity();
+            add((E) entity);
+            new EntityAddOperation(forOperation, true);// Make sure the Entity that is being put into the add operation is a reference to the entity in the state it was in BEFORE it was added. Because when Wires are added, they may be bisected, merged etc. This could easily invalidate the EntityAddOperation.
+        }
+
+        public void removeSimilarEntityAndTrackOperation(Entity entity) {
+            EntityDeleteOperation op = new EntityDeleteOperation(entity.getSimilarEntity(), true);
+            op.operate(); // Doesn't actually have to call remove(). The delete operation will do it for us
+        }
+
+        /**
+         * Removes the Entity that exists on this Circuit that is similar to 'notOnCircuit'. This method uses
+         * {@link EntityDeleteOperation#operate()} to do the deletion. The reason why this is necessary in the
+         * first place is because when trying to delete multiple Wires at once, if you do not use delete operations,
+         * some of the Wires you are deleting will cause other wires you are deleting to be merged, so once you get
+         * to those other wires to delete them, their interceptPoints are already off the map and they will try to be
+         * deleted again and it wont work. We use this method/EntityDeleteOperations to fix this because they are very
+         * smart about how they delete Wires.
+         * @param notOnCircuit the Entity that isn't on the Circuit but is similar to an entity that is on the Circuit
+         *                     that you want to remove, and you are using this Entity to compare entities on the Circuit
+         *                     to for deletion.
+         */
+        public void removeSimilarEntity(Entity notOnCircuit) {
+            new EntityDeleteOperation(notOnCircuit, false).operate();
+        }
+
     }
 
-    public void removeEntity(Entity e) {
-        interceptMap.removeInterceptPointsFor(e);
-        if (e instanceof ConnectibleEntity)
-            ((ConnectibleEntity) e).disconnectAll();
-        if (allEntities.remove(e)) {
-            e.onRemovedFromCircuit();
-        }
-        System.out.println("num entities: " + allEntities.size());
-    }
 
     @SuppressWarnings("unchecked")
     public <T extends Entity> EntityList<T> getAllEntitiesOfType(Class<T> type) {
@@ -646,7 +696,7 @@ public class Circuit implements Dynamic {
         public void operate() {
             for (Entity e : selecting.getInterceptingEntities())
                 if (e.isSimilar(selecting))
-                    getEditorPanel().getCurrentSelection().selectWithoutOperation(e);
+                    getEditorPanel().getCurrentSelection().select(e);
         }
     }
 
@@ -668,7 +718,7 @@ public class Circuit implements Dynamic {
         public void operate() {
             for (Entity e : deselecting.getInterceptingEntities())
                 if (e.isSimilar(deselecting))
-                    getEditorPanel().getCurrentSelection().deselectWithoutOperation(e);
+                    getEditorPanel().getCurrentSelection().deselect(e);
         }
     }
 
@@ -677,8 +727,8 @@ public class Circuit implements Dynamic {
         private HashMap<CircuitPoint, Direction> causingBisectHere = new HashMap<>();
 
         public WireShortenOperation(Wire shortening, CircuitPoint edge, CircuitPoint to) {
-            super(new Wire(edge, to, false), true);
-            if (new Wire(edge, to, false).isSimilar(shortening))
+            super(new Wire(edge, to), true);
+            if (new Wire(edge, to).isSimilar(shortening))
                 throw new RuntimeException("This should be a delete operation instead");
             System.out.println("SHORT SHORT");
             EntityList<Entity> toIntercepting = to.getInterceptingEntities().except(shortening);
@@ -698,7 +748,6 @@ public class Circuit implements Dynamic {
         }
     }
 
-
     public class EntityDeleteOperation extends StateChangeOperation {
 
         protected Entity deleting;
@@ -707,7 +756,6 @@ public class Circuit implements Dynamic {
             super(track);
             deleting = deleting.getSimilarEntity();
             this.deleting = deleting;
-            System.out.println("New " + this);
         }
 
         @Override
@@ -721,57 +769,62 @@ public class Circuit implements Dynamic {
             Circuit c = project.getCurrentCircuit();
             System.out.println("OPERATE: " + this);
 
+            EntityList<Entity> deletedOnce = new EntityList<>();
             if (deleting instanceof Wire) {
-                // Split into deleting subwires
+                // Split into deleting subwires, based on how bisects work
                 ArrayList<CircuitPoint> intervalPoints = new ArrayList<>();
                 intervalPoints.add(((Wire) deleting).getLefterEdgePoint());
                 ((Wire) deleting).edgeToEdgeIterator().forEachRemaining(intPoint -> {
-                    if (intPoint.interceptsWireEdgePoint() && !intervalPoints.contains(intPoint))
-                        intervalPoints.add(intPoint);
+                    EntityList<Wire> intercepting = intPoint.getInterceptingEntities()
+                            .getWiresGoingInOppositeDirection((Wire) deleting);
+                    for (Wire w : intercepting)
+                        if (w.isEdgePoint(intPoint) && !intervalPoints.contains(intPoint))
+                            intervalPoints.add(intPoint);
                 });
                 if (!intervalPoints.contains(((Wire) deleting).getRighterEdgePoint()))
                     intervalPoints.add(((Wire) deleting).getRighterEdgePoint());
                 ArrayList<Wire> intervalWires = new ArrayList<>();
                 for (int i = 0, j = 1; j < intervalPoints.size(); i++, j++)
-                    intervalWires.add(new Wire(intervalPoints.get(i).getSimilar(), intervalPoints.get(j).getSimilar(), false));
+                    intervalWires.add(new Wire(intervalPoints.get(i).getSimilar(), intervalPoints.get(j).getSimilar()));
                 for (Wire del : intervalWires) {
                     for (Entity e : scope) {
-                        if (!e.existsInCircuit())
-                            continue;
-                        if (del.isSimilar(e)) {
-                            System.out.println("del is sim simma to e, remove e");
-                            e.remove();
-                        } else if (e instanceof Wire && ((Wire) e).eats(del)) {
-                            CircuitPoint sharedEdge = null;
-                            Wire eater = (Wire) e; // eater eats del so we know it intercepts both of del's edge points, but
-                            System.out.println("Our eater is: " + eater);
-                            for (CircuitPoint eaterEge : eater.getEdgePoints())   // del def doesn't intercept both of eater's
-                                for (CircuitPoint delEdge : del.getEdgePoints())  // edge points (it would be similar in that case). one of each of theirs may touch though
-                                    if (eaterEge.equals(delEdge))
-                                        sharedEdge = eaterEge.getSimilar(); // In this case they share an edge point <-- this is the case where one of each of theirs touch
-                            if (sharedEdge != null) {
-                                CircuitPoint delsOtherEdge = del.getOppositeEdgePoint(sharedEdge);
-                                CircuitPoint eatersOppositeEdge = eater.getOppositeEdgePoint(sharedEdge);
-                                System.out.println("eater (" + eater + ") dot set " + sharedEdge + " to " + delsOtherEdge);
-                                eater.set(sharedEdge.clone(c), delsOtherEdge.clone(c));
-                                System.out.println("eater after set: " + eater);
-                            } else {
-                                //           eatFirst = eater.getFirstEdgePoint(); <- Shows how the end points are arranged if these 2 wires were vertical
-                                CircuitPoint delFirst = del.getLefterEdgePoint();
-                                CircuitPoint delSec = del.getRighterEdgePoint();
-                                CircuitPoint eatSecond = eater.getRighterEdgePoint();
-                                System.out.println("eater (" + eater + ") dot set " + eatSecond + " to " + delFirst);
-                                eater.set(eatSecond.clone(c), delFirst.clone(c));
-                                Wire newWire = new Wire(delSec.clone(c), eatSecond.clone(c));
-                                System.out.println("Delete operation created " + newWire);
+                        if (!deletedOnce.contains(del)) {
+                            if (!e.existsInCircuit())
+                                continue;
+                            if (del.isSimilar(e)) {
+                                e.remove();
+                                deletedOnce.add(del);
+                            } else if (e instanceof Wire && ((Wire) e).eats(del)) {
+                                CircuitPoint sharedEdge = null;
+                                deletedOnce.add(del);
+                                Wire eater = (Wire) e; // eater eats del so we know it intercepts both of del's edge points, but
+                                for (CircuitPoint eaterEge : eater.getEdgePoints())   // del def doesn't intercept both of eater's
+                                    for (CircuitPoint delEdge : del.getEdgePoints())  // edge points (it would be similar in that case). one of each of theirs may touch though
+                                        if (eaterEge.equals(delEdge))
+                                            sharedEdge = eaterEge.getSimilar(); // In this case they share an edge point <-- this is the case where one of each of theirs touch
+                                if (sharedEdge != null) {
+                                    CircuitPoint delsOtherEdge = del.getOppositeEdgePoint(sharedEdge);
+                                    CircuitPoint eatersOppositeEdge = eater.getOppositeEdgePoint(sharedEdge);
+                                    eater.set(sharedEdge.clone(c), delsOtherEdge.clone(c));
+                                } else {
+                                    //           eatFirst = eater.getFirstEdgePoint(); <- Shows how the end points are arranged if these 2 wires were vertical
+                                    CircuitPoint delFirst = del.getLefterEdgePoint();
+                                    CircuitPoint delSec = del.getRighterEdgePoint();
+                                    CircuitPoint eatSecond = eater.getRighterEdgePoint();
+                                    eater.set(eatSecond.clone(c), delFirst.clone(c));
+                                    c.addEntity(new Wire(delSec.clone(c), eatSecond.clone(c)));
+                                }
                             }
                         }
                     }
                 }
             } else {
-                for (Entity e : scope)
-                    if (e.isSimilar(deleting))
+                for (Entity e : scope) {
+                    if (e.isSimilar(deleting) && !deletedOnce.contains(deleting)) {
                         e.remove();
+                        deletedOnce.add(deleting);
+                    }
+                }
             }
 
 
@@ -796,7 +849,6 @@ public class Circuit implements Dynamic {
             super(track);
             adding = adding.getSimilarEntity();
             this.adding = adding;
-            System.out.println("New " + this);
         }
 
         public void setCausingMergeMap(HashMap<CircuitPoint, Direction> causingMergeMap) {
@@ -816,18 +868,16 @@ public class Circuit implements Dynamic {
                 for (CircuitPoint p : causingMergeMap.keySet()) {
                     System.out.println("CAUSING MERGE AT " + p + " IN DIR " + causingMergeMap.get(p));
                     Direction mergeDir = causingMergeMap.get(p);
-                    EntityList<Wire> deleting = p.getInterceptingEntities()
+                    EntityList<Wire> deletingSimilar = p.getInterceptingEntities()
                             .getWiresGoingInOppositeDirection(mergeDir);
-                    deleting.deepClone().forEach(wire -> {
-                        System.out.println("DELEET: " + wire);
-                        removeEntity(wire);
-                    });
+                    deletingSimilar.deepClone().forEach(Circuit.this::removeSimilarEntity);
                     // After these are deleted, the other wires will merge back together
-                    if (deleting.get(0).getLefterEdgePoint().isSimilar(deleting.get(1).getRighterEdgePoint())) {
-                        new Wire(deleting.get(0).getRighterEdgePoint(), deleting.get(1).getLefterEdgePoint());
+                    if (deletingSimilar.get(0).getLefterEdgePoint().isSimilar(deletingSimilar.get(1).getRighterEdgePoint())) {
+                        addEntity(new Wire(deletingSimilar.get(0).getRighterEdgePoint(), deletingSimilar.get(1).getLefterEdgePoint()));
                     } else {
-                        new Wire(deleting.get(0).getLefterEdgePoint(), deleting.get(1).getRighterEdgePoint());
+                        addEntity(new Wire(deletingSimilar.get(0).getLefterEdgePoint(), deletingSimilar.get(1).getRighterEdgePoint()));
                     }
+
 
                 }
             }

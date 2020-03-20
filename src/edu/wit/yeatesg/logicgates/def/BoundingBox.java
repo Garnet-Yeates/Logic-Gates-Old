@@ -124,13 +124,11 @@ public class BoundingBox {
     public static final Color OUTLINE_COL = Color.BLACK;
 
     public void paint(GraphicsContext g) {
-        for (int i = 0; i < 2; i++) {
+        for (int i = 0; i < 4; i++) {
             Circuit c = p1.getCircuit();
-            int strokeSize = (int) (c.getScale() * 0.6);
-            if (strokeSize % 2 == 0) strokeSize++;
-            int borderThickness = (int) Math.ceil(strokeSize / 5.00) + 1;
-            int innerStrokeSize = strokeSize - borderThickness;
-            if (innerStrokeSize % 2 == 0) innerStrokeSize++;
+            double strokeSize = (c.getScale() * 0.6);
+            double borderThickness = strokeSize / 5;
+            double innerStrokeSize = strokeSize - borderThickness;
             for (CircuitPoint p : new CircuitPoint[]{p1, p2, p3, p4}) {
                 PanelDrawPoint pp = p.toPanelDrawPoint();
                 g.setStroke(OUTLINE_COL);
@@ -147,9 +145,8 @@ public class BoundingBox {
 
     public void drawBorder(GraphicsContext g) {
         g.setStroke(HIGHLIGHT_COL);
-        int ownerStroke = owner == null ? 1 : owner.getLineWidth();
-        int stroke = (int) (ownerStroke * 0.55);
-        if (stroke % 2 == 0) stroke++;
+        double ownerStroke = owner == null ? 1 : owner.getLineWidth();
+        double stroke = (ownerStroke * 0.55);
         stroke = Math.min(ownerStroke - 2, stroke);
         stroke = Math.max(1, stroke);
         g.setLineWidth(stroke);
