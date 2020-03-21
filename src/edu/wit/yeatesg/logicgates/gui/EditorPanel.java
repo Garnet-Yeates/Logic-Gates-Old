@@ -18,6 +18,7 @@ import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
+import javafx.scene.paint.Paint;
 
 import javax.swing.Timer;
 import java.util.*;
@@ -68,6 +69,9 @@ public class EditorPanel extends Pane {
         if (e.getCode() == B)
             if (currentPullPoint != null)
                 currentPullPoint.dropAndRestart();
+        if (e.getCode() == N) {
+            System.out.println("NUM ENTITIES: " + c().getNumEntities());
+        }
         if (e.getCode() == R)
             repaint(c());
         if (e.isControlDown() && (e.getCode() == EQUALS || e.getCode() == MINUS)) {
@@ -91,12 +95,23 @@ public class EditorPanel extends Pane {
             repaint(c);
         }
         if (e.getCode() == ESCAPE) {
-            currSelection.deselectAllAndTrackStateOperation();
-            c.appendCurrentStateChanges("Deselect All Via Esc");
+            if (currSelection.size() > 0) {
+                currSelection.deselectAllAndTrackStateOperation();
+                c.appendCurrentStateChanges("Deselect All Via Esc");
+            }
+            if (ppStateShift > 0) {
+                c().stateController().goLeft(); // Undo() wont work
+                c().stateController().clip();
+                currentPullPoint = null;
+                this.new PullPoint(circuitPointAtMouse(true));
+            }
+            c.refreshTransmissions();
             repaint(c);
         }
-        if (e.getCode() == P)
+        if (e.getCode() == P) {
             onPoke();
+            repaint(c);
+        }
     //    repaint(c());
     }
 
@@ -342,6 +357,7 @@ public class EditorPanel extends Pane {
             return intercepts(p.toCircuitPoint());
         }
 
+        @Override
         public Selection clone() {
             return new Selection(this);
         }
@@ -394,13 +410,24 @@ public class EditorPanel extends Pane {
 
     private void drawGridPoints(GraphicsContext g) {
         int w = canvasWidth(), h = canvasHeight();
+        Color col = COL_GRID;
+        double whiteWeight = 0;
+        if (c().getScale() == 5)
+            whiteWeight = 0.3;
+        double normWeight = 1 - whiteWeight;
+        int white = (int) (255.0*whiteWeight);
+        System.out.println("hwhite: " + white);
+        Color paintCol = Color.rgb((int) (white + col.getRed()*255*normWeight),
+                (int) (white + col.getGreen()*255*normWeight),
+                (int) (white + col.getBlue()*255*normWeight), 1);
         for (int x = (int)(-w*0.1); x < w + w*0.1; x += c().getScale()) {
             for (int y = (int)(-h*0.1); y < h + h*0.1; y += c().getScale()) {
                 CircuitPoint gridPoint = circuitPointAt(x, y, true);
                 if (gridPoint.isInMapRange()) {
                     PanelDrawPoint drawLoc = gridPoint.toPanelDrawPoint();
+             //       System.out.println(paintCol.getRed() + " " + paintCol.getGreen() + " " + paintCol.getBlue());
                     g.setLineWidth(c().getGridLineWidth());
-                    g.setStroke(Circuit.COL_GRID);
+                    g.setStroke(paintCol);
                     if (gridPoint.representsOrigin()) {
                         double strokeSize = c().getLineWidth();
                         strokeSize *= 1.5;
@@ -478,7 +505,6 @@ public class EditorPanel extends Pane {
         return gridSnap ? cp.getGridSnapped() : cp;
     }
 
-    private boolean movingSelection = false;
     private boolean shift = false;
     private CircuitPoint selectionBoxStartPoint;
 
@@ -536,7 +562,7 @@ public class EditorPanel extends Pane {
             selectedSomething = selected.size() > 0;
 
             if (!currSelection.isEmpty() && currSelection.intercepts(atMouse) && !shift) {
-                movingSelection = true;
+                onStartMovingSelection();
             }
         }
 
@@ -582,8 +608,21 @@ public class EditorPanel extends Pane {
         }
     }
 
+    private boolean movingSelection = false;
+    private CircuitPoint movingSelectionStartPoint;
+    private int moveStateChange = 0;
+
+    private void onStartMovingSelection() {
+        movingSelection = true;
+        moveStateChange = 0;
+    }
+
     public void onGridSnapChangeWhileDraggingSelection() {
         System.out.println("GridSnapChangeWhileDraggingSelection");
+    }
+
+    private void onStopMovingSelection() {
+
     }
 
     private SelectionBox currSelectionBox = null;
@@ -691,12 +730,27 @@ public class EditorPanel extends Pane {
             drawGridPoints(gc);
 
             int numDraws = 1;
-            if (c.getScale() <= 10)
+            if (c.getScale() < 10)
                 numDraws = 2;
             for (int i = 0; i < numDraws; i++) {
-                for (Entity e : c.getAllEntities())
-                    if (!currConnectionView.contains(e))
-                        e.draw(gc);
+                EntityList<Entity> drawOrder = new EntityList<>();
+                EntityList<Entity> drawFirst = new EntityList<>();
+                EntityList<Entity> drawSecond = new EntityList<>();
+                for (Entity e : c.getAllEntities()) {
+                    if (!currConnectionView.contains(e)) {
+                        if (e instanceof Wire)
+                            drawFirst.add(e);
+                        else
+                            drawSecond.add(e);
+                    }
+                }
+                drawOrder.addAll(drawFirst);
+                drawOrder.addAll(drawSecond);
+
+                for (Entity e : drawOrder) {
+                    e.draw(gc);
+                }
+
 
                 for (Entity e : currConnectionView) {
                     e.getBoundingBox().drawBorder(gc);
@@ -732,29 +786,44 @@ public class EditorPanel extends Pane {
         return canUserShiftState;
     }
 
-    public boolean undo() {
-        System.out.println("undo");
-        if (canUserShiftState)
-            return c().stateController().goLeft();
-        return false;
+    public boolean undo(boolean updateAfter) {
+        boolean shifted = false;
+        if (canUserShiftState && ppStateShift == 0)
+            shifted = c().stateController().goLeft();
+        if (shifted && updateAfter)
+            postStateChangeUpdate();
+        return shifted;
     }
 
-    public void megaUndo() {
+    public boolean redo(boolean updateAfter) {
+        boolean shifted = false;
+        if (canUserShiftState && ppStateShift == 0)
+            shifted = c().stateController().goRight();
+        if (shifted && updateAfter)
+                postStateChangeUpdate();
+        return shifted;
+    }
+
+    public void megaUndo(boolean updateAfter) {
         while (true)
-            if (!undo())
+            if (!undo(false))
                 break;
+        if (updateAfter)
+            postStateChangeUpdate();
     }
 
-    public boolean redo() {
-        if (canUserShiftState)
-            return c().stateController().goRight();
-        return false;
-    }
-
-    public void megaRedo() {
+    public void megaRedo(boolean updateAfter) {
         while (true)
-            if (!redo())
+            if (!redo(false))
                 break;
+        if (updateAfter)
+            postStateChangeUpdate();
+    }
+
+    public void postStateChangeUpdate() {
+        c().refreshTransmissions();
+        repaint(c());
+        new PullPoint(circuitPointAtMouse(true));
     }
 
     private int ppStateShift = 0;
@@ -776,9 +845,11 @@ public class EditorPanel extends Pane {
             this.lock = lock;
             ppStateShift = 0;
             pressPoint = circuitPointAtMouse(true);
+            PullPoint old = currentPullPoint;
             if (!canBePlacedHere(pressPoint) || !currSelection.isEmpty() || shift) {
                 currentPullPoint = null;
-                repaint(c());
+                if (old != null)
+                    repaint(c());
                 return;
             }
             EntityList<ConnectibleEntity> cesAtStart = c().getEntitiesThatIntercept(pressPoint).ofType(ConnectibleEntity.class);
@@ -791,7 +862,8 @@ public class EditorPanel extends Pane {
                         canDelete = true;
             if (!canCreateFromAll(cesAtStart))
                 deleteOnly = true;
-            repaint(c());
+            if (old == null)
+                repaint(c());
         }
 
         public PullPoint(CircuitPoint location) {
@@ -821,9 +893,7 @@ public class EditorPanel extends Pane {
 
             if (ppStateShift != 0) {
                 ppStateShift--;
-                System.out.println("\nUNDO LAST PATH");
                 c.stateController().goLeft();
-                System.out.println("num entities now: " + c.getNumEntities() + "\n");
             } else
                 c.stateController().clearBuffer();
 
@@ -898,9 +968,11 @@ public class EditorPanel extends Pane {
         }
 
         public void onRelease() {
+            boolean repaint = ppStateShift != 0;
             ppStateShift = 0;
             currentPullPoint = null;
-            repaint(c());
+            if (repaint)
+                repaint(c());
         }
 
         boolean droppingAndRestarting;
@@ -942,8 +1014,10 @@ public class EditorPanel extends Pane {
                     col = Color.rgb(60, 200, 0, 1);
                     break;
             }
-                double strokeSize = (c().getLineWidth() * 0.8);
-                double circleSize = (c().getScale() / 2.5);
+
+            for (int i = 0; i < 2; i++) {
+                double strokeSize = (c().getLineWidth() * 0.9);
+                double circleSize = (c().getScale() / 1.6);
                 double bigCircleSize = (circleSize * 1.5);
                 PanelDrawPoint dp = currentPullPoint.toPanelDrawPoint();
                 g.setLineWidth(strokeSize);
@@ -953,6 +1027,7 @@ public class EditorPanel extends Pane {
                     g.setStroke(col);
                     g.strokeOval(dp.x - circleSize/2.00, dp.y - circleSize/2.00, circleSize, circleSize);
                 }
+            }
         }
     }
 

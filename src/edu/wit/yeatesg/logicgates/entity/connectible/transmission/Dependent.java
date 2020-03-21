@@ -184,9 +184,11 @@ public interface Dependent
          * should not (such as for Wires or InputNodes), or that it depends on itself in some way (meaning that
          * it was wired together circularly)
          */
-        ILLOGICAL(Color.rgb(180, 0, 10, 1)),
+        ILLOGICAL_MULTI_DEPEND(Color.rgb(115, 0, 10, 1)),
+        ILLOGICAL_SELF_DEPEND(Color.rgb(244, 29, 26, 1)),
 
-        /** Used to flag Dependent instances as not having a determined state yet. When dependencies are calculated,
+        /**
+         * Used to flag Dependent instances as not having a determined state yet. When dependencies are calculated,
          * it is done using a recursive method called on each OutputNode as the root of the call. If the OutputNode
          * is not in the undetermined state, then the method will return and do nothing. This comes in handy with the
          * illogical check because illogical entities won't have their state set back to undetermined for the second
@@ -210,8 +212,7 @@ public interface Dependent
 
     default void determinePowerStatus() {
         assureDependentsPowerStatusDetermined();
-        if (getPowerStatus() != PowerStatus.ILLOGICAL) {
-            setPowerStatus(PowerStatus.OFF);
+        if (getPowerStatus() == PowerStatus.UNDETERMINED) { // todo aybe make ill 1 and 2 again
             if (this instanceof OutputNode)
                 ((OutputNode) this).parent.determinePowerStateOf((OutputNode) this);
             else if (hasSuperDependencies())
@@ -231,13 +232,13 @@ public interface Dependent
 
 
     default void illogicalCheck() {
-        if ((this instanceof InputNode || this instanceof Wire) && getNumDependencies() > 1) {
-            setPowerStatus(PowerStatus.ILLOGICAL);
+        if (dependingOn().getSuperDependencies().isCircular())
+            setPowerStatus(PowerStatus.ILLOGICAL_SELF_DEPEND);
+        else if ((this instanceof InputNode || this instanceof Wire) && getNumDependencies() > 1) {
+            setPowerStatus(PowerStatus.ILLOGICAL_MULTI_DEPEND);
             for (Dependent outputNode : dependingOn())
-                outputNode.setPowerStatus(PowerStatus.ILLOGICAL);
+                outputNode.setPowerStatus(PowerStatus.ILLOGICAL_MULTI_DEPEND);
         }
-        else if (dependingOn().getSuperDependencies().isCircular())
-            setPowerStatus(PowerStatus.ILLOGICAL);
     }
 
     static LinkedList<Dependent> getDependents(Circuit c) {
@@ -259,7 +260,9 @@ public interface Dependent
 
     static void resetPowerStatus(Circuit c, boolean resetIllogicals) {
         for (Dependent d : getDependents(c))
-            if (resetIllogicals || d.getPowerStatus() != PowerStatus.ILLOGICAL)
+            if (resetIllogicals
+                    || (d.getPowerStatus() != PowerStatus.ILLOGICAL_SELF_DEPEND
+                        && d.getPowerStatus() != PowerStatus.ILLOGICAL_MULTI_DEPEND))
                 d.setPowerStatus(PowerStatus.UNDETERMINED);
     }
 

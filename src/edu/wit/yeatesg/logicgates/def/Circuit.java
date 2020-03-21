@@ -208,11 +208,11 @@ public class Circuit implements Dynamic {
      * Represents the distance between CircuitPoint 0,0 and 0,1 on the editor panel
      * (how many CircuitDrawPoints can fit between two CircuitPoints aka Grid Points?)
      * */
-    private int scale = 30;
+    private int scale = 20;
 
-    private static final int SCALE_MAX = 80;
+    private static final int SCALE_MAX = 60;
     private static final int SCALE_MIN = 5;
-    private static final int SCALE_INC = 10;
+    private static final int SCALE_INC = 5;
 
     /**
      * Returns the number that you have to multiply a {@link CircuitPoint} by to get its {@link PanelDrawPoint}
@@ -251,11 +251,11 @@ public class Circuit implements Dynamic {
     }
 
     public double getLineWidth() {
-        return scale * 0.22;
+        return scale * 0.24;
     }
 
     public int getGridLineWidth() {
-        int size = (int) (getLineWidth() / 1.75);
+        int size = (int) (getLineWidth() / 2);
         if (size == 0) size++;
         return size;
     }
@@ -387,7 +387,7 @@ public class Circuit implements Dynamic {
             super.add(entity);
             entity.updateInvalidInterceptPoints();
             entity.onAddToCircuit();
-            System.out.println("[+1][" + allEntities.size() + "]" + "ADD "  + entity);
+        // TODO UNCOMMENT    System.out.println("[+1][" + allEntities.size() + "]" + "ADD "  + entity);
             return true;
         }
 
@@ -401,7 +401,7 @@ public class Circuit implements Dynamic {
                 if (o instanceof ConnectibleEntity)
                     ((ConnectibleEntity) e).disconnectAll();
                 e.onRemovedFromCircuit();
-                System.out.println("[-1][" + allEntities.size() + "]" + "DEL "  + o);
+            // TODO UNCOMMENT    System.out.println("[-1][" + allEntities.size() + "]" + "DEL "  + o);
                 return true;
             }
             throw new RuntimeException("Could not remove");
@@ -513,7 +513,6 @@ public class Circuit implements Dynamic {
         public void appendState(String undoMessage) {
             if (currChangeBuffer.isEmpty())
                 return;
-            System.out.println("APPEND STATE");
             clip();
             CircuitState curr = this.curr;
             curr.right = new CircuitState();
@@ -767,7 +766,6 @@ public class Circuit implements Dynamic {
         public void operate() {
             EntityList<Entity> scope = deleting.getInterceptingEntities(); // Whatever we end up deleting/shortening is going to touch this similar wire, 'deleting' in some way
             Circuit c = project.getCurrentCircuit();
-            System.out.println("OPERATE: " + this);
 
             EntityList<Entity> deletedOnce = new EntityList<>();
             if (deleting instanceof Wire) {
@@ -785,7 +783,7 @@ public class Circuit implements Dynamic {
                     intervalPoints.add(((Wire) deleting).getRighterEdgePoint());
                 ArrayList<Wire> intervalWires = new ArrayList<>();
                 for (int i = 0, j = 1; j < intervalPoints.size(); i++, j++)
-                    intervalWires.add(new Wire(intervalPoints.get(i).getSimilar(), intervalPoints.get(j).getSimilar()));
+                    intervalWires.add(new Wire(intervalPoints.get(i), intervalPoints.get(j)));
                 for (Wire del : intervalWires) {
                     for (Entity e : scope) {
                         if (!deletedOnce.contains(del)) {
@@ -826,8 +824,6 @@ public class Circuit implements Dynamic {
                     }
                 }
             }
-
-
         }
 
         @Override
@@ -862,7 +858,6 @@ public class Circuit implements Dynamic {
 
         @Override
         public void operate() {
-            System.out.println("OPERATE: " + this);
             Entity.parseEntity(Circuit.this, false, adding.toParsableString());
             if (adding instanceof Wire) {
                 for (CircuitPoint p : causingMergeMap.keySet()) {

@@ -6,6 +6,7 @@ import edu.wit.yeatesg.logicgates.entity.connectible.transmission.OutputNode;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 
 import java.util.ArrayList;
+import java.util.Collection;
 
 public class ConnectionList extends ArrayList<ConnectionNode> {
 
@@ -15,6 +16,14 @@ public class ConnectionList extends ArrayList<ConnectionNode> {
 
     public boolean hasOutputNodes() {
         return getOutputNodes().size() > 0;
+    }
+
+    public ConnectionList() {
+        super();
+    }
+
+    public ConnectionList(Collection<? extends ConnectionNode> collection) {
+        super(collection);
     }
 
     public ArrayList<InputNode> getInputNodes() {
@@ -144,7 +153,7 @@ public class ConnectionList extends ArrayList<ConnectionNode> {
      */
     @Override
     public ConnectionList clone() {
-        return (ConnectionList) super.clone();
+        return new ConnectionList(this);
 
     }
 }

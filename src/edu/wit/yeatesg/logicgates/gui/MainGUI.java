@@ -182,9 +182,7 @@ public class MainGUI extends Application {
         undoMenuItem.setAccelerator(new KeyCodeCombination(KeyCode.Z, KeyCombination.CONTROL_DOWN));
         editMenu.getItems().add(undoMenuItem);
         undoMenuItem.setOnAction((e) ->  {
-            editorPanel.undo();
-            getCurrProject().getCurrentCircuit().refreshTransmissions();
-            editorPanel.repaint(getCurrProject().getCurrentCircuit());
+            editorPanel.undo(true);
         });
             // TODO CALL UNDO FUNCTION
 
@@ -192,27 +190,21 @@ public class MainGUI extends Application {
         megaUndoMenuItem.setAccelerator(new KeyCodeCombination(KeyCode.Z, KeyCombination.CONTROL_DOWN, KeyCombination.SHIFT_DOWN));
         editMenu.getItems().add(megaUndoMenuItem);
         megaUndoMenuItem.setOnAction((e) -> {
-            editorPanel.megaUndo();
-            getCurrProject().getCurrentCircuit().refreshTransmissions();
-            editorPanel.repaint(getCurrProject().getCurrentCircuit());
+            editorPanel.megaUndo(true);
         });
 
         redoMenuItem = new MenuItem("Redo  ");
         redoMenuItem.setAccelerator(new KeyCodeCombination(KeyCode.Y, KeyCombination.CONTROL_DOWN));
         editMenu.getItems().add(redoMenuItem);
         redoMenuItem.setOnAction((e) -> {
-            editorPanel.redo();
-            getCurrProject().getCurrentCircuit().refreshTransmissions();
-            editorPanel.repaint(getCurrProject().getCurrentCircuit());
+            editorPanel.redo(true);
         });
 
         megaRedoMenuItem = new MenuItem("Mega Redo  ");
         megaRedoMenuItem.setAccelerator(new KeyCodeCombination(KeyCode.Y, KeyCombination.CONTROL_DOWN, KeyCombination.SHIFT_DOWN));
         editMenu.getItems().add(megaRedoMenuItem);
         megaRedoMenuItem.setOnAction((e) -> {
-            editorPanel.megaRedo();
-            getCurrProject().getCurrentCircuit().refreshTransmissions();
-            editorPanel.repaint(getCurrProject().getCurrentCircuit());
+            editorPanel.megaRedo(true);
         });
 
 
@@ -325,6 +317,8 @@ public class MainGUI extends Application {
         c.addEntity(new InputBlock(new CircuitPoint(33, -5, c), 0));
         c.addEntity(new InputBlock(new CircuitPoint(37, -5, c), 0));
 
+        c.addEntity(new SimpleGateAND(new CircuitPoint(-5, 5, c), 0));
+        c.addEntity(new SimpleGateAND(new CircuitPoint(5, 5, c), 0));
         c.addEntity(new SimpleGateAND(new CircuitPoint(15, 5, c), 0));
         c.addEntity(new SimpleGateAND(new CircuitPoint(25, 5, c), 0));
         c.addEntity(new SimpleGateAND(new CircuitPoint(35, 5, c), 0));
@@ -332,6 +326,14 @@ public class MainGUI extends Application {
         c.addEntity(new SimpleGateAND(new CircuitPoint(20, 15, c), 0));
 
         c.addEntity(new SimpleGateAND(new CircuitPoint(30, 15, c), 0));
+
+        c.addEntity(new SimpleGateAND(new CircuitPoint(20, 25, c), 0));
+
+        c.addEntity(new SimpleGateAND(new CircuitPoint(30, 25, c), 0));
+
+        c.addEntity(new SimpleGateAND(new CircuitPoint(20, 35, c), 0));
+
+        c.addEntity(new SimpleGateAND(new CircuitPoint(30, 35, c), 0));
 
 
 // 14, -9

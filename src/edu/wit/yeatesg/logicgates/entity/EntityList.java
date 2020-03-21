@@ -100,9 +100,10 @@ public class EntityList<E extends Entity> extends ArrayList<E> {
     }
 
 
+    @Override
     @SuppressWarnings("unchecked")
     public EntityList<E> clone() {
-        return (EntityList<E>) super.clone();
+        return new EntityList<>(this);
     }
 
     @SuppressWarnings("unchecked")

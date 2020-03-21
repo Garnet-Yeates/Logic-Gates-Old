@@ -61,11 +61,11 @@ public class SimpleGateAND extends ConnectibleEntity implements Rotatable {
 
     @Override
     public void determinePowerStateOf(OutputNode outputNode) {
-        if (outputNode.getPowerStatus() != PowerStatus.ILLOGICAL) {
+        if (outputNode.getPowerStatus() == PowerStatus.UNDETERMINED) { // Todo maybe make ill 1 and 2
             LinkedList<InputNode> relevants = getRelevantInputNodesFor(outputNode);
             if (relevants.size() == 0)
                 outputNode.setPowerStatus(PowerStatus.PARTIALLY_DEPENDENT);
-            if (outputNode.getPowerStatus() == PowerStatus.OFF) {
+            if (outputNode.getPowerStatus() == PowerStatus.UNDETERMINED) {
                 outputNode.setPowerStatus(PowerStatus.ON);
                 for (InputNode n : getRelevantInputNodesFor(outputNode)) {
                     if (n.getPowerStatus() == PowerStatus.OFF) {

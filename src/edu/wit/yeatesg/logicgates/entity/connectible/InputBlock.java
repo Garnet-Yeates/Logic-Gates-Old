@@ -130,7 +130,7 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
 
         ConnectionNode connectNode = getNodeAt(pts.get(0));
         connectNode.draw(g);
-        // Draw Circle Insidec
+        // Draw Circle Inside
         CircuitPoint centerPoint = pts.get(5);
         g.setFill(getColor());
         double circleSize = (c.getScale() * 1.3);
@@ -198,11 +198,6 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
     public String getDisplayName() {
         return "Input Block";
     }
-
-    // TODO might have to fix intercepts for inputblock, might have to add a method 'fuzzyIntercepts' which checks
-    // if the bounding box intercepts
-
-
 
     @Override
     public String getPropertyTableHeader() {

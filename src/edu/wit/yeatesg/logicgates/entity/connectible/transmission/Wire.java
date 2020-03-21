@@ -2,11 +2,8 @@ package edu.wit.yeatesg.logicgates.entity.connectible.transmission;
 
 import edu.wit.yeatesg.logicgates.def.Direction;
 import edu.wit.yeatesg.logicgates.def.Vector;
-import edu.wit.yeatesg.logicgates.entity.Entity;
-import edu.wit.yeatesg.logicgates.entity.EntityList;
-import edu.wit.yeatesg.logicgates.entity.PointSet;
+import edu.wit.yeatesg.logicgates.entity.*;
 import edu.wit.yeatesg.logicgates.def.*;
-import edu.wit.yeatesg.logicgates.entity.PropertyList;
 import edu.wit.yeatesg.logicgates.entity.connectible.*;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 import edu.wit.yeatesg.logicgates.points.PanelDrawPoint;
@@ -475,9 +472,9 @@ public class Wire extends ConnectibleEntity implements Dependent {
 
     public void drawJunction(GraphicsContext g, CircuitPoint loc) {
         g.setStroke(getColor());
-        double circleSize = (getLineWidth() * 2.1);
+        double circleSize = (getLineWidth() * 2.25);
         if (loc.getCircuit().getScale() == 5)
-            circleSize *= 1;
+            circleSize *= 1.25;
         PanelDrawPoint dp = loc.toPanelDrawPoint();
         g.setFill(Circuit.COL_BG);
         g.fillOval(dp.x - circleSize / 2.00, dp.y - circleSize / 2.00, circleSize, circleSize);
@@ -492,7 +489,7 @@ public class Wire extends ConnectibleEntity implements Dependent {
 
     @Override
     public double getLineWidth() {
-        return getCircuit().getLineWidth() * 1.65;
+        return getCircuit().getLineWidth() * 1.25;
     }
 
 
@@ -642,14 +639,14 @@ public class Wire extends ConnectibleEntity implements Dependent {
         }
 
         private ArrayList<TheoreticalWire> genWirePath(CircuitPoint start,
-                                                              CircuitPoint end,
-                                                              ArrayList<TheoreticalWire> currPath,
-                                                              Direction currDirection,
-                                                              int maxLength,
-                                                              int splitNum,
-                                                              int tryAllTillLength,
-                                                              PermitList permits,
-                                                              boolean strictWithWires) {
+                                                   CircuitPoint end,
+                                                   ArrayList<TheoreticalWire> currPath,
+                                                   Direction currDirection,
+                                                   int maxLength,
+                                                   int splitNum,
+                                                   int tryAllTillLength,
+                                                   PermitList permits,
+                                                   boolean strictWithWires) {
             // Termination case
             if (currPath.size() > maxLength || cancelled)
                 return null;
@@ -777,14 +774,14 @@ public class Wire extends ConnectibleEntity implements Dependent {
 
 
         public static TheoreticalWire getLongestSubWire(CircuitPoint start, CircuitPoint end,
-                                                        List<TheoreticalWire> alsoCantIntercept,
+                                                        ArrayList<TheoreticalWire> alsoCantIntercept,
                                                         PermitList exceptions,
                                                         boolean strictWithWires) {
             return getLongestSubWire(start, end, start, alsoCantIntercept, exceptions, strictWithWires);
         }
 
         public static TheoreticalWire getLongestSubWire(CircuitPoint start, CircuitPoint end, CircuitPoint stop,
-                                                        List<TheoreticalWire> alsoCantIntercept,
+                                                        ArrayList<TheoreticalWire> alsoCantIntercept,
                                                         PermitList exceptions,
                                                         boolean strictWithWires) {
             ArrayList<TheoreticalWire> subWires = getSubWires(start, end, stop, alsoCantIntercept,
@@ -794,7 +791,7 @@ public class Wire extends ConnectibleEntity implements Dependent {
 
         public static EntityList<TheoreticalWire> getAllSubWires(CircuitPoint start,
                                                                  CircuitPoint end,
-                                                                 List<TheoreticalWire> alsoCantIntercept,
+                                                                 ArrayList<TheoreticalWire> alsoCantIntercept,
                                                                  PermitList exceptions,
                                                                  boolean strictWithWires) {
             return getAllSubWires(start, end, start, alsoCantIntercept, exceptions, strictWithWires);
@@ -803,7 +800,7 @@ public class Wire extends ConnectibleEntity implements Dependent {
         public static EntityList<TheoreticalWire> getAllSubWires(CircuitPoint start,
                                                                  CircuitPoint end,
                                                                  CircuitPoint stop,
-                                                                 List<TheoreticalWire> alsoCantIntercept,
+                                                                 ArrayList<TheoreticalWire> alsoCantIntercept,
                                                                  PermitList exceptions,
                                                                  boolean strictWithWires) {
             return getSubWires(start, end, stop, alsoCantIntercept, exceptions, strictWithWires, false);
@@ -813,7 +810,7 @@ public class Wire extends ConnectibleEntity implements Dependent {
         public static EntityList<TheoreticalWire> getSubWires(CircuitPoint start,
                                                               CircuitPoint end,
                                                               CircuitPoint stop,
-                                                              List<TheoreticalWire> cantIntercept,
+                                                              ArrayList<TheoreticalWire> cantIntercept,
                                                               PermitList exceptions,
                                                               boolean strictWithWires,
                                                               boolean stopAtFirst) {
@@ -839,7 +836,7 @@ public class Wire extends ConnectibleEntity implements Dependent {
 
 
         public static boolean canPlaceWithoutInterceptingAnything(TheoreticalWire wire,
-                                                                  List<? extends Entity> alsoCantIntercept,
+                                                                  ArrayList<? extends Entity> alsoCantIntercept,
                                                                   PermitList exceptions,
                                                                   boolean strictWithWires) {
             if (!wire.getStartLocation().isInMapRange() || !wire.getEndLocation().isInMapRange())

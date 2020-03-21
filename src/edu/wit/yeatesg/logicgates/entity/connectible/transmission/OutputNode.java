@@ -42,7 +42,9 @@ public class OutputNode extends ConnectionNode implements Dependent {
     private void calculateDependedBy(Wire connectingWire) {
         if (connectingWire.getFullConnections().size() > 1) {
             for (ConnectibleEntity ce : connectingWire.getConnectedEntities()) {
-                if (ce instanceof Wire && !((Wire) ce).dependingOn().contains(this)) {
+                if (ce instanceof Wire
+                        && ((Wire) ce).getPowerStatus() == PowerStatus.UNDETERMINED
+                        && !((Wire) ce).dependingOn().contains(this)) {
                     Wire w = (Wire) ce;
                     w.dependingOn().add(this);
                     calculateDependedBy(w);
@@ -50,7 +52,9 @@ public class OutputNode extends ConnectionNode implements Dependent {
                     // MUST be ce.getConnectionTo(curr), not curr.getConnectionTo(ce) because curr (should)
                     // always be a wire and wires dont have distinct input/output nodes
                     ConnectionNode node = ce.getConnectionTo(connectingWire);
-                    if (node instanceof InputNode && !((InputNode) node).dependingOn().contains(this)) {
+                    if (node instanceof InputNode
+                            && ((InputNode) node).getPowerStatus() == PowerStatus.UNDETERMINED
+                            && !((InputNode) node).dependingOn().contains(this)) {
                         ((InputNode) node).dependingOn().add(this);
                     }
                 }
@@ -72,7 +76,9 @@ public class OutputNode extends ConnectionNode implements Dependent {
     public void draw(GraphicsContext g) {
         g.setStroke(Color.BLACK);
         g.setFill(getPowerStatus().getColor());
-        double circleSize = parent.getCircuit().getScale() * 0.65;
+        double circleSize = parent.getCircuit().getScale() * 0.6;
+        if (getLocation().getCircuit().getScale() == 5)
+            circleSize *= 1.35;
         PanelDrawPoint drawPoint = getLocation().toPanelDrawPoint();
         g.fillOval(drawPoint.x - circleSize/2.00, drawPoint.y - circleSize/2.00, circleSize, circleSize);
     }

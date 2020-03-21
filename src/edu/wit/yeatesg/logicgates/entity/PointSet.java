@@ -4,6 +4,7 @@ import edu.wit.yeatesg.logicgates.def.Circuit;
 import edu.wit.yeatesg.logicgates.def.Vector;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 
+import java.awt.*;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -27,7 +28,7 @@ public class PointSet extends ArrayList<CircuitPoint> {
             this.addAll(Arrays.asList(circuitPoints));
         }
 
-        public PointSet(Collection<CircuitPoint> coll) {
+        public PointSet(Collection<? extends CircuitPoint> coll) {
             super(coll);
         }
 
@@ -70,7 +71,7 @@ public class PointSet extends ArrayList<CircuitPoint> {
 
     @Override
     public PointSet clone() {
-        return (PointSet) super.clone();
+        return new PointSet(this);
     }
 
     public PointSet deepClone() {

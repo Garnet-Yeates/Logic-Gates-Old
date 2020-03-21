@@ -39,7 +39,9 @@ public class InputNode extends ConnectionNode implements Dependent {
     public void draw(GraphicsContext g) {
         g.setStroke(Color.BLACK);
         g.setFill(getPowerStatus().getColor());
-        double circleSize = parent.getCircuit().getScale() * 0.65;
+        double circleSize = parent.getCircuit().getScale() * 0.6;
+        if (getLocation().getCircuit().getScale() == 5)
+            circleSize *= 1.35;
         PanelDrawPoint drawPoint = getLocation().toPanelDrawPoint();
         g.fillOval(drawPoint.x - circleSize/2.00, drawPoint.y - circleSize/2.00, circleSize, circleSize);
     }
