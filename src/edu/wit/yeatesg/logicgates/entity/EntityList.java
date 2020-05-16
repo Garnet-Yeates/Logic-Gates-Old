@@ -23,7 +23,7 @@ public class EntityList<E extends Entity> extends ArrayList<E> {
     }
 
     @SuppressWarnings("unchecked")
-    public <T extends Entity> EntityList<T> ofType(Class<T> type) {
+    public <T extends Entity> EntityList<T> thatExtend(Class<T> type) {
         EntityList<T> list = new EntityList<>(size());
         for (Entity e : clone()) {
             if (e.getClass().equals(type)) {

@@ -6,20 +6,19 @@ import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.cell.PropertyValueFactory;
 
-import java.util.Arrays;
 import java.util.LinkedList;
 
 public class PropertyList extends LinkedList<Property> {
 
-    private LinkedList<Dynamic> parents;
+    private LinkedList<PropertyMutable> parents;
 
-    public PropertyList(Dynamic... parents) {
+    public PropertyList(PropertyMutable... parents) {
         this.parents = new LinkedList<>();
-        for (Dynamic d : parents)
+        for (PropertyMutable d : parents)
             addParent(d);
     }
 
-    public void addParent(Dynamic parent) {
+    public void addParent(PropertyMutable parent) {
         parents.add(parent);
         for (Property p : this.clone())
             if (!parent.hasProperty(p.getPropertyName()))
@@ -28,10 +27,10 @@ public class PropertyList extends LinkedList<Property> {
 
     @Override
     public boolean add(Property property) {
-        for (Dynamic p : parents)
+        for (PropertyMutable p : parents)
             if (!p.hasProperty(property.getPropertyName()))
                 return false;
-        for (Dynamic p : parents)
+        for (PropertyMutable p : parents)
             property.addChangeListener((p::onPropertyChange));
         return super.add(property);
     }

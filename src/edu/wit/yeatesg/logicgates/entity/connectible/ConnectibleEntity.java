@@ -36,7 +36,6 @@ public abstract class ConnectibleEntity extends Entity {
 
     protected abstract void assignOutputsToInputs();
 
-
     // Specific To Output Entities (entities that can send power)
 
     public void establishOutputNode(CircuitPoint location) {
@@ -108,7 +107,7 @@ public abstract class ConnectibleEntity extends Entity {
         if (!isInConnectibleState())
             return;
         disconnectAll();
-        for (ConnectibleEntity ce : getInterceptingEntities().ofType(ConnectibleEntity.class))
+        for (ConnectibleEntity ce : getInterceptingEntities().thatExtend(ConnectibleEntity.class))
             connectCheck(ce);
     }
 

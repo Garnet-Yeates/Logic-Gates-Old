@@ -35,7 +35,6 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
         interceptPoints = getBoundingBox().getInterceptPoints();
         establishOutputNode(drawPoints.get(0));
         out = (OutputNode) getNodeAt(drawPoints.get(0));
-        updateInvalidInterceptPoints();
         postInit();
     }
 
@@ -160,12 +159,15 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
 
     @Override
     public void connect(ConnectibleEntity e, CircuitPoint atLocation) {
+        if (!(e instanceof Wire))
+            throw new RuntimeException("InputBlocks can only connect to Wires");
         if (!canConnectTo(e, atLocation))
             throw new RuntimeException("Cannot connect these 2 entities");
         if (!hasNodeAt(atLocation))
             throw new RuntimeException("Can't connect to InputBlock here, no ConnectionNode at this CircuitPoint");
-        getNodeAt(atLocation).setConnectedTo(e);
-        e.connections.add(new ConnectionNode(atLocation, e, this));
+        Wire connectingWire = (Wire) e;
+        getNodeAt(atLocation).setConnectedTo(connectingWire);
+        connectingWire.connections.add(new ConnectionNode(atLocation, e, this));
     }
 
     @Override

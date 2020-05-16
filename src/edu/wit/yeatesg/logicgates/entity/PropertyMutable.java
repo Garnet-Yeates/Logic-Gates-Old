@@ -2,7 +2,7 @@ package edu.wit.yeatesg.logicgates.entity;
 
 import javafx.beans.value.ObservableValue;
 
-public interface Dynamic {
+public interface PropertyMutable {
 
     String getPropertyTableHeader();
 

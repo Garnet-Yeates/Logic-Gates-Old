@@ -18,7 +18,6 @@ import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
-import javafx.scene.paint.Paint;
 
 import javax.swing.Timer;
 import java.util.*;
@@ -105,7 +104,7 @@ public class EditorPanel extends Pane {
                 currentPullPoint = null;
                 this.new PullPoint(circuitPointAtMouse(true));
             }
-            c.refreshTransmissions();
+            c.recalculateTransmissions();
             repaint(c);
         }
         if (e.getCode() == P) {
@@ -327,16 +326,15 @@ public class EditorPanel extends Pane {
         }
 
         /**
-         * Always going to push 1 set of 2 types operations: deselect all, then delete all
+         * Always going to push 2 distinct operations: deselect all, then delete all
          */
-        public EntityList<Entity> deleteSelection() {
+        public void deleteSelection() {
             EntityList<Entity> removing = deselectAllAndTrackStateOperation().deepClone();
             for (Entity e : removing)
                 e.removeWithTrackedStateOperation();
             c().appendCurrentStateChanges("Delete Selection Of " + removing.size() + " Entities");
-            c().refreshTransmissions();
+            c().recalculateTransmissions();
             repaint(c());
-            return removing;
         }
 
         @Override
@@ -416,7 +414,6 @@ public class EditorPanel extends Pane {
             whiteWeight = 0.3;
         double normWeight = 1 - whiteWeight;
         int white = (int) (255.0*whiteWeight);
-        System.out.println("hwhite: " + white);
         Color paintCol = Color.rgb((int) (white + col.getRed()*255*normWeight),
                 (int) (white + col.getGreen()*255*normWeight),
                 (int) (white + col.getBlue()*255*normWeight), 1);
@@ -442,7 +439,6 @@ public class EditorPanel extends Pane {
         }
     }
 
-
     public void viewOrigin() {
         c().setXOffset(canvasWidth() / 2);
         c().setYOffset(canvasHeight() / 2);
@@ -462,7 +458,6 @@ public class EditorPanel extends Pane {
     public CircuitPoint getCenter(boolean gridSnap) {
         return circuitPointAt(canvasWidth() / 2, canvasHeight() / 2, gridSnap);
     }
-
 
     private int mouseX;
     private int mouseY;
@@ -507,12 +502,14 @@ public class EditorPanel extends Pane {
 
     private boolean shift = false;
     private CircuitPoint selectionBoxStartPoint;
+    private boolean pressedOnSelectedEntity = false;
+    private boolean selectedSomethingLastPress = false;
 
     @SuppressWarnings("unchecked")
     public void determineSelecting() {
         System.out.println("determine selecting. curr selection size before: " + currSelection.size());
         selectionBoxStartPoint = null;
-        selectedSomething = false;
+        selectedSomethingLastPress = false;
         movingSelection = false;
         CircuitPoint atMouse = circuitPointAtMouse(false);
         ArrayList<Entity> deselected = new ArrayList<>();
@@ -559,7 +556,7 @@ public class EditorPanel extends Pane {
                 } else
                     selectionBoxStartPoint = circuitPointAtMouse(false);
             }
-            selectedSomething = selected.size() > 0;
+            selectedSomethingLastPress = selected.size() > 0;
 
             if (!currSelection.isEmpty() && currSelection.intercepts(atMouse) && !shift) {
                 onStartMovingSelection();
@@ -598,7 +595,6 @@ public class EditorPanel extends Pane {
             PanelDrawPoint p1 = this.p1.toPanelDrawPoint();
             g.fillRect(p1.x, p1.y, getDrawWidth(), getDrawHeight());
             g.strokeRect(p1.x, p1.y, getDrawWidth(), getDrawHeight());
-            // super.paint(g);
         }
 
         public void selectEntities() {
@@ -637,13 +633,11 @@ public class EditorPanel extends Pane {
         currSelectionBox = null;
     }
 
-    boolean pressedOnSelectedEntity = false;
-    boolean selectedSomething = false;
 
     private void determineSelectingMouseRelease() {
         System.out.println("mouse releese selecting " + currSelection.size());
         if (pressPointGrid.equals(releasePointGrid) && (currSelection.isEmpty() || shift) && !gridSnapChangedSinceLastPress) {
-            if (!pressedOnSelectedEntity && !selectedSomething) {
+            if (!pressedOnSelectedEntity && !selectedSomethingLastPress) {
                 determineSelecting();
             }
         }
@@ -656,7 +650,7 @@ public class EditorPanel extends Pane {
                     ((Pokable) e).onPoke();
             }
         }
-        c().refreshTransmissions();
+        c().recalculateTransmissions();
     }
 
     public void onGridSnapChangeWhileDragging() {
@@ -705,7 +699,7 @@ public class EditorPanel extends Pane {
             GraphicsContext gc = canvas.getGraphicsContext2D();
 
             gc.setFill(Color.rgb(240, 240, 240, 1));
-            gc.fillRect(0, 0, canvasWidth(), canvasHeight());
+            gc.fillRect(0, 0, width, height);
 
             gc.setFill(COL_BG);
             BoundingBox rangeBox = c.getInterceptMap().getBoundingBox().getExpandedBy(0.3);
@@ -729,41 +723,37 @@ public class EditorPanel extends Pane {
 
             drawGridPoints(gc);
 
-            int numDraws = 1;
-            if (c.getScale() < 10)
-                numDraws = 2;
-            for (int i = 0; i < numDraws; i++) {
-                EntityList<Entity> drawOrder = new EntityList<>();
-                EntityList<Entity> drawFirst = new EntityList<>();
-                EntityList<Entity> drawSecond = new EntityList<>();
-                for (Entity e : c.getAllEntities()) {
-                    if (!currConnectionView.contains(e)) {
-                        if (e instanceof Wire)
-                            drawFirst.add(e);
-                        else
-                            drawSecond.add(e);
-                    }
+            EntityList<Entity> drawOrder = new EntityList<>();
+            EntityList<Entity> drawFirst = new EntityList<>();
+            EntityList<Entity> drawSecond = new EntityList<>();
+            for (Entity e : c.getAllEntities()) {
+                if (!currConnectionView.contains(e)) {
+                    if (e instanceof Wire)
+                        drawFirst.add(e);
+                    else
+                        drawSecond.add(e);
                 }
-                drawOrder.addAll(drawFirst);
-                drawOrder.addAll(drawSecond);
-
-                for (Entity e : drawOrder) {
-                    e.draw(gc);
-                }
-
-
-                for (Entity e : currConnectionView) {
-                    e.getBoundingBox().drawBorder(gc);
-                    currConnectionView.draw(e, gc);
-                }
-
-                for (Entity e : currSelection)
-                    e.getBoundingBox().paint(gc);
-
-                if (currentPullPoint != null)
-                    currentPullPoint.drawPullPoint(gc);
-
             }
+            drawOrder.addAll(drawFirst);
+            drawOrder.addAll(drawSecond);
+
+            for (Entity e : drawOrder) {
+                e.draw(gc);
+            }
+
+
+            for (Entity e : currConnectionView) {
+                e.getBoundingBox().drawBorder(gc);
+                currConnectionView.draw(e, gc);
+            }
+
+            for (Entity e : currSelection)
+                e.getBoundingBox().paint(gc);
+
+            if (currentPullPoint != null)
+                currentPullPoint.drawPullPoint(gc);
+
+
 
             if (currSelectionBox != null)
                 currSelectionBox.paint(gc);
@@ -821,7 +811,7 @@ public class EditorPanel extends Pane {
     }
 
     public void postStateChangeUpdate() {
-        c().refreshTransmissions();
+        c().recalculateTransmissions();
         repaint(c());
         new PullPoint(circuitPointAtMouse(true));
     }
@@ -852,7 +842,7 @@ public class EditorPanel extends Pane {
                     repaint(c());
                 return;
             }
-            EntityList<ConnectibleEntity> cesAtStart = c().getEntitiesThatIntercept(pressPoint).ofType(ConnectibleEntity.class);
+            EntityList<ConnectibleEntity> cesAtStart = c().getEntitiesThatIntercept(pressPoint).thatExtend(ConnectibleEntity.class);
             pullDir = null;
             this.originalLoc = originalLoc;
             currentPullPoint = this;
@@ -900,9 +890,9 @@ public class EditorPanel extends Pane {
             String undoMsg = null;
 
             // Re-update intercepting connectibles after the state went back
-            EntityList<ConnectibleEntity> cesAtStart = c().getEntitiesThatIntercept(start).ofType(ConnectibleEntity.class);
-            EntityList<ConnectibleEntity> cesAtEnd = c.getEntitiesThatIntercept(end).ofType(ConnectibleEntity.class);
-            EntityList<Wire> startAndEndWires = cesAtStart.thatIntercept(end).ofType(Wire.class);
+            EntityList<ConnectibleEntity> cesAtStart = c().getEntitiesThatIntercept(start).thatExtend(ConnectibleEntity.class);
+            EntityList<ConnectibleEntity> cesAtEnd = c.getEntitiesThatIntercept(end).thatExtend(ConnectibleEntity.class);
+            EntityList<Wire> startAndEndWires = cesAtStart.thatIntercept(end).thatExtend(Wire.class);
             if (startAndEndWires.size() > 1 && !start.isSimilar(end))
                 throw new RuntimeException("Should not intercept 2 wires twice");
             Wire deleting = !end.isSimilar(start) && startAndEndWires.size() > 0 ? startAndEndWires.get(0) : null;
@@ -963,7 +953,7 @@ public class EditorPanel extends Pane {
                 ppStateShift++;
             }
 
-            c.refreshTransmissions();
+            c.recalculateTransmissions();
             repaint(c);
         }
 
@@ -973,6 +963,7 @@ public class EditorPanel extends Pane {
             currentPullPoint = null;
             if (repaint)
                 repaint(c());
+            c().stateController().clip();
         }
 
         boolean droppingAndRestarting;

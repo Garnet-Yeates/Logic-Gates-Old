@@ -7,6 +7,12 @@ import javafx.scene.paint.Color;
 import java.util.Collection;
 import java.util.LinkedList;
 
+
+// TODO for future efficiency - we do not need to call calculateSuperDependencies on wires. This will cause a lot of
+// lag when we have 2000+ wires. Because if they have a superdependency chain of like 30-40 entities, which woult not
+// be uncommon for huge circuits, it is going to have to do 2000*(30 to 40) iterations each refreshtransmissions call
+// which is gonna get really hefty. I should just do it for input nodes and output nodes, then give all the connected
+// wires a reference to
 public interface Dependent
 {
     /**
@@ -58,9 +64,9 @@ public interface Dependent
 
         @Override
         public boolean add(Dependent dependingOn) {
-            if (theDependent instanceof InputNode && dependingOn instanceof InputNode)
+            if (theDependent instanceof InputNode && !(dependingOn instanceof OutputNode))
                 throw new RuntimeException("Invalid Dependency");
-            if (theDependent instanceof OutputNode && dependingOn instanceof OutputNode)
+            if (theDependent instanceof OutputNode && !(dependingOn instanceof InputNode))
                 throw new RuntimeException("Invalid Dependency. An OutputNode's power status can only depend on InputNodes");
             if (theDependent instanceof Wire && !(dependingOn instanceof OutputNode))
                 throw new RuntimeException("Invalid Dependency. A Wire's power status can only depend on OutputNodes");
@@ -70,10 +76,10 @@ public interface Dependent
         }
 
         @Override
-        public boolean addAll(Collection<? extends Dependent> c) {
-            c.forEach(outNode -> {
-                if (!contains(outNode))
-                    add(outNode);
+        public boolean addAll(Collection<? extends Dependent> collection) {
+            collection.forEach(dep -> {
+                if (!contains(dep))
+                    add(dep);
             });
             return true;
         }
@@ -81,10 +87,9 @@ public interface Dependent
         @Override
         public void clear() {
             if (theDependent instanceof OutputNode)
-                return;
+                return; // OutputNodes have pre-set dependencies
             super.clear();
         }
-
 
         private void calculateSuperDependencies() {
             superDependencies = new SuperDependencyList();
@@ -130,7 +135,7 @@ public interface Dependent
             }
 
             @Override
-            public boolean addAll(Collection<? extends OutputNode> c) {
+            public boolean addAll(Collection<? extends OutputNode>  p) {
                 throw new UnsupportedOperationException("Cannot be called on SuperDependencyList");
             }
         }
@@ -171,7 +176,7 @@ public interface Dependent
         ON(Color.rgb(50, 199, 0, 1)),
 
         /** Used to display the 'false', '0', 'off', etc power status */
-        OFF(Color.rgb(34, 99, 0, 1)),
+        OFF(Color.rgb(27, 90, 0, 1)),
 
         /** Used to show that this Dependent instance has a dependency, but not a super dependency */
         PARTIALLY_DEPENDENT(Color.rgb(53, 200, 226, 1)),
@@ -229,7 +234,6 @@ public interface Dependent
             if (d.getPowerStatus() == PowerStatus.UNDETERMINED)
                 d.determinePowerStatus();
     }
-
 
     default void illogicalCheck() {
         if (dependingOn().getSuperDependencies().isCircular())

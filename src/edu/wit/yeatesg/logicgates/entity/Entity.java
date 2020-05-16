@@ -2,6 +2,7 @@ package edu.wit.yeatesg.logicgates.entity;
 
 import edu.wit.yeatesg.logicgates.def.BoundingBox;
 import edu.wit.yeatesg.logicgates.def.Circuit;
+import edu.wit.yeatesg.logicgates.def.Vector;
 import edu.wit.yeatesg.logicgates.entity.connectible.ConnectibleEntity;
 import edu.wit.yeatesg.logicgates.entity.connectible.transmission.Wire;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
@@ -10,7 +11,7 @@ import javafx.scene.canvas.GraphicsContext;
 import java.util.Arrays;
 import java.util.LinkedList;
 
-public abstract class Entity implements Dynamic {
+public abstract class Entity implements PropertyMutable {
 
     private static int idAssign;
     protected int id;
@@ -20,22 +21,9 @@ public abstract class Entity implements Dynamic {
         this.c = c;
     }
 
-
     // General attributes
 
     private Circuit c;
-
-
-    protected boolean preview;
-
-    public boolean isPreview() {
-        return preview;
-    }
-
-    public void preAddToCircuit() {
-        // Maybe update invalid intercept points here and other stuff
-    }
-
 
     public void add() {
         c.addEntity(this);
@@ -61,7 +49,22 @@ public abstract class Entity implements Dynamic {
 
     public void onAddToCircuit() {
         inCircuit = true;
+        updateInvalidInterceptPoints();
+        addInterceptEntries();
+    }
+
+    /**
+     * Should only really be called in {@link #onAddToCircuit()} and when the PointSet is updated (i.e the entity is moved)
+     */
+    public void addInterceptEntries() {
         getCircuit().getInterceptMap().addInterceptPointsFor(this);
+    }
+
+    /**
+     * Should only really be called when {@link #remove()} is called and when the PointSet is updated (i.e the entity is moved)
+     */
+    public void removeInterceptEntries() {
+        getCircuit().getInterceptMap().removeInterceptPointsFor(this);
     }
 
     /**
@@ -123,6 +126,15 @@ public abstract class Entity implements Dynamic {
     }
 
     /**
+     * Different entities will have different implementations for when they move by a vector. This is because some
+     * entities act differently upon being moved, such as Wires (because they only have intercept points, no draw
+     * points and no origin), so different PointSet/Fields need to be updated. Make sure to call
+     * {@link Circuit#onEntityMove()} after this is called
+     * @param v the Vector that this Entity is being moved by
+     */
+    public abstract void move(Vector v);
+
+    /**
      * Removes this Entity from its Circuit
      */
     public final void remove() {
@@ -131,7 +143,8 @@ public abstract class Entity implements Dynamic {
 
     /**
      * Called when this Entity is successfully removed from the Entity list of its Circuit. Call super
-     * when overriding this.
+     * when overriding this
+     * '.
      */
     public void onRemovedFromCircuit() {
         c.getInterceptMap().removeInterceptPointsFor(this);
@@ -213,8 +226,10 @@ public abstract class Entity implements Dynamic {
         invalidInterceptPoints.clear();
         for (Entity other : getInterceptingEntities()) {
             PointSet invalidInterceptPoints = getInvalidInterceptPoints(other);
-            if (invalidInterceptPoints.size() > 0)
+            if (invalidInterceptPoints.size() > 0) {
                 invalidInterceptPoints.addAll(getInvalidInterceptPoints(other));
+                getCircuit().markInvalid(this);
+            }
             if (!subCall)
                 other.updateInvalidInterceptPoints(true);
         }
@@ -227,7 +242,7 @@ public abstract class Entity implements Dynamic {
         EntityList<Entity> list = new EntityList<>();
         for (CircuitPoint p : invalidInterceptPoints)
             for (Entity e : getCircuit().getInterceptMap().get(p))
-                if (!list.contains(e))
+                if (!list.contains(e) && !e.isSimilar(this))
                     list.add(e);
         return list.clone();
     }
@@ -249,11 +264,6 @@ public abstract class Entity implements Dynamic {
                                                               boolean strictWithWires);
 
 
-
-
-    public void setPreview(boolean b) {
-        preview = b;
-    }
 
     public abstract String toParsableString();
 

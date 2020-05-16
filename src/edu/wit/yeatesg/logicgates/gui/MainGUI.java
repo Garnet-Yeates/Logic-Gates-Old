@@ -1,7 +1,7 @@
 package edu.wit.yeatesg.logicgates.gui;
 
 import edu.wit.yeatesg.logicgates.def.SimpleGateAND;
-import edu.wit.yeatesg.logicgates.entity.Dynamic;
+import edu.wit.yeatesg.logicgates.entity.PropertyMutable;
 import edu.wit.yeatesg.logicgates.entity.Property;
 import edu.wit.yeatesg.logicgates.def.Circuit;
 import edu.wit.yeatesg.logicgates.entity.connectible.InputBlock;
@@ -30,7 +30,6 @@ import java.io.File;
 
 // Rename to LogicGates
 public class MainGUI extends Application {
-
 
     private Stage stage;
     private Project currProject;
@@ -340,14 +339,14 @@ public class MainGUI extends Application {
         // 16, -9
 
 
-        c.refreshTransmissions();
+        c.recalculateTransmissions();
         editorPanel.repaint(currProject.getCurrentCircuit());
 
     }
 
     private static final int TABLE_HEIGHT = 210;
 
-    public void setPropertyTable(Dynamic dynamic) {
+    public void setPropertyTable(PropertyMutable dynamic) {
         TableView<Property> table = dynamic.getPropertyList().toTableView();
         table.setMaxHeight(210);
         table.setMinHeight(210);

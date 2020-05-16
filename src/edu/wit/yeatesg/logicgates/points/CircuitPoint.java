@@ -87,7 +87,7 @@ public class CircuitPoint {
     }
 
     public boolean interceptsWireEdgePoint() {
-        for (Wire w : getInterceptingEntities().ofType(Wire.class))
+        for (Wire w : getInterceptingEntities().thatExtend(Wire.class))
             if (w.isEdgePoint(this))
                 return true;
         return false;

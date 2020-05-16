@@ -22,6 +22,9 @@ public class PanelDrawPoint  {
                 circuitPoint.getCircuit());
     }
 
+
+
+
     public CircuitPoint toCircuitPoint() {
         return new CircuitPoint(this);
     }

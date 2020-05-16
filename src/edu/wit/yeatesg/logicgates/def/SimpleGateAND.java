@@ -91,7 +91,6 @@ public class SimpleGateAND extends ConnectibleEntity implements Rotatable {
     @Override
     public double getLineWidth() {
         return getCircuit().getLineWidth();
-      //  return (int) (c.getLineWidth() * 0.8);
     }
 
     @Override
@@ -174,10 +173,23 @@ public class SimpleGateAND extends ConnectibleEntity implements Rotatable {
             node.draw(g);
     }
 
-
     @Override
     public String getDisplayName() {
         return "Simple Gate AND";
+    }
+
+    @Override
+    public void move(Vector v) {
+        removeInterceptEntries();
+        disconnectAll();
+        drawPoints = drawPoints.getIfModifiedBy(v);
+        interceptPoints = interceptPoints.getIfModifiedBy(v);
+        origin = origin.getIfModifiedBy(v);
+        out.setLocation(out.getLocation().getIfModifiedBy(v));
+        addInterceptEntries();
+        updateInvalidInterceptPoints();
+        getCircuit().onEntityMove();
+        connectCheck();
     }
 
     @Override
@@ -215,8 +227,6 @@ public class SimpleGateAND extends ConnectibleEntity implements Rotatable {
     public boolean hasProperty(String propertyName) {
         return false;
     }
-
-
 
     @Override
     public void connect(ConnectibleEntity e, CircuitPoint atLocation) {

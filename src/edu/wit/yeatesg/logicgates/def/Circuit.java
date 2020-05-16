@@ -10,13 +10,13 @@ import edu.wit.yeatesg.logicgates.gui.Project;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 import edu.wit.yeatesg.logicgates.points.PanelDrawPoint;
 import javafx.beans.value.ObservableValue;
+import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.MenuItem;
 import javafx.scene.paint.Color;
 
 import java.util.*;
 
-
-public class Circuit implements Dynamic {
+public class Circuit implements PropertyMutable {
 
     public Circuit(Project p, String circuitName) {
         this.circuitName = circuitName;
@@ -24,8 +24,6 @@ public class Circuit implements Dynamic {
         this.new InterceptMap();
         p.addCircuit(this);
     }
-
-    public Circuit() { }
 
     private String circuitName;
 
@@ -40,21 +38,121 @@ public class Circuit implements Dynamic {
     }
 
 
-    private InterceptMap interceptMap;
+    // Circuit Entity List Stuff, And Associated Methods
+
+    private CircuitEntityList<Entity> allEntities = new CircuitEntityList<>();
+
+    private class CircuitEntityList<E extends Entity> extends EntityList<E> {
+
+        @Override
+        public boolean add(E entity) {
+            if (entity.existsInCircuit())
+                throw new RuntimeException("Entity already exists in Circuit");
+            if (entity.getCircuit() != Circuit.this)
+                throw new RuntimeException("Entity does not have a reference to this Circuit in memory");
+            super.add(entity);
+            entity.updateInvalidInterceptPoints();
+            entity.onAddToCircuit();
+            // TODO UNCOMMENT    System.out.println("[+1][" + allEntities.size() + "]" + "ADD "  + entity);
+            return true;
+        }
+
+        @SuppressWarnings("unchecked")
+        public void addAndTrackStateOperation(Entity entity) {
+            Entity forOperation = entity.getSimilarEntity();
+            add((E) entity);
+            new EntityAddOperation(forOperation, true);// Make sure the Entity that is being put into the add operation is a reference to the entity in the state it was in BEFORE it was added. Because when Wires are added, they may be bisected, merged etc. This could easily invalidate the EntityAddOperation.
+        }
+
+        @Override
+        public boolean remove(Object o) {
+            if (o instanceof Entity && super.remove(o)) {
+                Entity e = (Entity) o;
+                if (!e.existsInCircuit())
+                    throw new RuntimeException("Cannot remove entity; it does not exist in the Circuit");
+                if (o instanceof ConnectibleEntity)
+                    ((ConnectibleEntity) e).disconnectAll();
+                e.onRemovedFromCircuit();
+                // TODO UNCOMMENT    System.out.println("[-1][" + allEntities.size() + "]" + "DEL "  + o);
+                return true;
+            }
+            throw new RuntimeException("Could not remove");
+        }
+
+        /**
+         * Removes the Entity that exists on this Circuit that is similar to 'notOnCircuit'. This method uses
+         * {@link EntityDeleteOperation#operate()} to do the deletion. The reason why this is necessary in the
+         * first place is because when trying to delete multiple Wires at once, if you do not use delete operations,
+         * some of the Wires you are deleting will cause other wires you are deleting to be merged, so once you get
+         * to those other wires to delete them, their interceptPoints are already off the map and they will try to be
+         * deleted again and it wont work. We use this method/EntityDeleteOperations to fix this because they are very
+         * smart about how they delete Wires.
+         * @param notOnCircuit the Entity that isn't on the Circuit but is similar to an entity that is on the Circuit
+         *                     that you want to remove, and you are using this Entity to compare entities on the Circuit
+         *                     to for deletion.
+         */
+        public void removeSimilarEntity(Entity notOnCircuit) {
+            new EntityDeleteOperation(notOnCircuit, false).operate();
+        }
+
+        /**
+         * Almost the same as {@link #removeSimilarEntity(Entity)}, but this method will create an EntityDeleteOperation
+         * that will be associated with the removed entity. This operation, upon instantiation, will be tracked by
+         * the Circuit's state tracker.
+         * @param notOnCircuit the Entity that is not on the Circuit, but there is an Entity on the Circuit that is
+         *                     similar to it (or it is a Wire and it eats other wires, those other wires will be
+         *                     deleted)
+         */
+        public void removeSimilarEntityAndTrackOperation(Entity notOnCircuit) {
+            EntityDeleteOperation op = new EntityDeleteOperation(notOnCircuit.getSimilarEntity(), true);
+            op.operate(); // Doesn't actually have to call remove(). The delete operation will do it for us
+        }
+    }
+
+    /**
+     * Obtains a shallow clone of all of the Entities that exist on this Circuit
+     * @return a shallow clone of this Circuit's entity list
+     */
+    public EntityList<Entity> getAllEntities() {
+        return allEntities.clone();
+    }
+
+    public <T extends Entity> EntityList<T> getAllEntitiesOfType(Class<T> type) {
+        return allEntities.thatExtend(type);
+    }
+
+    public EntityList<Entity> getEntitiesThatIntercept(CircuitPoint p) {
+        return interceptMap.getEntitiesThatIntercept(p);
+    }
 
     public int getNumEntities() {
         return allEntities.size();
     }
 
-    public static class InterceptionList extends EntityList<Entity> {
-
-        @Override
-        public InterceptionList clone() {
-            InterceptionList clone = new InterceptionList();
-            clone.addAll(this);
-            return clone;
-        }
+    public void addEntity(Entity entity) {
+        allEntities.add(entity);
     }
+
+    public void addEntityAndTrackOperation(Entity entity) {
+        allEntities.addAndTrackStateOperation(entity);
+    }
+
+    public void removeEntity(Entity entity) {
+        allEntities.remove(entity);
+    }
+
+    public void removeSimilarEntityAndTrackOperation(Entity notOnCircuit) {
+        allEntities.removeSimilarEntityAndTrackOperation(notOnCircuit);
+    }
+
+    public void removeSimilarEntity(Entity notOnCircuit) {
+        allEntities.removeSimilarEntity(notOnCircuit);
+    }
+
+
+    // Intercept Map / Map Range Stuff
+
+    private InterceptMap interceptMap;
 
     public InterceptMap getInterceptMap() {
         return interceptMap;
@@ -174,6 +272,16 @@ public class Circuit implements Dynamic {
         }
     }
 
+    public static class InterceptionList extends EntityList<Entity> {
+
+        @Override
+        public InterceptionList clone() {
+            InterceptionList clone = new InterceptionList();
+            clone.addAll(this);
+            return clone;
+        }
+    }
+
     public int getGridMin() {
         return InterceptMap.CP_MIN;
     }
@@ -181,7 +289,6 @@ public class Circuit implements Dynamic {
     public int getGridMax() {
         return InterceptMap.CP_MAX;
     }
-
 
     public void pushIntoMapRange(PointSet points) {
         interceptMap.pushIntoRange(points);
@@ -197,293 +304,72 @@ public class Circuit implements Dynamic {
 
 
 
+    // Invalidly Intercepting Entity Checks
 
-    public static final Color COL_BG = Color.WHITE;
-    public static final Color COL_GRID = Color.DARKGREY;
-    public static final Color COL_ORIGIN = Color.RED;
-
-    /**
-     * CircuitPoint to CircuitDrawPoint
-     * Multiply the x and y of a CircuitPoint by this value to get the CircuitDrawPoint
-     * Represents the distance between CircuitPoint 0,0 and 0,1 on the editor panel
-     * (how many CircuitDrawPoints can fit between two CircuitPoints aka Grid Points?)
-     * */
-    private int scale = 20;
-
-    private static final int SCALE_MAX = 60;
-    private static final int SCALE_MIN = 5;
-    private static final int SCALE_INC = 5;
-
-    /**
-     * Returns the number that you have to multiply a {@link CircuitPoint} by to get its {@link PanelDrawPoint}
-     * @return CircuitPoint * this = PanelDrawPoint
-     */
-    public double getScale() {
-        return scale;
-    }
-
-    public boolean canScaleUp() {
-        return scale < SCALE_MAX;
-    }
-
-    public void scaleUp() {
-        if (canScaleUp()) {
-            if (scale > 5)
-                scale +=SCALE_INC;
-            else
-                scale += 5;
-        }
-
-    }
-
-    public boolean canScaleDown() {
-        return scale > SCALE_MIN;
-    }
-
-    public void scaleDown() {
-        if (canScaleDown()) {
-            if (scale > 10)
-                scale -= SCALE_INC;
-            else
-                scale -= 5;
-        }
-
-    }
-
-    public double getLineWidth() {
-        return scale * 0.24;
-    }
-
-    public int getGridLineWidth() {
-        int size = (int) (getLineWidth() / 2);
-        if (size == 0) size++;
-        return size;
-    }
-
-    /** def.Circuit Draw x to Panel draw x
-     * you add this number to a CircuitDrawPoint x to get its PanelDrawPoint x */
-    private int xoff = 0;
-
-    /** def.Circuit Draw y to Panel draw y
-     * you add this number to a CircuitDrawPoint y to get its PanelDrawPoint y */
-    private int yoff = 0;
-
-    /**
-     * Returns the number that you have to add to a {@link CircuitPoint} x to get its {@link PanelDrawPoint} x
-     * @return CircuitDrawPoint x +-> PanelDrawPoint x
-     */
-    public int getXOffset() {
-        return xoff;
-    }
-
-    /**
-     * Returns the number that you have to add to a {@link CircuitPoint} y to get its {@link PanelDrawPoint} y
-     * @return CircuitDrawPoint y + this = PanelDrawPoint y
-     */
-    public int getYOffset() {
-        return yoff;
-    }
-
-    /**
-     * Returns the the vector that you have to add to a {@link CircuitPoint} to get its {@link PanelDrawPoint}
-     * @return CircuitDrawPoint + this = PanelDrawPoint
-     */
-    public Vector getOffset() {
-        return new Vector(xoff, yoff);
-    }
-
-    public void modifyOffset(Vector vector) {
-        xoff += vector.x;
-        yoff += vector.y;
-    }
-
-    public void setOffset(Vector vector) {
-        xoff = (int) vector.x;
-        yoff = (int) vector.y;
-    }
-
-    public void setXOffset(int x) {
-        xoff = x;
-    }
-
-    public void setYOffset(int y) {
-        yoff = y;
-    }
-
-    /**
-     * Obtains a shallow clone of all of the Entities that exist on this Circuit
-     * @return
-     */
-    public EntityList<Entity> getAllEntities() {
-        return allEntities.clone();
-    }
-
-    public EntityList<Entity> getEntitiesThatIntercept(CircuitPoint p) {
-        return interceptMap.getEntitiesThatIntercept(p);
-    }
-
-
-    public void refreshTransmissions() {
-   //     System.out.print("Refresh Transmissions Took " + LogicGates.doTimeTest(() -> {
-            Dependent.resetDependencies(this);
-            Dependent.resetPowerStatus(this, true);
-            Dependent.calculateDependencies(this);
-            Dependent.calculateSuperDependencies(this);
-
-            Dependent.illogicalCheck(this);
-
-            Dependent.resetDependencies(this);
-            Dependent.resetPowerStatus(this, false); // Only difference from first 4 is 'false' here
-            Dependent.calculateDependencies(this);
-            Dependent.calculateSuperDependencies(this);
-
-            Dependent.determinePowerStatuses(this);
-   //     }));
-
-    }
-
-    /**
-     * This should be the ONLY way entities are added to the circuit
-     * @param entity
-     */
-    public void addEntity(Entity entity) {
-        allEntities.add(entity);
-    }
-
-    public void addEntityAndTrackOperation(Entity entity) {
-        allEntities.addAndTrackStateOperation(entity);
-    }
-
-    public void removeEntity(Entity entity) {
-        allEntities.remove(entity);
-    }
-
-    public void removeSimilarEntityAndTrackOperation(Entity notOnCircuit) {
-        allEntities.removeSimilarEntityAndTrackOperation(notOnCircuit);
-    }
-
-    public void removeSimilarEntity(Entity notOnCircuit) {
-        allEntities.removeSimilarEntity(notOnCircuit);
-    }
-
-
-    /**
-     * ONLY CALL ON ENITIES THAT HAVE NOT BEEN ADDED YET. IF YOU WANT TO TRACK STATE CHANGES WHEN CREATING ENTITIES,
-     * USE 'FALSE' IN THE 'addToCircuit' PARAM THEN CALL THIS
-     * @return
-     */
-
-
-    private CircuitEntityList<Entity> allEntities = new CircuitEntityList<>();
-
-    private class CircuitEntityList<E extends Entity> extends EntityList<E> {
-
+    private static class InvalidEntityList extends EntityList<Entity> {
         @Override
-        public boolean add(E entity) {
-            if (entity.existsInCircuit())
-                throw new RuntimeException("Entity already exists in Circuit");
-            if (entity.getCircuit() != Circuit.this)
-                throw new RuntimeException("Entity does not have a reference to this Circuit in memory");
-            super.add(entity);
-            entity.updateInvalidInterceptPoints();
-            entity.onAddToCircuit();
-        // TODO UNCOMMENT    System.out.println("[+1][" + allEntities.size() + "]" + "ADD "  + entity);
-            return true;
+        public boolean add(Entity entity) {
+            if (contains(entity))
+                return false;
+            return super.add(entity);
         }
 
-
-        @Override
-        public boolean remove(Object o) {
-            if (o instanceof Entity && super.remove(o)) {
-                Entity e = (Entity) o;
-                if (!e.existsInCircuit())
-                    throw new RuntimeException("Cannot remove entity; it does not exist in the Circuit");
-                if (o instanceof ConnectibleEntity)
-                    ((ConnectibleEntity) e).disconnectAll();
-                e.onRemovedFromCircuit();
-            // TODO UNCOMMENT    System.out.println("[-1][" + allEntities.size() + "]" + "DEL "  + o);
-                return true;
+        public void checkIfInvalidsAreStillInvalid() {
+            for (Entity potentiallyNotInvalidAnymore : this) {
+                potentiallyNotInvalidAnymore.updateInvalidInterceptPoints();
+                if (!potentiallyNotInvalidAnymore.isInvalid()) {
+                    remove(potentiallyNotInvalidAnymore);
+                    if (potentiallyNotInvalidAnymore instanceof ConnectibleEntity)
+                        ((ConnectibleEntity) potentiallyNotInvalidAnymore).connectCheck();
+                }
             }
-            throw new RuntimeException("Could not remove");
         }
+    }
 
-        @SuppressWarnings("unchecked")
-        public void addAndTrackStateOperation(Entity entity) {
-            Entity forOperation = entity.getSimilarEntity();
-            add((E) entity);
-            new EntityAddOperation(forOperation, true);// Make sure the Entity that is being put into the add operation is a reference to the entity in the state it was in BEFORE it was added. Because when Wires are added, they may be bisected, merged etc. This could easily invalidate the EntityAddOperation.
-        }
+    private InvalidEntityList invalidEntities = new InvalidEntityList();
 
-        public void removeSimilarEntityAndTrackOperation(Entity entity) {
-            EntityDeleteOperation op = new EntityDeleteOperation(entity.getSimilarEntity(), true);
-            op.operate(); // Doesn't actually have to call remove(). The delete operation will do it for us
-        }
+    private EntityList<Entity> getInvalidEntities() {
+        return invalidEntities.clone();
+    }
 
-        /**
-         * Removes the Entity that exists on this Circuit that is similar to 'notOnCircuit'. This method uses
-         * {@link EntityDeleteOperation#operate()} to do the deletion. The reason why this is necessary in the
-         * first place is because when trying to delete multiple Wires at once, if you do not use delete operations,
-         * some of the Wires you are deleting will cause other wires you are deleting to be merged, so once you get
-         * to those other wires to delete them, their interceptPoints are already off the map and they will try to be
-         * deleted again and it wont work. We use this method/EntityDeleteOperations to fix this because they are very
-         * smart about how they delete Wires.
-         * @param notOnCircuit the Entity that isn't on the Circuit but is similar to an entity that is on the Circuit
-         *                     that you want to remove, and you are using this Entity to compare entities on the Circuit
-         *                     to for deletion.
-         */
-        public void removeSimilarEntity(Entity notOnCircuit) {
-            new EntityDeleteOperation(notOnCircuit, false).operate();
-        }
+    public void markInvalid(Entity e) {
+        if (e.getInvalidInterceptPoints().isEmpty())
+            throw new RuntimeException("Cannot mark this Entity as invalid, its invalidInterceptPoints list is empty");
+        invalidEntities.add(e);
+    }
+
+    public void onEntityMove() {
+       invalidEntities.checkIfInvalidsAreStillInvalid();
+    }
+
+    public void drawInvalidEntities() {
+        for (Entity invalidEntity : invalidEntities)
+            for (CircuitPoint interceptPoint : invalidEntity.getInvalidInterceptPoints())
+                drawInvalidGridPoint(interceptPoint);
+    }
+
+    public void drawGridPoint(CircuitPoint gridSnapped) {
 
     }
 
-
-    @SuppressWarnings("unchecked")
-    public <T extends Entity> EntityList<T> getAllEntitiesOfType(Class<T> type) {
-        return allEntities.ofType(type);
+    public void drawInvalidGridPoint(CircuitPoint gridSnapped) {
+        GraphicsContext g = getEditorPanel().getGraphicsContext();
+        double circleSize = scale*0.4;
+        double offset = circleSize / 2.0;
+        PanelDrawPoint drawPoint = gridSnapped.toPanelDrawPoint();
+        double drawX = drawPoint.x - offset;
+        double drawY = drawPoint.y - offset;
+        g.setFill(Color.rgb(255, 0, 0, 1));
+        g.fillRect(drawX, drawY, circleSize, circleSize);
     }
 
-    @Override
-    public String getPropertyTableHeader() {
-        return "Properties For: Circuit";
-    }
 
-    @Override
-    public PropertyList getPropertyList() {
-        PropertyList propList = new PropertyList(this);
-        propList.add(new Property("Circuit Name", "", ""));
-        return propList;
-    }
+    // State tracking stuff: Operations that are tracked by the Circuit and can be undone/redone
 
-    @Override
-    public void onPropertyChange(ObservableValue<? extends String> observableValue, String s, String t1) {
-        System.out.println("OBS VAL " + observableValue + " CHANGED FROM " + s + " TO " + t1);
-    }
+    private CircuitStateController stateController = new CircuitStateController();
 
-    private static final String[] properties = new String[] { "Circuit Name" };
-
-    @Override
-    public boolean hasProperty(String propertyName) {
-        return Arrays.asList(properties).contains(propertyName);
-    }
-
-    public void deepCloneEntitiesFrom(Circuit c) {
-        for (Entity e : c.getAllEntities())
-            e.clone(this);
-    }
-
-    public Circuit cloneOntoProject(String newName) {
-        return new Circuit(project, newName);
-    }
-
-    public void setScale(int scale) {
-        this.scale = scale;
-    }
-
-    private CircuitStateChain stateChain = new CircuitStateChain();
-
-    public CircuitStateChain stateController() {
-        return stateChain;
+    public CircuitStateController stateController() {
+        return stateController;
     }
 
     public void appendCurrentStateChanges() {
@@ -491,21 +377,21 @@ public class Circuit implements Dynamic {
     }
 
     public void appendCurrentStateChanges(String undoMsg) {
-        stateChain.appendState(undoMsg);
+        stateController.appendState(undoMsg);
     }
 
     public void clearStateChangeBuffer() {
-        stateChain.clearBuffer();
+        stateController.clearBuffer();
     }
 
-    public class CircuitStateChain {
+    public class CircuitStateController {
 
         private CircuitState first;
         private CircuitState curr;
 
         private ArrayList<StateChangeOperation> currChangeBuffer = new ArrayList<>();
 
-        public CircuitStateChain() {
+        public CircuitStateController() {
             first = new CircuitState();
             curr = first;
         }
@@ -669,7 +555,7 @@ public class Circuit implements Dynamic {
 
         public StateChangeOperation(boolean track) {
             if (track)
-                stateChain.onOperationOccurrence(this);
+                stateController.onOperationOccurrence(this);
         }
 
         public abstract StateChangeOperation getOpposite();
@@ -729,14 +615,11 @@ public class Circuit implements Dynamic {
             super(new Wire(edge, to), true);
             if (new Wire(edge, to).isSimilar(shortening))
                 throw new RuntimeException("This should be a delete operation instead");
-            System.out.println("SHORT SHORT");
             EntityList<Entity> toIntercepting = to.getInterceptingEntities().except(shortening);
-            EntityList<Wire> toInterceptingWires = toIntercepting.ofType(Wire.class);
+            EntityList<Wire> toInterceptingWires = toIntercepting.thatExtend(Wire.class);
             if (!to.interceptsWireEdgePoint()
                     && toInterceptingWires.getWiresGoingInOppositeDirection(shortening).size() == 1)
                 causingBisectHere.put(to.getSimilar(), shortening.getDirection().getPerpendicular());
-            if (!causingBisectHere.isEmpty())
-                System.out.println("CAUSES BISECT");
         }
 
         @Override
@@ -872,8 +755,6 @@ public class Circuit implements Dynamic {
                     } else {
                         addEntity(new Wire(deletingSimilar.get(0).getLefterEdgePoint(), deletingSimilar.get(1).getRighterEdgePoint()));
                     }
-
-
                 }
             }
 
@@ -888,9 +769,9 @@ public class Circuit implements Dynamic {
         }
     }
 
-    public class MoveOperation extends StateChangeOperation {
+    public class EntityMoveOperation extends StateChangeOperation {
 
-        public MoveOperation(boolean track) {
+        public EntityMoveOperation(boolean track) {
             super(track);
         }
 
@@ -903,6 +784,184 @@ public class Circuit implements Dynamic {
         public void operate() {
 
         }
+    }
+
+
+
+    // Scale, Offset, Drawing/Color Stuff Below
+
+    public static final Color COL_BG = Color.WHITE;
+    public static final Color COL_GRID = Color.DARKGREY;
+    public static final Color COL_ORIGIN = Color.RED;
+
+    /**
+     * CircuitPoint to CircuitDrawPoint
+     * Multiply the x and y of a CircuitPoint by this value to get the CircuitDrawPoint
+     * Represents the distance between CircuitPoint 0,0 and 0,1 on the editor panel
+     * (how many CircuitDrawPoints can fit between two CircuitPoints aka Grid Points?)
+     * */
+    private int scale = 15;
+
+    private static final int SCALE_MAX = 60;
+    private static final int SCALE_MIN = 5;
+    private static final int SCALE_INC = 5;
+
+    /**
+     * Returns the number that you have to multiply a {@link CircuitPoint} by to get its {@link PanelDrawPoint}
+     * @return CircuitPoint * this = PanelDrawPoint
+     */
+    public double getScale() {
+        return scale;
+    }
+
+    public boolean canScaleUp() {
+        return scale < SCALE_MAX;
+    }
+
+    public void scaleUp() {
+        if (canScaleUp()) {
+            if (scale > 5)
+                scale +=SCALE_INC;
+            else
+                scale += 5;
+        }
+
+    }
+
+    public boolean canScaleDown() {
+        return scale > SCALE_MIN;
+    }
+
+    public void scaleDown() {
+        if (canScaleDown()) {
+            if (scale > 10)
+                scale -= SCALE_INC;
+            else
+                scale -= 5;
+        }
+
+    }
+
+    public double getLineWidth() {
+        return scale * 0.24;
+    }
+
+    public int getGridLineWidth() {
+        int size = (int) (getLineWidth() / 2);
+        if (size == 0) size++;
+        return size;
+    }
+
+    /** def.Circuit Draw x to Panel draw x
+     * you add this number to a CircuitDrawPoint x to get its PanelDrawPoint x */
+    private int xoff = 0;
+
+    /** def.Circuit Draw y to Panel draw y
+     * you add this number to a CircuitDrawPoint y to get its PanelDrawPoint y */
+    private int yoff = 0;
+
+    /**
+     * Returns the number that you have to add to a {@link CircuitPoint} x to get its {@link PanelDrawPoint} x
+     * @return CircuitDrawPoint x +-> PanelDrawPoint x
+     */
+    public int getXOffset() {
+        return xoff;
+    }
+
+    /**
+     * Returns the number that you have to add to a {@link CircuitPoint} y to get its {@link PanelDrawPoint} y
+     * @return CircuitDrawPoint y + this = PanelDrawPoint y
+     */
+    public int getYOffset() {
+        return yoff;
+    }
+
+    /**
+     * Returns the the vector that you have to add to a {@link CircuitPoint} to get its {@link PanelDrawPoint}
+     * @return CircuitDrawPoint + this = PanelDrawPoint
+     */
+    public Vector getOffset() {
+        return new Vector(xoff, yoff);
+    }
+
+    public void modifyOffset(Vector vector) {
+        xoff += vector.x;
+        yoff += vector.y;
+    }
+
+    public void setOffset(Vector vector) {
+        xoff = (int) vector.x;
+        yoff = (int) vector.y;
+    }
+
+    public void setXOffset(int x) {
+        xoff = x;
+    }
+
+    public void setYOffset(int y) {
+        yoff = y;
+    }
+
+
+    public void recalculateTransmissions() {
+        Dependent.resetDependencies(this);
+        Dependent.resetPowerStatus(this, true); // Reset power statuses and illogicals as well
+        Dependent.calculateDependencies(this); // Calculate dependencies, may cause illogicies
+        Dependent.calculateSuperDependencies(this);
+
+        Dependent.illogicalCheck(this); // Determine illogicals based on calculated dependencies
+
+        Dependent.resetDependencies(this);
+        Dependent.resetPowerStatus(this, false); // Reset power statuses, but not for illogicals
+        Dependent.calculateDependencies(this); // Re-calculate dependencies, ignoring illogicals
+        Dependent.calculateSuperDependencies(this);
+
+        Dependent.determinePowerStatuses(this);
+    }
+
+    public void recalculatePowerStatuses() {
+        Dependent.resetPowerStatus(this, false);
+        Dependent.determinePowerStatuses(this);
+    }
+
+
+    // Dynamic / 'Propetiable' Methods
+
+    @Override
+    public String getPropertyTableHeader() {
+        return "Properties For: Circuit";
+    }
+
+    @Override
+    public PropertyList getPropertyList() {
+        PropertyList propList = new PropertyList(this);
+        propList.add(new Property("Circuit Name", "", ""));
+        return propList;
+    }
+
+    @Override
+    public void onPropertyChange(ObservableValue<? extends String> observableValue, String s, String t1) {
+        System.out.println("OBS VAL " + observableValue + " CHANGED FROM " + s + " TO " + t1);
+    }
+
+    private static final String[] properties = new String[] { "Circuit Name" };
+
+    @Override
+    public boolean hasProperty(String propertyName) {
+        return Arrays.asList(properties).contains(propertyName);
+    }
+
+    public void deepCloneEntitiesFrom(Circuit c) {
+        for (Entity e : c.getAllEntities())
+            e.clone(this);
+    }
+
+    public Circuit cloneOntoProject(String newName) {
+        return new Circuit(project, newName);
+    }
+
+    public void setScale(int scale) {
+        this.scale = scale;
     }
 
 }

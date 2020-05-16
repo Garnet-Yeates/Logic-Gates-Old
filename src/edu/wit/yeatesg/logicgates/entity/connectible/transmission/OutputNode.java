@@ -42,28 +42,23 @@ public class OutputNode extends ConnectionNode implements Dependent {
     private void calculateDependedBy(Wire connectingWire) {
         if (connectingWire.getFullConnections().size() > 1) {
             for (ConnectibleEntity ce : connectingWire.getConnectedEntities()) {
-                if (ce instanceof Wire
-                        && ((Wire) ce).getPowerStatus() == PowerStatus.UNDETERMINED
-                        && !((Wire) ce).dependingOn().contains(this)) {
-                    Wire w = (Wire) ce;
-                    w.dependingOn().add(this);
-                    calculateDependedBy(w);
-                } else {
-                    // MUST be ce.getConnectionTo(curr), not curr.getConnectionTo(ce) because curr (should)
-                    // always be a wire and wires dont have distinct input/output nodes
-                    ConnectionNode node = ce.getConnectionTo(connectingWire);
-                    if (node instanceof InputNode
-                            && ((InputNode) node).getPowerStatus() == PowerStatus.UNDETERMINED
-                            && !((InputNode) node).dependingOn().contains(this)) {
-                        ((InputNode) node).dependingOn().add(this);
-                    }
+                Dependent thatDependsOnThis = null;
+                if (ce instanceof Wire)
+                    thatDependsOnThis = (Dependent) ce;
+                else if (ce.getConnectionTo(connectingWire) instanceof InputNode)
+                    thatDependsOnThis = (Dependent) ce.getConnectionTo(connectingWire);
+                if (thatDependsOnThis == null || thatDependsOnThis.getPowerStatus() != PowerStatus.UNDETERMINED)
+                    continue;
+                if (!thatDependsOnThis.dependingOn().contains(this)) {
+                    thatDependsOnThis.dependingOn().add(this);
+                    if (thatDependsOnThis instanceof Wire)
+                        calculateDependedBy((Wire) thatDependsOnThis);
                 }
             }
         }
     }
 
     // During refreshTransmissions, this should be called on every entity that has OutputNodes
-    // TODO make sure output/input nodes connect to wires only
     public final void calculateDependedBy() {
         if (connectedTo instanceof Wire && getPowerStatus() == PowerStatus.UNDETERMINED) {
             Wire w = (Wire) connectedTo;

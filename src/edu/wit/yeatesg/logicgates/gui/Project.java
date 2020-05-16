@@ -124,7 +124,6 @@ public class Project {
         return project;
     }
 
-
     public static class LoadFailedException extends Exception {
         private String message;
         public LoadFailedException(String message) { this.message = message; }

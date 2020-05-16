@@ -49,14 +49,6 @@ public class ConnectionNode {
         return parent;
     }
 
-    public boolean canConnectTo(ConnectibleEntity e, CircuitPoint at) {
-       return parent.canConnectTo(e, at);
-    }
-
-    public void setParent(ConnectibleEntity parent) {
-        this.parent = parent;
-    }
-
     @Override
     public boolean equals(Object other) {
         if (other instanceof ConnectionNode) {
