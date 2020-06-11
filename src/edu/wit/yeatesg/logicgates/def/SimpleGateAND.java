@@ -30,9 +30,17 @@ public class SimpleGateAND extends ConnectibleEntity implements Rotatable {
         super(origin.getCircuit());
         this.origin = origin.getSimilar();
         this.rotation = rotation;
+        this.connections = new ConnectionList();
+        construct();
+    }
+
+    @Override
+    public void construct() {
         drawPoints = getRelativePointSet().applyToOrigin(origin, rotation);
         getCircuit().pushIntoMapRange(drawPoints);
+        connections = new ConnectionList();
         interceptPoints = getBoundingBox().getInterceptPoints();
+        update();
         establishOutputNode(drawPoints.get(0));
         out = (OutputNode) getNodeAt(drawPoints.get(0));
         establishInputNode(drawPoints.get(7));
@@ -49,6 +57,8 @@ public class SimpleGateAND extends ConnectibleEntity implements Rotatable {
         return new SimpleGateAND(origin.clone(onto), rotation);
     }
 
+
+
     @Override
     public boolean isSimilar(Entity other) {
         return other instanceof SimpleGateAND && ((SimpleGateAND) other).origin.equals(origin);
@@ -61,7 +71,7 @@ public class SimpleGateAND extends ConnectibleEntity implements Rotatable {
 
     @Override
     public void determinePowerStateOf(OutputNode outputNode) {
-        if (outputNode.getPowerStatus() == PowerStatus.UNDETERMINED) { // Todo maybe make ill 1 and 2
+        if (outputNode.getPowerStatus() == PowerStatus.UNDETERMINED) {
             LinkedList<InputNode> relevants = getRelevantInputNodesFor(outputNode);
             if (relevants.size() == 0)
                 outputNode.setPowerStatus(PowerStatus.PARTIALLY_DEPENDENT);
@@ -180,16 +190,8 @@ public class SimpleGateAND extends ConnectibleEntity implements Rotatable {
 
     @Override
     public void move(Vector v) {
-        removeInterceptEntries();
-        disconnectAll();
-        drawPoints = drawPoints.getIfModifiedBy(v);
-        interceptPoints = interceptPoints.getIfModifiedBy(v);
         origin = origin.getIfModifiedBy(v);
-        out.setLocation(out.getLocation().getIfModifiedBy(v));
-        addInterceptEntries();
-        updateInvalidInterceptPoints();
-        getCircuit().onEntityMove();
-        connectCheck();
+        reconstruct();
     }
 
     @Override
@@ -221,11 +223,24 @@ public class SimpleGateAND extends ConnectibleEntity implements Rotatable {
     }
 
     @Override
-    public void onPropertyChange(ObservableValue<? extends String> observableValue, String s, String t1) { }
+    public void onPropertyChange(String property, String old, String newVal) {
+        if (property.equalsIgnoreCase("rotation")) {
+            rotation = Integer.parseInt(newVal);
+            reconstruct();
+        }
+    }
+
+    @Override
+    public String getPropertyValue(String propertyName) {
+        if (propertyName.equalsIgnoreCase("rotation"))
+            return rotation + "";
+        return null;
+    }
+
 
     @Override
     public boolean hasProperty(String propertyName) {
-        return false;
+        return propertyName.equalsIgnoreCase("rotation");
     }
 
     @Override
@@ -268,6 +283,6 @@ public class SimpleGateAND extends ConnectibleEntity implements Rotatable {
 
     @Override
     public String toString() {
-        return "SimpleGateAND{" + origin + "}";
+        return "SimpleGateAND{" + origin + " , "  + id + "}";
     }
 }

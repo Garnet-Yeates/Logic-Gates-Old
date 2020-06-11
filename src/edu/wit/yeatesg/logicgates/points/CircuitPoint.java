@@ -5,6 +5,7 @@ import edu.wit.yeatesg.logicgates.def.Circuit;
 import edu.wit.yeatesg.logicgates.def.Vector;
 import edu.wit.yeatesg.logicgates.entity.Entity;
 import edu.wit.yeatesg.logicgates.entity.EntityList;
+import edu.wit.yeatesg.logicgates.entity.ExactEntityList;
 import edu.wit.yeatesg.logicgates.entity.connectible.transmission.Wire;
 
 public class CircuitPoint {
@@ -118,7 +119,7 @@ public class CircuitPoint {
         return e.intercepts(this);
     }
 
-    public EntityList<Entity> getInterceptingEntities() {
+    public ExactEntityList<Entity> getInterceptingEntities() {
         return c.getInterceptMap().get(this.getGridSnapped());
     }
 

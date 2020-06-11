@@ -4,6 +4,7 @@ import edu.wit.yeatesg.logicgates.def.*;
 import edu.wit.yeatesg.logicgates.def.Vector;
 import edu.wit.yeatesg.logicgates.entity.Entity;
 import edu.wit.yeatesg.logicgates.entity.EntityList;
+import edu.wit.yeatesg.logicgates.entity.ExactEntityList;
 import edu.wit.yeatesg.logicgates.entity.Pokable;
 import edu.wit.yeatesg.logicgates.entity.connectible.ConnectibleEntity;
 import edu.wit.yeatesg.logicgates.entity.connectible.transmission.Wire;
@@ -63,39 +64,59 @@ public class EditorPanel extends Pane {
 
     public void onKeyPressed(KeyEvent e) {
         Circuit c = c();
-        if (e.getCode() == DELETE)
-            currSelection.deleteSelection();
-        if (e.getCode() == B)
+        Circuit.Selection currSelection = c.currentSelectionReference();
+        KeyCode code = e.getCode();
+        if (code == DELETE)
+            currSelection.deleteAllEntitiesAndTrack();
+        if (code == B)
             if (currentPullPoint != null)
                 currentPullPoint.dropAndRestart();
-        if (e.getCode() == N) {
+        if (code == N) {
             System.out.println("NUM ENTITIES: " + c().getNumEntities());
         }
-        if (e.getCode() == R)
-            repaint(c());
-        if (e.isControlDown() && (e.getCode() == EQUALS || e.getCode() == MINUS)) {
+        if ((code == RIGHT || code == LEFT || code == UP || code == DOWN )
+                && !currSelection.isEmpty()) {
+            System.out.println(code.getName());
+            for (Entity ent : currSelection) {
+                Vector vec = Vector.directionVectorFrom(code.getName());
+                ent.move();
+                new Circuit.EntityMoveOperation(ent, )
+            }
+            repaint(c);
+            c.recalculateTransmissions();
+        }
+
+        if (code == R) {
+            for (Entity selected : currSelection) {
+                if (selected.hasProperty("rotation")) {
+                    int rotation = Integer.parseInt(selected.getPropertyValue("rotation"));
+                    selected.onPropertyChange("rotation", rotation + "", LogicGates.getNextRotation(rotation) + "");
+                }
+            }
+        }
+        if (e.isControlDown() && (code == EQUALS || code == MINUS)) {
             CircuitPoint oldCenter = getCenter();
-            if (e.getCode() == EQUALS && c().canScaleUp()) {
+            if (code == EQUALS && c().canScaleUp()) {
                 c().scaleUp();
                 view(oldCenter);
                 repaint(c);
-            } else if (e.getCode() == MINUS && c().canScaleDown()) {
+            } else if (code == MINUS && c().canScaleDown()) {
                 c().scaleDown();
                 view(oldCenter);
                 repaint(c);
             }
         }
-        if (e.getCode() == SPACE)
+        if (code == SPACE)
             holdingSpace = true;
-        if (e.getCode() == SHIFT) {
+        if (code == SHIFT) {
             shift = true;
             if (ppStateShift == 0)
                 currentPullPoint = null;
             repaint(c);
         }
-        if (e.getCode() == ESCAPE) {
+        if (code == ESCAPE) {
             if (currSelection.size() > 0) {
-                currSelection.deselectAllAndTrackStateOperation();
+                currSelection.deselectAllAndTrack();
                 c.appendCurrentStateChanges("Deselect All Via Esc");
             }
             if (ppStateShift > 0) {
@@ -107,11 +128,15 @@ public class EditorPanel extends Pane {
             c.recalculateTransmissions();
             repaint(c);
         }
-        if (e.getCode() == P) {
+        if (code == P) {
             onPoke();
             repaint(c);
         }
+        e.consume();
     //    repaint(c());
+        c.recalculateTransmissions();
+        currSelection.updateConnectionView();
+        repaint(c);
     }
 
     public void onKeyReleased(KeyEvent e) {
@@ -119,6 +144,11 @@ public class EditorPanel extends Pane {
             holdingSpace = false;
         if (e.getCode() == SHIFT)
             shift = false;
+        Circuit c = c();
+        Circuit.Selection currSelection = c.currentSelectionReference();
+        c.recalculateTransmissions();
+        currSelection.updateConnectionView();
+        repaint(c);
     }
 
     public void onMouseMoved(MouseEvent e) {
@@ -161,13 +191,14 @@ public class EditorPanel extends Pane {
         return middlePressPointGrid != null;
     }
 
-
     public void onMousePressed(MouseEvent e) {
+        Circuit c = c();
+        Circuit.Selection currSelection = c.currentSelectionReference();
         canUserShiftState = false;
+        gridSnapJustChanged = false;
         gridSnapChangedSinceLastPress = false;
         System.out.println("MOUSE PRESS " + e.getButton());
         updateMousePos(e);
-        gridSnapJustChanged = false;
         System.out.println("MOUSE PRESS: GRID SNAP CHANGE? " + gridSnapJustChanged);
         System.out.println(circuitPointAtMouse(true) + " AT MOUSE");
         System.out.println("INTERCEPT MAP ENTRIES AT MOUSE: ");
@@ -190,8 +221,11 @@ public class EditorPanel extends Pane {
             if (currentPullPoint != null)
                 currentPullPoint.dropAndRestart();
         }
-    }
+        c.recalculateTransmissions();
+        currSelection.updateConnectionView();
+        repaint(c());
 
+    }
 
     public void onMouseReleased(MouseEvent e) {
         canUserShiftState = true;
@@ -217,8 +251,19 @@ public class EditorPanel extends Pane {
             rightReleasePointGrid = circuitPointAtMouse(true);
             rightPressPointGrid = null;
         }
+        c().recalculateTransmissions();
+        updateConnectionView();
         repaint(c());
+
         gridSnapJustChanged = false;
+    }
+
+    public void repaint() {
+        repaint(c());
+    }
+
+    public void updateConnectionView() {
+        c().currentSelectionReference().updateConnectionView();
     }
 
     public void onMouseDragged(MouseEvent e) {
@@ -240,171 +285,6 @@ public class EditorPanel extends Pane {
         return currProject.getCurrentCircuit();
     }
 
-    public Selection currSelection = new Selection();
-    public ConnectionSelection currConnectionView = new ConnectionSelection();
-
-    public Selection getCurrentSelection() {
-        return currSelection;
-    }
-
-    public class Selection extends EntityList<Entity> {
-
-        public Selection(Entity... entities) {
-            if (entities != null)
-                addAll(Arrays.asList(entities));
-        }
-
-        public Selection(Collection<? extends Entity> list) {
-            super(list);
-        }
-
-        public boolean intercepts(CircuitPoint p) {
-            for (Entity e : this)
-                if (e.getBoundingBox().intercepts(p))
-                    return true;
-            return false;
-        }
-
-        @Override
-        public boolean add(Entity entity) {
-            throw new UnsupportedOperationException("Use select(Entity)");
-        }
-
-        public boolean select(Entity entity) {
-            boolean added = false;
-            if (!contains(entity))
-                added = super.add(entity);
-            updateConnectionView();
-            return added;
-        }
-
-        public boolean selectAndTrackStateOperation(Entity e) {
-            if (select(e)) {
-                c().new SelectOperation(e, true);
-                return true;
-            }
-            return false;
-        }
-
-        public EntityList<Entity> selectMultipleAndTrackOperation(Collection<? extends Entity> list) {
-            EntityList<Entity> selected = new EntityList<>();
-            for (Entity entity : list)
-                if (selectAndTrackStateOperation(entity))
-                    selected.add(entity);
-            return selected;
-        }
-
-        @Override
-        public boolean remove(Object o) {
-            throw new UnsupportedOperationException("Use deselect(Entity)");
-        }
-
-        public boolean deselect(Entity e) {
-            boolean removed = super.remove(e);
-            updateConnectionView();
-            return removed;
-        }
-
-        public boolean deselectAndTrackOperation(Entity e) {
-            if (deselect(e)) {
-                c().new DeselectOperation(e, true);
-                return true;
-            }
-            return false;
-        }
-
-        public EntityList<Entity> deselectMultipleAndTrackStateOperation(Collection<? extends Entity> list) {
-            EntityList<Entity> deselected = new EntityList<>();
-            for (Entity entity : list)
-                if (deselectAndTrackOperation(entity))
-                    deselected.add(entity);
-            return deselected;
-        }
-
-        public EntityList<Entity> deselectAllAndTrackStateOperation() {
-            return deselectMultipleAndTrackStateOperation(this.clone());
-        }
-
-        /**
-         * Always going to push 2 distinct operations: deselect all, then delete all
-         */
-        public void deleteSelection() {
-            EntityList<Entity> removing = deselectAllAndTrackStateOperation().deepClone();
-            for (Entity e : removing)
-                e.removeWithTrackedStateOperation();
-            c().appendCurrentStateChanges("Delete Selection Of " + removing.size() + " Entities");
-            c().recalculateTransmissions();
-            repaint(c());
-        }
-
-        @Override
-        public void clear() {
-            throw new UnsupportedOperationException("Use deselectAllWithStateOperation");
-        }
-
-        public void updateConnectionView() {
-            currConnectionView.clear();
-            if (size() == 1 && get(0) instanceof ConnectibleEntity) {
-                ConnectibleEntity selectedConnectible = (ConnectibleEntity) get(0);
-                currConnectionView.addAll(selectedConnectible.getConnectedEntities());
-                currConnectionView.resetTimer();
-            }
-        }
-
-        public boolean intercepts(PanelDrawPoint p) {
-            return intercepts(p.toCircuitPoint());
-        }
-
-        @Override
-        public Selection clone() {
-            return new Selection(this);
-        }
-
-        public Selection deepClone() {
-            return new Selection(super.deepClone());
-        }
-    }
-
-    public class ConnectionSelection extends Selection {
-
-        public Timer blinkTimer;
-        public boolean blinkState = true;
-
-        public ConnectionSelection(Entity... entities) {
-            super(entities);
-            blinkTimer = new Timer(750, (e) -> {
-                blinkState = !blinkState;
-                if (size() > 0)
-                    repaint(c());
-            });
-            blinkTimer.start();
-        }
-
-        @Override
-        public boolean add(Entity entity) {
-            return select(entity);
-        }
-
-        public void draw(Entity inThisSelection, GraphicsContext g) {
-            inThisSelection.draw(g);
-            if (blinkState) {
-                g.setLineWidth(3);
-                g.setStroke(Color.ORANGE);
-                inThisSelection.getBoundingBox().drawBorder(g);
-            }
-        }
-
-        public void resetTimer() {
-            blinkState = true;
-            blinkTimer.restart();
-        }
-
-        @Override
-        public void clear() {
-            for (Entity e : clone())
-                deselect(e);
-        }
-    }
 
     private void drawGridPoints(GraphicsContext g) {
         int w = canvasWidth(), h = canvasHeight();
@@ -507,6 +387,8 @@ public class EditorPanel extends Pane {
 
     @SuppressWarnings("unchecked")
     public void determineSelecting() {
+        Circuit c = c();
+        Circuit.Selection currSelection = c.currentSelectionReference();
         System.out.println("determine selecting. curr selection size before: " + currSelection.size());
         selectionBoxStartPoint = null;
         selectedSomethingLastPress = false;
@@ -517,12 +399,12 @@ public class EditorPanel extends Pane {
 
         if (currentPullPoint != null) {
             deselected.addAll(currSelection);
-            currSelection.deselectAllAndTrackStateOperation();
+            currSelection.deselectAllAndTrack();
         } else {
             // Condition where they have a current selection, but clicked out of the selection without holding shift
             if (!currSelection.isEmpty() && !currSelection.intercepts(atMouse) && !shift) {
                 deselected.addAll(currSelection);
-                currSelection.deselectAllAndTrackStateOperation();
+                currSelection.deselectAllAndTrack();
             }
             if (!currSelection.isEmpty() && currSelection.intercepts(atMouse)) {
                 if (shift) {
@@ -598,6 +480,8 @@ public class EditorPanel extends Pane {
         }
 
         public void selectEntities() {
+            Circuit c = c();
+            Circuit.Selection currSelection = c.currentSelectionReference();
             EntityList<Entity> selected = currSelection.selectMultipleAndTrackOperation(this.getInterceptingEntities());
             if (selected.size() > 0)
                 c().appendCurrentStateChanges("Select " + selected.size() + " entit" + (selected.size() == 1 ? "y" : "ies"));
@@ -635,12 +519,15 @@ public class EditorPanel extends Pane {
 
 
     private void determineSelectingMouseRelease() {
+        Circuit c = c();
+        Circuit.Selection currSelection = c.currentSelectionReference();
         System.out.println("mouse releese selecting " + currSelection.size());
         if (pressPointGrid.equals(releasePointGrid) && (currSelection.isEmpty() || shift) && !gridSnapChangedSinceLastPress) {
             if (!pressedOnSelectedEntity && !selectedSomethingLastPress) {
                 determineSelecting();
             }
         }
+        System.out.println(currSelection.isEmpty());
     }
 
     public void onPoke() {
@@ -693,6 +580,9 @@ public class EditorPanel extends Pane {
             return;
         Project p = currProject;
         Circuit c = c();
+        Circuit.Selection currSelection = c.currentSelectionReference();
+        Circuit.ConnectionSelection currConnectionView = c.currentConnectionViewReference();
+
         Platform.runLater(() -> {
             double width = canvasWidth();
             double height = canvasHeight();
@@ -757,6 +647,8 @@ public class EditorPanel extends Pane {
 
             if (currSelectionBox != null)
                 currSelectionBox.paint(gc);
+
+            c.drawInvalidEntities();
         });
     }
 
@@ -832,6 +724,8 @@ public class EditorPanel extends Pane {
 
         public PullPoint(CircuitPoint location, CircuitPoint originalLoc, boolean lock) {
             super(location.x, location.y, originalLoc.getCircuit());
+            Circuit c = c();
+            Circuit.Selection currSelection = c.currentSelectionReference();
             this.lock = lock;
             ppStateShift = 0;
             pressPoint = circuitPointAtMouse(true);
@@ -839,15 +733,15 @@ public class EditorPanel extends Pane {
             if (!canBePlacedHere(pressPoint) || !currSelection.isEmpty() || shift) {
                 currentPullPoint = null;
                 if (old != null)
-                    repaint(c());
+                    repaint(c);
                 return;
             }
-            EntityList<ConnectibleEntity> cesAtStart = c().getEntitiesThatIntercept(pressPoint).thatExtend(ConnectibleEntity.class);
+            EntityList<ConnectibleEntity> cesAtStart = c.getEntitiesThatIntercept(pressPoint).thatExtend(ConnectibleEntity.class);
             pullDir = null;
             this.originalLoc = originalLoc;
             currentPullPoint = this;
             if (originalLoc.equals(pressPoint) && !lock)
-                for (Wire w : c().getAllEntitiesOfType(Wire.class))
+                for (Wire w : c.getAllEntitiesOfType(Wire.class))
                     if (w.isEdgePoint(pressPoint))
                         canDelete = true;
             if (!canCreateFromAll(cesAtStart))

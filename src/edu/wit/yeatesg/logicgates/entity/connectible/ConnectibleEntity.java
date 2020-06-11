@@ -13,25 +13,23 @@ public abstract class ConnectibleEntity extends Entity {
 
     protected ConnectionList connections;
 
+    /**
+     * ConnectibleEntity constructor template:
+     * set main fields such as rotation, origin, etc based on the params in the constructor
+     * set {@link #connections} to a new ConnectionList
+     * call construct()
+     *
+     * @param c the Circuit
+     */
     public ConnectibleEntity(Circuit c) {
         super(c);
-        connections = new ConnectionList();
     }
 
+    /**
+     * MUST be called by every ConnectibleEntity at the end of the construct() method
+     */
     public void postInit() {
         assignOutputsToInputs();
-    }
-
-    @Override
-    public void onAddToCircuit() {
-        super.onAddToCircuit();
-        connectCheck();
-    }
-
-    @Override
-    public final void onRemovedFromCircuit() {
-        super.onRemovedFromCircuit();
-        checkEntities(getInterceptPoints());
     }
 
     protected abstract void assignOutputsToInputs();
@@ -104,25 +102,20 @@ public abstract class ConnectibleEntity extends Entity {
     protected abstract void connectCheck(ConnectibleEntity e);
 
     public void connectCheck() {
+        disconnectAll();
         if (!isInConnectibleState())
             return;
-        disconnectAll();
         for (ConnectibleEntity ce : getInterceptingEntities().thatExtend(ConnectibleEntity.class))
             connectCheck(ce);
     }
 
     public boolean isInConnectibleState() {
-        return existsInCircuit() && !isInvalid();
+        return !isInvalid() && existsInCircuit() && !isSelected();
     }
 
     public boolean canConnectToGeneral(ConnectibleEntity other) {
-        return isInConnectibleState() && !isSimilar(other) && !hasConnectionTo(other);
+        return isInConnectibleState() && !isSimilar(other);
     }
-
-    // Power flow check -> goes from all user inputs / powers / grounds... basically any absolute beginning of
-    // a wire, and flows to the logic gates/power processors. When it hits them, it determines if they should
-    // transmit power (based on back-tracking to the nearest  , then calls power flow check on the output wire. A
-
 
     public ArrayList<ConnectionNode> getConnections() {
         return connections;
@@ -130,20 +123,6 @@ public abstract class ConnectibleEntity extends Entity {
 
     public void clearConnectionNodes() {
         connections.clear();
-    }
-
-    public static void checkEntities(Collection<? extends CircuitPoint> checking) {
-        checkEntities(checking.toArray(CircuitPoint[]::new));
-    }
-
-    public static void checkEntities(CircuitPoint... checking) {
-        Circuit c = checking[0].getCircuit();
-        for (CircuitPoint p : checking) {
-            for (Entity e : c.getInterceptMap().get(p))
-                if (e instanceof ConnectibleEntity
-                    && ((ConnectibleEntity) e).isInConnectibleState())
-                        ((ConnectibleEntity) e).connectCheck();
-        }
     }
 
     // Redundant ConnectionList methods

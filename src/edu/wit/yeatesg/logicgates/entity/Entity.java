@@ -16,25 +16,108 @@ public abstract class Entity implements PropertyMutable {
     private static int idAssign;
     protected int id;
 
+    private final Circuit c;
+
+    /**
+     * Entity constructor template:
+     * set main fields such as rotation, origin, etc based on the params in the constructor
+     * call construct()
+     * @param c
+     */
     public Entity(Circuit c) {
         id = idAssign++;
         this.c = c;
     }
 
-    // General attributes
+    /**
+     * I am going to make it so Entities are more mutable. Previously I was thinking about making it so that
+     * entities PointSet's are constant (besides wires) and cannot be changed. This means that if an entity was to
+     * be rotated, I would have to construct a whole new entity and each respective undo/redo operation would use
+     * EntityDeleteOperation and EntityAddOperation to change the entities. That is fucking stupid. I am going to add
+     * PropertyChangeOperation which is going to take an Entity and 2 Strings and it will look for an entity that is
+     * similar to the specified one and will call onPropertyChange(String property, String newValue) with the supplied
+     * strings. Each entity already has an abstract method that they must override called onPropertyChange already.
+     * What the onPropertyChange method should do is associate strings with fields in the entities, use the inputted
+     * string to mutate that field, then call construct() to reconstruct the object based on the fields
+     *
+     * The construct method should construct the entities vital fields such as interceptPoints, drawPoints,
+     * non-volatile node locations. These changes should be directly based on the values of certain fields
+     * (such as origin, rotation, size) fields. This setup will make it so that at any point in the program I can
+     * change the value of an Entities field, then reconstruct it so that it adjusts to the changes. Even simpler, I
+     * will simply be able to call onPropertyChange(String property, String newValue) to mutate entities whenever I want
+     */
+    public abstract void construct();
 
-    private Circuit c;
+    /**
+     * This should be called if the entity already exists in the circuit and has registered InterceptPoints in the
+     * Circuit's InterceptMap
+     *
+     * PointSet should NOT be fiddled with by the time this is called. This method should be doing the PointSet fiddling
+     */
+    public void reconstruct() {
+        if (!existsInCircuit())
+            construct(); // Soft error
+        remove();
+        construct();
+        add();
+    }
 
-    public void add() {
+    /**
+     * This method is called when an Entity is added to the circuit. It is also called in the
+     * {@link #reconstruct()} method because reconstruct() removes, constructs, then adds this
+     * Entity.
+     */
+    public void onAddToCircuit() {
+        inCircuit = true;
+        addInterceptEntries();
+        spreadUpdate();
+    }
+
+    public final void add() {
         c.addEntity(this);
     }
+
+    public final void update() {
+        updateInvalidInterceptPoints();
+        if (this instanceof ConnectibleEntity)
+            ((ConnectibleEntity) this).connectCheck();
+    }
+
+    public void updateNearby() {
+        for (Entity e : getInterceptingEntities())
+            e.update();
+    }
+
+    public final void spreadUpdate() {
+        update();
+        updateNearby();
+    }
+
 
     public void addWithStateOperation() {
         c.addEntityAndTrackOperation(this);
     }
 
+    /**
+     * Should only really be called in {@link #onAddToCircuit()}
+     */
+    public void addInterceptEntries() {
+        getCircuit().getInterceptMap().addInterceptPointsFor(this);
+    }
+
+    /**
+     * Should only really be called when {@link #remove()} is called and when the PointSet is updated (i.e the entity is moved)
+     */
+    public void removeInterceptEntries() {
+        getCircuit().getInterceptMap().removeInterceptPointsFor(this);
+    }
+
+
+    // General attributes
+
+
     public void removeEntity() {
-        c.removeEntity(this);
+        c.removeExact(this);
     }
 
     public void removeWithTrackedStateOperation() {
@@ -47,25 +130,7 @@ public abstract class Entity implements PropertyMutable {
         return inCircuit;
     }
 
-    public void onAddToCircuit() {
-        inCircuit = true;
-        updateInvalidInterceptPoints();
-        addInterceptEntries();
-    }
 
-    /**
-     * Should only really be called in {@link #onAddToCircuit()} and when the PointSet is updated (i.e the entity is moved)
-     */
-    public void addInterceptEntries() {
-        getCircuit().getInterceptMap().addInterceptPointsFor(this);
-    }
-
-    /**
-     * Should only really be called when {@link #remove()} is called and when the PointSet is updated (i.e the entity is moved)
-     */
-    public void removeInterceptEntries() {
-        getCircuit().getInterceptMap().removeInterceptPointsFor(this);
-    }
 
     /**
      * This method is not overridable because we want our equality checks to be the same as the similarity check
@@ -128,8 +193,7 @@ public abstract class Entity implements PropertyMutable {
     /**
      * Different entities will have different implementations for when they move by a vector. This is because some
      * entities act differently upon being moved, such as Wires (because they only have intercept points, no draw
-     * points and no origin), so different PointSet/Fields need to be updated. Make sure to call
-     * {@link Circuit#onEntityMove()} after this is called
+     * points and no origin), so different fields need to be updated.
      * @param v the Vector that this Entity is being moved by
      */
     public abstract void move(Vector v);
@@ -138,18 +202,12 @@ public abstract class Entity implements PropertyMutable {
      * Removes this Entity from its Circuit
      */
     public final void remove() {
-        c.removeEntity(this); // If it was successfully removed, onRemovedFromCircuit() is called
+        c.removeExact(this); // If it was successfully removed, postRemove() is called
     }
 
-    /**
-     * Called when this Entity is successfully removed from the Entity list of its Circuit. Call super
-     * when overriding this
-     * '.
-     */
-    public void onRemovedFromCircuit() {
-        c.getInterceptMap().removeInterceptPointsFor(this);
+   public void onRemove() {
         inCircuit = false;
-    }
+   }
 
     // General Intercepting
 
@@ -215,26 +273,43 @@ public abstract class Entity implements PropertyMutable {
 
     protected PointSet invalidInterceptPoints = new PointSet();
 
-    /**
-     * Note to self: Must be called before connectCheck is called when constructing ConnectibleEntities
-     */
-    public void updateInvalidInterceptPoints() {
-        updateInvalidInterceptPoints(false);
+    public boolean isInvalid() {
+        return invalidInterceptPoints.size() > 0;
     }
 
-    public void updateInvalidInterceptPoints(boolean subCall) {
+    public boolean select() {
+        return getCircuit().select(this);
+    }
+
+    public void onSelect() {
+        // TODO nothing yet
+    }
+
+    public boolean deselect() {
+        return getCircuit().deselect(this);
+    }
+
+    public void onDeselect() {
+        update();
+    }
+
+
+    public boolean isSelected()  {
+        return getCircuit().currentSelectionReference().contains(this);
+    }
+
+    public final void updateInvalidInterceptPoints() {
         invalidInterceptPoints.clear();
-        for (Entity other : getInterceptingEntities()) {
-            PointSet invalidInterceptPoints = getInvalidInterceptPoints(other);
-            if (invalidInterceptPoints.size() > 0) {
-                invalidInterceptPoints.addAll(getInvalidInterceptPoints(other));
+        boolean wasInvalid = isInvalid();
+        for (Entity other : getInterceptingEntities())
+            invalidInterceptPoints.addAll(getInvalidInterceptPoints(other));
+        if (isInvalid()) {
+            if (existsInCircuit())
                 getCircuit().markInvalid(this);
-            }
-            if (!subCall)
-                other.updateInvalidInterceptPoints(true);
-        }
-        if (invalidInterceptPoints.size() > 0 && this instanceof ConnectibleEntity) {
-            ((ConnectibleEntity) this).disconnectAll();
+            if (this instanceof ConnectibleEntity)
+                ((ConnectibleEntity) this).disconnectAll();
+        } else if (wasInvalid) {
+            getCircuit().markValid(this);
         }
     }
 
@@ -242,28 +317,20 @@ public abstract class Entity implements PropertyMutable {
         EntityList<Entity> list = new EntityList<>();
         for (CircuitPoint p : invalidInterceptPoints)
             for (Entity e : getCircuit().getInterceptMap().get(p))
-                if (!list.contains(e) && !e.isSimilar(this))
+                if (!list.contains(e) && !e.isSimilar(this) && e.invalidlyIntercepts(this))
                     list.add(e);
         return list.clone();
-    }
-
-    public boolean isInvalid() {
-        return invalidInterceptPoints.size() > 0;
     }
 
     public PointSet getInvalidInterceptPoints() {
         return invalidInterceptPoints;
     }
 
-
-
     // Specialized Intercepting, for auto-generating Wires
 
     public abstract boolean doesGenWireInvalidlyInterceptThis(Wire.TheoreticalWire theo,
                                                               PermitList exceptions,
                                                               boolean strictWithWires);
-
-
 
     public abstract String toParsableString();
 
@@ -341,7 +408,6 @@ public abstract class Entity implements PropertyMutable {
     public abstract void draw(GraphicsContext g);
 
     public abstract double getLineWidth();
-
 
     public void duplicate() {
         clone(c);

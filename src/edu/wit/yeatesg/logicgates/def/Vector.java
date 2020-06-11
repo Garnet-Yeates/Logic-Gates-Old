@@ -94,6 +94,18 @@ public class Vector {
         }
     }
 
+    public static Vector directionVectorFrom(String s) {
+        if (s.equalsIgnoreCase("UP"))
+            return UP;
+        else if (s.equalsIgnoreCase("DOWN"))
+            return DOWN;
+        else if (s.equalsIgnoreCase("LEFT"))
+            return LEFT;
+        else if (s.equalsIgnoreCase("RIGHT"))
+            return RIGHT;
+        else return null;
+    }
+
     public static Direction getGeneralDirection(Vector v) {
         if (v == null)
             return null;

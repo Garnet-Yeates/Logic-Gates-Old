@@ -8,7 +8,9 @@ public interface PropertyMutable {
 
     PropertyList getPropertyList();
 
-    void onPropertyChange(ObservableValue<? extends String> observableValue, String s, String t1);
+    void onPropertyChange(String str, String old, String newVal);
+
+    String getPropertyValue(String propertyName);
 
     boolean hasProperty(String propertyName);
 }

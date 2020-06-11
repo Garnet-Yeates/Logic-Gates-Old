@@ -8,6 +8,10 @@ import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 import java.util.ArrayList;
 import java.util.Collection;
 
+
+// TODO We WILL do MemoryEntityList. The CircuitEntityList/InterceptMap Lists/InvalidEntity list will all be tracked via memory
+// TODO we just need to make sure that when we have methods like memoryRemove(Entity e) that makes sure it is '==' in memory
+// when we need to
 public class EntityList<E extends Entity> extends ArrayList<E> {
 
     public EntityList(int size) {
@@ -92,6 +96,10 @@ public class EntityList<E extends Entity> extends ArrayList<E> {
             }
         }
         return intersect;
+    }
+
+    public boolean contains(E entity) {
+        return super.contains(entity);
     }
 
     public EntityList<E> except(Entity e) {

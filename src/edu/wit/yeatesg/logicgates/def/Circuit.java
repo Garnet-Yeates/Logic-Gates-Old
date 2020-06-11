@@ -14,6 +14,7 @@ import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.MenuItem;
 import javafx.scene.paint.Color;
 
+import javax.swing.Timer;
 import java.util.*;
 
 public class Circuit implements PropertyMutable {
@@ -42,7 +43,7 @@ public class Circuit implements PropertyMutable {
 
     private CircuitEntityList<Entity> allEntities = new CircuitEntityList<>();
 
-    private class CircuitEntityList<E extends Entity> extends EntityList<E> {
+    private class CircuitEntityList<E extends Entity> extends ExactEntityList<E> {
 
         @Override
         public boolean add(E entity) {
@@ -51,9 +52,8 @@ public class Circuit implements PropertyMutable {
             if (entity.getCircuit() != Circuit.this)
                 throw new RuntimeException("Entity does not have a reference to this Circuit in memory");
             super.add(entity);
-            entity.updateInvalidInterceptPoints();
             entity.onAddToCircuit();
-            // TODO UNCOMMENT    System.out.println("[+1][" + allEntities.size() + "]" + "ADD "  + entity);
+            System.out.println("[+1][" + allEntities.size() + "]" + "ADD "  + entity);
             return true;
         }
 
@@ -65,18 +65,33 @@ public class Circuit implements PropertyMutable {
         }
 
         @Override
-        public boolean remove(Object o) {
-            if (o instanceof Entity && super.remove(o)) {
-                Entity e = (Entity) o;
-                if (!e.existsInCircuit())
-                    throw new RuntimeException("Cannot remove entity; it does not exist in the Circuit");
-                if (o instanceof ConnectibleEntity)
-                    ((ConnectibleEntity) e).disconnectAll();
-                e.onRemovedFromCircuit();
-                // TODO UNCOMMENT    System.out.println("[-1][" + allEntities.size() + "]" + "DEL "  + o);
-                return true;
-            }
-            throw new RuntimeException("Could not remove");
+        public boolean removeExact(E e) {
+            if (e.existsInCircuit() != containsExact(e))
+                throw new RuntimeException("Discrepancy between existsInCircuit field and circuit.contains(this) for " + e);
+            if (super.removeExact(e))
+                onRemove(e);
+            return false;
+        }
+
+        @Override
+        public boolean removeSimilar(E e) {
+            if (super.removeSimilar(e))
+                onRemove(e);
+            return false;
+        }
+
+        public void onRemove(Entity e) {
+            if (e instanceof ConnectibleEntity)
+                ((ConnectibleEntity) e).disconnectAll();
+            EntityList<Entity> usedToIntercept = e.getInterceptingEntities();
+            interceptMap.removeInterceptPointsFor(e);
+            usedToIntercept.forEach(entity -> {
+                System.out.println("USED TO INTERCEPT " + entity);
+            });
+            usedToIntercept.forEach(Entity::spreadUpdate);
+            invalidEntities.removeExact(e); // Just in case it was invalid when it was deleted
+            e.onRemove(); // Sets inCircuit field to false, but is encapsulated so I don't do it here
+            System.out.println("[-1] " + "Entity removed " + e);
         }
 
         /**
@@ -110,6 +125,18 @@ public class Circuit implements PropertyMutable {
     }
 
     /**
+     * Gets the first occurrence of an Entity on this circuit that is similar to the specified entity
+     * @param simsimma the specified entity, which may or may not be on the circuit.
+     * @return
+     */
+    public Entity getSimilarEntity(Entity simsimma) {
+        for (Entity e : allEntities)
+            if (e.isSimilar(simsimma))
+                return e;
+        return null;
+    }
+
+    /**
      * Obtains a shallow clone of all of the Entities that exist on this Circuit
      * @return a shallow clone of this Circuit's entity list
      */
@@ -133,20 +160,38 @@ public class Circuit implements PropertyMutable {
         allEntities.add(entity);
     }
 
+    public final void updateEntities(Entity... list) {
+        updateEntities(Arrays.asList(list));
+    }
+
+    public final void updateEntities(Collection<? extends Entity> list) {
+        list.forEach(Entity::update);
+    }
+
+    public final void updateEntitiesAt(CircuitPoint... atLocations) {
+        updateEntitiesAt(Arrays.asList(atLocations));
+    }
+
+    public final void updateEntitiesAt(Collection<CircuitPoint> atLocations) {
+        for (CircuitPoint cp : atLocations)
+            for (Entity e : getEntitiesThatIntercept(cp))
+                e.update(); // Entities might be updated multiple times, but that's fine
+    }
+
     public void addEntityAndTrackOperation(Entity entity) {
         allEntities.addAndTrackStateOperation(entity);
     }
 
-    public void removeEntity(Entity entity) {
-        allEntities.remove(entity);
+    public void removeExact(Entity entity) {
+        allEntities.removeExact(entity);
     }
 
-    public void removeSimilarEntityAndTrackOperation(Entity notOnCircuit) {
-        allEntities.removeSimilarEntityAndTrackOperation(notOnCircuit);
+    public void removeSimilarEntityAndTrackOperation(Entity simsimma) {
+        allEntities.removeSimilarEntityAndTrackOperation(simsimma); // Keys in ma bimma
     }
 
-    public void removeSimilarEntity(Entity notOnCircuit) {
-        allEntities.removeSimilarEntity(notOnCircuit);
+    public void removeSimilarEntity(Entity simsimma) {
+        allEntities.removeSimilarEntity(simsimma);
     }
 
 
@@ -216,14 +261,14 @@ public class Circuit implements PropertyMutable {
             InterceptionList thatInterceptE = new InterceptionList();
             for (CircuitPoint intPoint : e.getInterceptPoints())
                 for (Entity otherEntity : getEntitiesThatIntercept(intPoint))
-                    if (!thatInterceptE.contains(otherEntity) && otherEntity != e)
+                    if (!thatInterceptE.containsExact(otherEntity) && otherEntity != e)
                         thatInterceptE.add(otherEntity);  // We WANT != here instead of !equals(). This is because
             return thatInterceptE;                        // we want to be able to check interceptions for similar entities
         }                                                 // that may not be on the circuit
 
         public void addInterceptPoint(int x, int y, Entity e) {
-            if (getRef(x, y).contains(e))
-                throw new RuntimeException("Already Added");
+            if (getRef(x, y).containsExact(e))
+                throw new RuntimeException("Already Added " + e);
             getRef(x, y).add(e);
         }
 
@@ -238,7 +283,7 @@ public class Circuit implements PropertyMutable {
         }
 
         public void removeInterceptPoint(int x, int y, Entity e) {
-            if (getRef(x, y).remove(e))
+            if (getRef(x, y).removeExact(e))
                 return;
             throw new RuntimeException("Could not remove interception entry for " + e + " at [" +  x + "]"
                     + "[" + y + "] because there is no entry for this entity here");
@@ -272,7 +317,10 @@ public class Circuit implements PropertyMutable {
         }
     }
 
-    public static class InterceptionList extends EntityList<Entity> {
+    /**
+     * Uses == instead of .equals throughout
+     */
+    public static class InterceptionList extends ExactEntityList<Entity> {
 
         @Override
         public InterceptionList clone() {
@@ -306,24 +354,14 @@ public class Circuit implements PropertyMutable {
 
     // Invalidly Intercepting Entity Checks
 
-    private static class InvalidEntityList extends EntityList<Entity> {
+    private static class InvalidEntityList extends ExactEntityList<Entity> {
         @Override
         public boolean add(Entity entity) {
-            if (contains(entity))
+            if (containsExact(entity))
                 return false;
             return super.add(entity);
         }
 
-        public void checkIfInvalidsAreStillInvalid() {
-            for (Entity potentiallyNotInvalidAnymore : this) {
-                potentiallyNotInvalidAnymore.updateInvalidInterceptPoints();
-                if (!potentiallyNotInvalidAnymore.isInvalid()) {
-                    remove(potentiallyNotInvalidAnymore);
-                    if (potentiallyNotInvalidAnymore instanceof ConnectibleEntity)
-                        ((ConnectibleEntity) potentiallyNotInvalidAnymore).connectCheck();
-                }
-            }
-        }
     }
 
     private InvalidEntityList invalidEntities = new InvalidEntityList();
@@ -332,14 +370,17 @@ public class Circuit implements PropertyMutable {
         return invalidEntities.clone();
     }
 
-    public void markInvalid(Entity e) {
-        if (e.getInvalidInterceptPoints().isEmpty())
-            throw new RuntimeException("Cannot mark this Entity as invalid, its invalidInterceptPoints list is empty");
-        invalidEntities.add(e);
+    public void markValid(Entity e) {
+        invalidEntities.removeExact(e);
     }
 
-    public void onEntityMove() {
-       invalidEntities.checkIfInvalidsAreStillInvalid();
+    public void markInvalid(Entity e) {
+        System.out.println(e + " MARKED INVALID");
+        if (!e.existsInCircuit())
+            throw new RuntimeException("Cannot mark " + e + " as invalid on this Circuit. This Entity does not exist on the Circuit");
+        if (e.getInvalidInterceptPoints().isEmpty())
+            throw new RuntimeException("This Entity is not invalid. You are dumb");
+        invalidEntities.add(e);
     }
 
     public void drawInvalidEntities() {
@@ -354,13 +395,251 @@ public class Circuit implements PropertyMutable {
 
     public void drawInvalidGridPoint(CircuitPoint gridSnapped) {
         GraphicsContext g = getEditorPanel().getGraphicsContext();
-        double circleSize = scale*0.4;
+        double circleSize = scale*0.75;
         double offset = circleSize / 2.0;
         PanelDrawPoint drawPoint = gridSnapped.toPanelDrawPoint();
         double drawX = drawPoint.x - offset;
         double drawY = drawPoint.y - offset;
-        g.setFill(Color.rgb(255, 0, 0, 1));
-        g.fillRect(drawX, drawY, circleSize, circleSize);
+        g.setFill(Color.rgb(255, 0, 0, 0.25));
+        g.fillOval(drawX, drawY, circleSize, circleSize);
+    }
+
+    public Selection currSelection = new Selection();
+    public ConnectionSelection currConnectionView = new ConnectionSelection();
+
+    public Selection currentSelectionReference() {
+        return currSelection;
+    }
+
+    public ConnectionSelection currentConnectionViewReference() {
+        return currConnectionView;
+    }
+
+    public boolean select(Entity e) {
+        return currSelection.select(e);
+    }
+
+    public boolean selectAndTrack(Entity e) {
+        return currSelection.selectAndTrackStateOperation(e);
+    }
+
+    public EntityList<Entity> selectMultiple(Collection<? extends Entity> list) {
+        return currSelection.selectMultiple(list);
+    }
+
+    public EntityList<Entity> selectMultipleAndTrack(Collection<? extends Entity> list) {
+        return currSelection.selectMultipleAndTrackOperation(list);
+    }
+
+    public boolean deselect(Entity e) {
+        return currSelection.deselect(e);
+    }
+
+    public boolean deselectAndTrack(Entity e) {
+        return currSelection.deselectAndTrackOperation(e);
+    }
+
+    public EntityList<Entity> deselectAll() {
+        return currSelection.deselectAll();
+    }
+
+    public EntityList<Entity> deselectAllAndTrack() {
+        return currSelection.deselectAllAndTrack();
+    }
+
+    public void deleteSelectedEntities() {
+        currSelection.deleteAll();
+    }
+
+    public void deleteSelectedEntitiesAndTrack() {
+        currSelection.deleteAllEntitiesAndTrack();;
+    }
+
+    public void deleteMultipleEntities(Collection<? extends Entity> list) {
+        Selection select = new Selection(list);
+        select.deleteAll();
+    }
+
+    public void delete(Entity e) {
+        e.remove();
+    }
+
+    public void repaint() {
+        getEditorPanel().repaint(this);
+    }
+
+    public class Selection extends EntityList<Entity> {
+
+        public Selection(Entity... entities) {
+            if (entities != null)
+                addAll(Arrays.asList(entities));
+        }
+
+        public Selection(Collection<? extends Entity> list) {
+            list.forEach(this::select);
+        }
+
+        public boolean intercepts(CircuitPoint p) {
+            for (Entity e : this)
+                if (e.getBoundingBox().intercepts(p))
+                    return true;
+            return false;
+        }
+
+        @Override
+        public boolean add(Entity entity) {
+            throw new UnsupportedOperationException("Use select(Entity)");
+        }
+
+        public boolean select(Entity entity) {
+            boolean added = false;
+            if (!contains(entity)) {
+                added = super.add(entity);
+                updateConnectionView();
+            }
+            return added;
+        }
+
+        public boolean selectAndTrackStateOperation(Entity e) {
+            if (select(e)) {
+                new SelectOperation(e, true);
+                return true;
+            }
+            return false;
+        }
+
+        public EntityList<Entity> selectMultiple(Collection<? extends Entity> list) {
+            EntityList<Entity> selected = new EntityList<>();
+            for (Entity e : list)
+                if (select(e))
+                    selected.add(e);
+            return selected;
+        }
+
+        public EntityList<Entity> selectMultipleAndTrackOperation(Collection<? extends Entity> list) {
+            EntityList<Entity> selected = new EntityList<>();
+            for (Entity entity : list)
+                if (selectAndTrackStateOperation(entity))
+                    selected.add(entity);
+            return selected;
+        }
+
+        public boolean deselect(Entity e) {
+            boolean removed = super.remove(e);
+            e.onDeselect();
+            updateConnectionView();
+            return removed;
+        }
+
+        public boolean deselectAndTrackOperation(Entity e) {
+            if (deselect(e)) {
+                new DeselectOperation(e, true);
+                return true;
+            }
+            return false;
+        }
+
+        public EntityList<Entity> deselectMultipleAndTrackStateOperation(Collection<? extends Entity> list) {
+            EntityList<Entity> deselected = new EntityList<>();
+            for (Entity entity : list)
+                if (deselectAndTrackOperation(entity))
+                    deselected.add(entity);
+            return deselected;
+        }
+
+        public EntityList<Entity> deselectMultiple(Collection<? extends Entity> list) {
+            EntityList<Entity> deselected = new EntityList<>();
+            for (Entity entity : list)
+                if (deselect(entity))
+                    deselected.add(entity);
+            return deselected;
+        }
+
+        public EntityList<Entity> deselectAll() {
+            return deselectMultiple(this.clone());
+        }
+
+        public EntityList<Entity> deselectAllAndTrack() {
+            return deselectMultipleAndTrackStateOperation(this.clone());
+        }
+
+        public void deleteAll() {
+            EntityList<Entity> removing = deselectAll().deepClone();
+            for (Entity e : removing)
+                removeSimilarEntity(e);
+            recalculateTransmissions();
+            repaint();
+        }
+
+        /**
+         * Always going to push 2 distinct operations: deselect all, then delete all
+         */
+        public void deleteAllEntitiesAndTrack() {
+            EntityList<Entity> removing = deselectAllAndTrack().deepClone();
+            for (Entity e : removing)
+                e.removeWithTrackedStateOperation();
+            appendCurrentStateChanges("Delete Selection Of " + removing.size() + " Entities");
+            recalculateTransmissions();
+            repaint();
+        }
+
+        @Override
+        public void clear() {
+            throw new UnsupportedOperationException("Use deselectAllWithStateOperation");
+        }
+
+        public void updateConnectionView() {
+            currConnectionView.clear();
+            if (size() == 1 && get(0) instanceof ConnectibleEntity) {
+                ConnectibleEntity selectedConnectible = (ConnectibleEntity) get(0);
+                currConnectionView.addAll(selectedConnectible.getConnectedEntities());
+                currConnectionView.resetTimer();
+            }
+        }
+
+        public boolean intercepts(PanelDrawPoint p) {
+            return intercepts(p.toCircuitPoint());
+        }
+
+        @Override
+        public Selection clone() {
+            return new Selection(this);
+        }
+
+        public Selection deepClone() {
+            return new Selection(super.deepClone());
+        }
+    }
+
+    public class ConnectionSelection extends EntityList<Entity> {
+
+        public javax.swing.Timer blinkTimer;
+        public boolean blinkState = true;
+
+        public ConnectionSelection(Entity... entities) {
+            super(Arrays.asList(entities));
+            blinkTimer = new Timer(750, (e) -> {
+                blinkState = !blinkState;
+                if (size() > 0)
+                    repaint();
+            });
+            blinkTimer.start();
+        }
+
+        public void draw(Entity inThisSelection, GraphicsContext g) {
+            inThisSelection.draw(g);
+            if (blinkState) {
+                g.setLineWidth(3);
+                g.setStroke(Color.ORANGE);
+                inThisSelection.getBoundingBox().drawBorder(g);
+            }
+        }
+
+        public void resetTimer() {
+            blinkState = true;
+            blinkTimer.restart();
+        }
+
     }
 
 
@@ -581,7 +860,7 @@ public class Circuit implements PropertyMutable {
         public void operate() {
             for (Entity e : selecting.getInterceptingEntities())
                 if (e.isSimilar(selecting))
-                    getEditorPanel().getCurrentSelection().select(e);
+                    currentSelectionReference().select(e);
         }
     }
 
@@ -603,7 +882,7 @@ public class Circuit implements PropertyMutable {
         public void operate() {
             for (Entity e : deselecting.getInterceptingEntities())
                 if (e.isSimilar(deselecting))
-                    getEditorPanel().getCurrentSelection().deselect(e);
+                    currSelection.deselect(e);
         }
     }
 
@@ -615,7 +894,7 @@ public class Circuit implements PropertyMutable {
             super(new Wire(edge, to), true);
             if (new Wire(edge, to).isSimilar(shortening))
                 throw new RuntimeException("This should be a delete operation instead");
-            EntityList<Entity> toIntercepting = to.getInterceptingEntities().except(shortening);
+            EntityList<Entity> toIntercepting = to.getInterceptingEntities().exceptSimilar(shortening);
             EntityList<Wire> toInterceptingWires = toIntercepting.thatExtend(Wire.class);
             if (!to.interceptsWireEdgePoint()
                     && toInterceptingWires.getWiresGoingInOppositeDirection(shortening).size() == 1)
@@ -664,7 +943,7 @@ public class Circuit implements PropertyMutable {
                 });
                 if (!intervalPoints.contains(((Wire) deleting).getRighterEdgePoint()))
                     intervalPoints.add(((Wire) deleting).getRighterEdgePoint());
-                ArrayList<Wire> intervalWires = new ArrayList<>();
+                ArrayList<Wire> intervalWires =  new ArrayList<>();
                 for (int i = 0, j = 1; j < intervalPoints.size(); i++, j++)
                     intervalWires.add(new Wire(intervalPoints.get(i), intervalPoints.get(j)));
                 for (Wire del : intervalWires) {
@@ -771,18 +1050,24 @@ public class Circuit implements PropertyMutable {
 
     public class EntityMoveOperation extends StateChangeOperation {
 
-        public EntityMoveOperation(boolean track) {
+        private Entity moving;
+        private Vector movement;
+
+        public EntityMoveOperation(Entity similarMoving, Vector movement, boolean track) {
             super(track);
+            moving = similarMoving.getSimilarEntity();
+            this.movement = movement.clone();
         }
 
         @Override
         public StateChangeOperation getOpposite() {
-            return null;
+            return new EntityMoveOperation(moving, movement.getMultiplied(-1), false);
         }
 
         @Override
         public void operate() {
-
+            Entity simsimma = getSimilarEntity(moving);
+            simsimma.move(movement);
         }
     }
 
@@ -940,9 +1225,15 @@ public class Circuit implements PropertyMutable {
     }
 
     @Override
-    public void onPropertyChange(ObservableValue<? extends String> observableValue, String s, String t1) {
-        System.out.println("OBS VAL " + observableValue + " CHANGED FROM " + s + " TO " + t1);
+    public void onPropertyChange(String str, String old, String newVal) {
+
     }
+
+    @Override
+    public String getPropertyValue(String propertyName) {
+        return null;
+    }
+
 
     private static final String[] properties = new String[] { "Circuit Name" };
 

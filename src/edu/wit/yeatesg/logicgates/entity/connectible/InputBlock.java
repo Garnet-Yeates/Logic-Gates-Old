@@ -2,6 +2,7 @@ package edu.wit.yeatesg.logicgates.entity.connectible;
 
 import edu.wit.yeatesg.logicgates.def.Circuit;
 import edu.wit.yeatesg.logicgates.def.Direction;
+import edu.wit.yeatesg.logicgates.def.Vector;
 import edu.wit.yeatesg.logicgates.entity.*;
 import edu.wit.yeatesg.logicgates.def.BoundingBox;
 import edu.wit.yeatesg.logicgates.entity.connectible.transmission.ConnectionNode;
@@ -23,16 +24,19 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
     private OutputNode out;
 
     public InputBlock(CircuitPoint origin, int rotation) {
-        this(origin, rotation, true);
-    }
-
-    public InputBlock(CircuitPoint origin, int rotation, boolean addToCircuit) {
         super(origin.getCircuit());
         this.origin = origin.getSimilar();
         this.rotation = rotation;
+        construct();
+    }
+
+    @Override
+    public void construct() {
+        connections = new ConnectionList();
         drawPoints = getRelativePointSet().applyToOrigin(origin, rotation);
         getCircuit().pushIntoMapRange(drawPoints);
         interceptPoints = getBoundingBox().getInterceptPoints();
+        update();
         establishOutputNode(drawPoints.get(0));
         out = (OutputNode) getNodeAt(drawPoints.get(0));
         postInit();
@@ -42,6 +46,7 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
     public InputBlock clone(Circuit c) {
         return new InputBlock(origin.clone(c), rotation);
     }
+
 
     @Override
     public boolean isSimilar(Entity other) {
@@ -202,16 +207,16 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
     }
 
     @Override
+    public void move(Vector v) {
+        origin = origin.getIfModifiedBy(v);
+        reconstruct();
+    }
+
+    @Override
     public String getPropertyTableHeader() {
         return "Properties For: " + getDisplayName();
     }
 
-    private static final String[] properties = new String[] { "Facing", "Label" };
-
-    @Override
-    public boolean hasProperty(String propertyName) {
-        return Arrays.asList(properties).contains(propertyName);
-    }
 
     // TODO implement
     @Override
@@ -222,11 +227,27 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
         return list;
     }
 
-    // TODO implement
     @Override
-    public void onPropertyChange(ObservableValue<? extends String> observableValue, String s, String t1) {
-
+    public void onPropertyChange(String property, String old, String newVal) {
+        if (property.equalsIgnoreCase("rotation")) {
+            rotation = Integer.parseInt(newVal);
+            reconstruct();
+        }
     }
+
+    @Override
+    public String getPropertyValue(String propertyName) {
+        if (propertyName.equalsIgnoreCase("rotation"))
+            return rotation + "";
+        return null;
+    }
+
+
+    @Override
+    public boolean hasProperty(String propertyName) {
+        return propertyName.equalsIgnoreCase("rotation");
+    }
+
 
     @Override
     public boolean doesGenWireInvalidlyInterceptThis(Wire.TheoreticalWire theo, PermitList permits, boolean strictWithWires) {

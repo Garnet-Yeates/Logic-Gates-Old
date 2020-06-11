@@ -1,5 +1,7 @@
 package edu.wit.yeatesg.logicgates.entity;
 
+import javafx.beans.value.ChangeListener;
+import javafx.beans.value.ObservableValue;
 import javafx.scene.Node;
 import javafx.scene.control.Label;
 import javafx.scene.control.TableColumn;
@@ -31,7 +33,7 @@ public class PropertyList extends LinkedList<Property> {
             if (!p.hasProperty(property.getPropertyName()))
                 return false;
         for (PropertyMutable p : parents)
-            property.addChangeListener((p::onPropertyChange));
+            property.addChangeListener((observableValue, s, t1) -> p.onPropertyChange(observableValue.toString(), s, t1));
         return super.add(property);
     }
 
