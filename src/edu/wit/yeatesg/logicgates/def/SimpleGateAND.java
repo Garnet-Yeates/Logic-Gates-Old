@@ -26,11 +26,10 @@ public class SimpleGateAND extends ConnectibleEntity implements Rotatable {
 
     private int rotation;
 
-    public SimpleGateAND(CircuitPoint origin, int rotation, boolean addToCircuit) {
+    public SimpleGateAND(CircuitPoint origin, int rotation) {
         super(origin.getCircuit());
         this.origin = origin.getSimilar();
         this.rotation = rotation;
-        this.connections = new ConnectionList();
         construct();
     }
 
@@ -40,16 +39,12 @@ public class SimpleGateAND extends ConnectibleEntity implements Rotatable {
         getCircuit().pushIntoMapRange(drawPoints);
         connections = new ConnectionList();
         interceptPoints = getBoundingBox().getInterceptPoints();
-        update();
         establishOutputNode(drawPoints.get(0));
         out = (OutputNode) getNodeAt(drawPoints.get(0));
         establishInputNode(drawPoints.get(7));
         establishInputNode(drawPoints.get(8));
-        postInit();
-    }
-
-    public SimpleGateAND(CircuitPoint origin, int rotation) {
-        this(origin, rotation, true);
+        update();
+        assignOutputsToInputs();
     }
 
     @Override
@@ -66,7 +61,7 @@ public class SimpleGateAND extends ConnectibleEntity implements Rotatable {
 
     @Override
     public String toParsableString() {
-        return "[SimpleGateAND]" + origin + "," + rotation;
+        return "[SimpleGateAND]" + origin.x + "," + origin.y + "," + rotation;
     }
 
     @Override
@@ -158,8 +153,8 @@ public class SimpleGateAND extends ConnectibleEntity implements Rotatable {
     }
 
     @Override
-    public void draw(GraphicsContext g) {
-        g.setStroke(Color.BLACK);
+    public void draw(GraphicsContext g, Color col) {
+        g.setStroke(col == null ? Color.BLACK : col);
         g.setLineWidth(getLineWidth());
         PointSet ps = drawPoints;
 
@@ -170,7 +165,7 @@ public class SimpleGateAND extends ConnectibleEntity implements Rotatable {
 
         // Curve 7, 1, 2, 0, 3, 4, 8
         BezierCurve curve = new BezierCurve(ps.get(1), ps.get(2), ps.get(3), ps.get(4));
-        curve.draw(g, getLineWidth());
+        curve.draw(g, col, getLineWidth());
 
         // Line 8 to 5
         g.strokeLine(p4.x, p4.y, p5.x, p5.y);
@@ -180,8 +175,9 @@ public class SimpleGateAND extends ConnectibleEntity implements Rotatable {
         g.strokeLine(p6.x, p6.y, p1.x, p1.y);
 
         for (ConnectionNode node : connections)
-            node.draw(g);
+            node.draw(g, col);
     }
+
 
     @Override
     public String getDisplayName() {
@@ -223,8 +219,8 @@ public class SimpleGateAND extends ConnectibleEntity implements Rotatable {
     }
 
     @Override
-    public void onPropertyChange(String property, String old, String newVal) {
-        if (property.equalsIgnoreCase("rotation")) {
+    public void onPropertyChange(String propertyName, String old, String newVal) {
+        if (propertyName.equalsIgnoreCase("rotation")) {
             rotation = Integer.parseInt(newVal);
             reconstruct();
         }

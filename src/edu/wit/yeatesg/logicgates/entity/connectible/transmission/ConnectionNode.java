@@ -4,6 +4,7 @@ import edu.wit.yeatesg.logicgates.def.Circuit;
 import edu.wit.yeatesg.logicgates.entity.connectible.ConnectibleEntity;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.paint.Color;
 
 public class ConnectionNode {
 
@@ -64,7 +65,11 @@ public class ConnectionNode {
     }
 
 
-    public void draw(GraphicsContext g) { }
+    public void draw(GraphicsContext g) {
+       draw(g, null);
+    }
+
+    public void draw(GraphicsContext g, Color col) { }
 
     @Override
     public String toString() {

@@ -15,11 +15,6 @@ public class LogicGates {
         return ((System.currentTimeMillis() - start) / 1000.0) + "s";
     }
 
-    private static final List<Integer> rotations = Arrays.asList(0, 90, 180, 270);
-
-    public static int getNextRotation(int rotation) {
-        return rotations.get( (rotations.indexOf(rotation) + 1) % 4 );
-    }
 
     @SuppressWarnings("unchecked")
     public static void debug(Object... args) {

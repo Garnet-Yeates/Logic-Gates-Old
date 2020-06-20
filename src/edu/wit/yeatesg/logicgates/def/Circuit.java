@@ -9,7 +9,6 @@ import edu.wit.yeatesg.logicgates.gui.MainGUI;
 import edu.wit.yeatesg.logicgates.gui.Project;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 import edu.wit.yeatesg.logicgates.points.PanelDrawPoint;
-import javafx.beans.value.ObservableValue;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.MenuItem;
 import javafx.scene.paint.Color;
@@ -47,25 +46,25 @@ public class Circuit implements PropertyMutable {
 
         @Override
         public boolean add(E entity) {
+            System.out.println("[+1][" + allEntities.size() + "]" + "ADD "  + entity + entity.getEntityID());
             if (entity.existsInCircuit())
                 throw new RuntimeException("Entity already exists in Circuit");
             if (entity.getCircuit() != Circuit.this)
                 throw new RuntimeException("Entity does not have a reference to this Circuit in memory");
             super.add(entity);
             entity.onAddToCircuit();
-            System.out.println("[+1][" + allEntities.size() + "]" + "ADD "  + entity);
             return true;
         }
 
         @SuppressWarnings("unchecked")
         public void addAndTrackStateOperation(Entity entity) {
-            Entity forOperation = entity.getSimilarEntity();
-            add((E) entity);
-            new EntityAddOperation(forOperation, true);// Make sure the Entity that is being put into the add operation is a reference to the entity in the state it was in BEFORE it was added. Because when Wires are added, they may be bisected, merged etc. This could easily invalidate the EntityAddOperation.
+            new EntityAddOperation(entity, true).operate();
         }
 
         @Override
         public boolean removeExact(E e) {
+            if (!e.existsInCircuit())
+                throw new RuntimeException("existsInCircuit set to false for this entity");
             if (e.existsInCircuit() != containsExact(e))
                 throw new RuntimeException("Discrepancy between existsInCircuit field and circuit.contains(this) for " + e);
             if (super.removeExact(e))
@@ -81,17 +80,17 @@ public class Circuit implements PropertyMutable {
         }
 
         public void onRemove(Entity e) {
+            System.out.println("[-1] " + "Entity removed " + e);
             if (e instanceof ConnectibleEntity)
                 ((ConnectibleEntity) e).disconnectAll();
             EntityList<Entity> usedToIntercept = e.getInterceptingEntities();
             interceptMap.removeInterceptPointsFor(e);
-            usedToIntercept.forEach(entity -> {
-                System.out.println("USED TO INTERCEPT " + entity);
-            });
-            usedToIntercept.forEach(Entity::spreadUpdate);
             invalidEntities.removeExact(e); // Just in case it was invalid when it was deleted
             e.onRemove(); // Sets inCircuit field to false, but is encapsulated so I don't do it here
-            System.out.println("[-1] " + "Entity removed " + e);
+            for (Entity usedTo : usedToIntercept) {
+                if (usedTo.existsInCircuit())
+                    usedTo.spreadUpdate();
+            }
         }
 
         /**
@@ -125,23 +124,31 @@ public class Circuit implements PropertyMutable {
     }
 
     /**
-     * Gets the first occurrence of an Entity on this circuit that is similar to the specified entity
-     * @param simsimma the specified entity, which may or may not be on the circuit.
-     * @return
-     */
-    public Entity getSimilarEntity(Entity simsimma) {
-        for (Entity e : allEntities)
-            if (e.isSimilar(simsimma))
-                return e;
-        return null;
-    }
-
-    /**
      * Obtains a shallow clone of all of the Entities that exist on this Circuit
      * @return a shallow clone of this Circuit's entity list
      */
     public EntityList<Entity> getAllEntities() {
         return allEntities.clone();
+    }
+
+    public EntityList<Entity> getSimilarEntities(Entity similarTo) {
+        EntityList<Entity> similar = new EntityList<>();
+        for (Entity e : similarTo.getInterceptingEntities())
+            if (e.isSimilar(similarTo))
+                similar.add(e);
+        return similar;
+    }
+
+    public Entity getOldestSimilarEntity(Entity similarTo) {
+        Entity oldest = null;
+        int oldestID = 0;
+        for (Entity e : similarTo.getInterceptingEntities()) {
+            if (e.isSimilar(similarTo) && (oldest == null || e.getEntityID() < oldestID) ) {
+                oldest = e;
+                oldestID =  e.getEntityID();
+            }
+        }
+        return oldest;
     }
 
     public <T extends Entity> EntityList<T> getAllEntitiesOfType(Class<T> type) {
@@ -261,8 +268,10 @@ public class Circuit implements PropertyMutable {
             InterceptionList thatInterceptE = new InterceptionList();
             for (CircuitPoint intPoint : e.getInterceptPoints())
                 for (Entity otherEntity : getEntitiesThatIntercept(intPoint))
-                    if (!thatInterceptE.containsExact(otherEntity) && otherEntity != e)
-                        thatInterceptE.add(otherEntity);  // We WANT != here instead of !equals(). This is because
+                    if (!thatInterceptE.containsExact(otherEntity) && otherEntity != e) {
+                        thatInterceptE.add(otherEntity);
+                   ///     System.out.println("E = " + e + " ," + " ONCIRCUIT = " + otherEntity.existsInCircuit() + "intercepts = " + otherEntity);
+                    }// We WANT != here instead of !equals(). This is because
             return thatInterceptE;                        // we want to be able to check interceptions for similar entities
         }                                                 // that may not be on the circuit
 
@@ -400,7 +409,7 @@ public class Circuit implements PropertyMutable {
         PanelDrawPoint drawPoint = gridSnapped.toPanelDrawPoint();
         double drawX = drawPoint.x - offset;
         double drawY = drawPoint.y - offset;
-        g.setFill(Color.rgb(255, 0, 0, 0.25));
+        g.setFill(Color.rgb(255, 0, 0, 0.15));
         g.fillOval(drawX, drawY, circleSize, circleSize);
     }
 
@@ -468,11 +477,11 @@ public class Circuit implements PropertyMutable {
         getEditorPanel().repaint(this);
     }
 
-    public class Selection extends EntityList<Entity> {
+    public class Selection extends ExactEntityList<Entity> {
 
         public Selection(Entity... entities) {
             if (entities != null)
-                addAll(Arrays.asList(entities));
+                selectMultiple(Arrays.asList(entities));
         }
 
         public Selection(Collection<? extends Entity> list) {
@@ -493,7 +502,7 @@ public class Circuit implements PropertyMutable {
 
         public boolean select(Entity entity) {
             boolean added = false;
-            if (!contains(entity)) {
+            if (!containsExact(entity)) {
                 added = super.add(entity);
                 updateConnectionView();
             }
@@ -525,7 +534,7 @@ public class Circuit implements PropertyMutable {
         }
 
         public boolean deselect(Entity e) {
-            boolean removed = super.remove(e);
+            boolean removed = removeSimilar(e);
             e.onDeselect();
             updateConnectionView();
             return removed;
@@ -567,8 +576,6 @@ public class Circuit implements PropertyMutable {
             EntityList<Entity> removing = deselectAll().deepClone();
             for (Entity e : removing)
                 removeSimilarEntity(e);
-            recalculateTransmissions();
-            repaint();
         }
 
         /**
@@ -858,9 +865,7 @@ public class Circuit implements PropertyMutable {
 
         @Override
         public void operate() {
-            for (Entity e : selecting.getInterceptingEntities())
-                if (e.isSimilar(selecting))
-                    currentSelectionReference().select(e);
+            Circuit.this.currSelection.select(Circuit.this.getOldestSimilarEntity(selecting));
         }
     }
 
@@ -880,9 +885,7 @@ public class Circuit implements PropertyMutable {
 
         @Override
         public void operate() {
-            for (Entity e : deselecting.getInterceptingEntities())
-                if (e.isSimilar(deselecting))
-                    currSelection.deselect(e);
+            Circuit.this.currSelection.deselect(Circuit.this.getOldestSimilarEntity(deselecting));
         }
     }
 
@@ -948,6 +951,8 @@ public class Circuit implements PropertyMutable {
                     intervalWires.add(new Wire(intervalPoints.get(i), intervalPoints.get(j)));
                 for (Wire del : intervalWires) {
                     for (Entity e : scope) {
+                        //if (e != getOldestSimilarEntity(e))
+                         //   continue;
                         if (!deletedOnce.contains(del)) {
                             if (!e.existsInCircuit())
                                 continue;
@@ -1020,7 +1025,11 @@ public class Circuit implements PropertyMutable {
 
         @Override
         public void operate() {
-            Entity.parseEntity(Circuit.this, false, adding.toParsableString());
+            System.out.println("Add OP OP");
+            Entity parsed = Entity.parseEntity(Circuit.this, false, adding.toParsableString());
+            if (parsed == null)
+                throw new NullPointerException();
+            parsed.add();
             if (adding instanceof Wire) {
                 for (CircuitPoint p : causingMergeMap.keySet()) {
                     System.out.println("CAUSING MERGE AT " + p + " IN DIR " + causingMergeMap.get(p));
@@ -1036,6 +1045,7 @@ public class Circuit implements PropertyMutable {
                     }
                 }
             }
+
 
         }
 
@@ -1061,13 +1071,58 @@ public class Circuit implements PropertyMutable {
 
         @Override
         public StateChangeOperation getOpposite() {
-            return new EntityMoveOperation(moving, movement.getMultiplied(-1), false);
+            Entity clone = moving.getSimilarEntity();
+            clone.move(movement);
+            return new EntityMoveOperation(clone, movement.getMultiplied(-1), false);
         }
 
         @Override
         public void operate() {
-            Entity simsimma = getSimilarEntity(moving);
-            simsimma.move(movement);
+            EntityList<Entity> similars = Circuit.this.getSimilarEntities(moving);
+            Entity selected = null;
+            for (Entity e : similars) {
+                if (e.isSelected()) {
+                    selected = e;
+                    break;
+                }
+            }
+            if (selected == null)
+                throw new RuntimeException("Move Operation Without Selected");
+            selected.move(movement);
+        }
+    }
+
+    public class PropertyChangeOperation extends StateChangeOperation {
+
+        private Entity entity;
+        private String propertyKey;
+        private String oldValue;
+        private String newValue;
+
+        public PropertyChangeOperation(Entity beingModified, String propertyKey, String newValue, boolean track) {
+            super(track);
+            entity = beingModified.getSimilarEntity();
+            this.propertyKey = propertyKey;
+            this.oldValue = entity.getPropertyValue(propertyKey);
+            this.newValue = newValue;
+        }
+
+        @Override
+        public StateChangeOperation getOpposite() {
+            Entity clone = entity.getSimilarEntity();
+            clone.onPropertyChange(propertyKey, oldValue, newValue);
+            return new PropertyChangeOperation(clone, propertyKey, oldValue, false);
+        }
+
+        @Override
+        public void operate() {
+            EntityList<Entity> scope = entity.getInterceptingEntities();
+            for (Entity e : scope) {
+                if (e.isSimilar(entity)) {
+                    e.onPropertyChange(propertyKey, newValue);
+                    return; // Only change one
+                }
+            }
         }
     }
 
@@ -1128,7 +1183,7 @@ public class Circuit implements PropertyMutable {
     }
 
     public double getLineWidth() {
-        return scale * 0.24;
+        return scale * 0.22;
     }
 
     public int getGridLineWidth() {
@@ -1225,7 +1280,7 @@ public class Circuit implements PropertyMutable {
     }
 
     @Override
-    public void onPropertyChange(String str, String old, String newVal) {
+    public void onPropertyChange(String propertyName, String old, String newVal) {
 
     }
 

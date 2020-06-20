@@ -25,6 +25,7 @@ public class Wire extends ConnectibleEntity implements Dependent {
      */
     public Wire(CircuitPoint startLocation, CircuitPoint endLocation) {
         super(startLocation.getCircuit());
+        System.out.println("construct wire of eid " + getEntityID());
         if (!startLocation.getCircuit().equals(endLocation.getCircuit()))
             throw new RuntimeException("Points are on different Circuits");
         if ((startLocation.x != endLocation.x && startLocation.y != endLocation.y) || startLocation.equals(endLocation))
@@ -427,8 +428,6 @@ public class Wire extends ConnectibleEntity implements Dependent {
 
     }
 
-
-
     public Color getColor() {
         try {
             return getPowerStatus().getColor();
@@ -436,8 +435,13 @@ public class Wire extends ConnectibleEntity implements Dependent {
         return null;
     }
 
-    public void draw(GraphicsContext g, boolean drawJunctions) {
-        g.setStroke(getColor());
+    @Override
+    public void draw(GraphicsContext g, Color col) {
+        draw(g, col == null ? getColor() : col, true);
+    }
+
+    public void draw(GraphicsContext g, Color col, boolean drawJunctions) {
+        g.setStroke(col);
         g.setImageSmoothing(false);
         g.setLineWidth(getLineWidth());
         PanelDrawPoint p1 = startLocation.toPanelDrawPoint();
@@ -446,11 +450,11 @@ public class Wire extends ConnectibleEntity implements Dependent {
         if (drawJunctions)
             for (CircuitPoint edgePoint : new CircuitPoint[]{startLocation, endLocation})
                 if (getNumEntitiesConnectedAt(edgePoint) > 1)
-                    drawJunction(g, edgePoint);
+                    drawJunction(g, col, edgePoint);
     }
 
-    public void drawJunction(GraphicsContext g, CircuitPoint loc) {
-        g.setStroke(getColor());
+    public void drawJunction(GraphicsContext g, Color col, CircuitPoint loc) {
+        g.setStroke(col);
         double circleSize = (getLineWidth() * 2.25);
         if (loc.getCircuit().getScale() == 5)
             circleSize *= 1.25;
@@ -459,11 +463,6 @@ public class Wire extends ConnectibleEntity implements Dependent {
         g.fillOval(dp.x - circleSize / 2.00, dp.y - circleSize / 2.00, circleSize, circleSize);
         g.setFill(getColor());
         g.fillOval(dp.x - circleSize / 2.00, dp.y - circleSize / 2.00, circleSize, circleSize);
-    }
-
-    @Override
-    public void draw(GraphicsContext g) {
-        draw(g, true);
     }
 
     @Override
@@ -555,7 +554,7 @@ public class Wire extends ConnectibleEntity implements Dependent {
     }
 
     @Override
-    public void onPropertyChange(String str, String old, String newVal) {
+    public void onPropertyChange(String propertyName, String old, String newVal) {
 
     }
 

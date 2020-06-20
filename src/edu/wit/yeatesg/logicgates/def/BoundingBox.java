@@ -15,8 +15,31 @@ public class BoundingBox {
 
     private Entity owner;
 
+    public BoundingBox(PointSet points, Entity owner) {
+        this.owner = owner;
+        Circuit c = points.get(0).getCircuit();
+        double leftMost = Double.MAX_VALUE, rightMost = Double.MIN_VALUE, topMost = Double.MAX_VALUE,
+                bottomMost = Double.MIN_VALUE;
+        for (CircuitPoint cp : points) {
+            if (cp.x < leftMost)
+                leftMost = cp.x;
+            if (cp.x > rightMost)
+                rightMost = cp.x;
+            if (cp.y < topMost)
+                topMost = cp.y;
+            if (cp.y > bottomMost)
+                bottomMost = cp.y;
+        }
+        initFromTwoCorners(new CircuitPoint(leftMost, topMost, c), new CircuitPoint(rightMost, bottomMost, c));
+        
+    }
+    
     public BoundingBox(CircuitPoint corner1, CircuitPoint corner2, Entity owner) {
         this.owner = owner;
+        initFromTwoCorners(corner1, corner2);
+    }
+
+    public void initFromTwoCorners(CircuitPoint corner1, CircuitPoint corner2) {
         Circuit c = corner2.getCircuit();
         if (corner1.x >= corner2.x) {
             if (corner1.y >= corner2.y) {

@@ -40,12 +40,6 @@ public class ExactEntityList<E extends Entity> extends EntityList<E> {
         return super.indexOf(o);
     }
 
-    @Override
-    public final int indexOf(Object o) {
-        throw new UnsupportedOperationException();
-    }
-
-
     public boolean removeExact(E e) {
         int indexOfExact;
         if ((indexOfExact = indexOfExact(e)) != -1) {

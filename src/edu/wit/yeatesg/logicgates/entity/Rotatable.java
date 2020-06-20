@@ -6,6 +6,7 @@ import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 public interface Rotatable {
 
@@ -13,8 +14,14 @@ public interface Rotatable {
     int getRotation();
     RelativePointSet getRelativePointSet();
 
+    List<Integer> rotations = Arrays.asList(0, 90, 180, 270);
+
+    static int getNextRotation(int rotation) {
+        return rotations.get( (rotations.indexOf(rotation) + 1) % 4 );
+    }
+
     default boolean validRotation(int rotation) {
-        return Arrays.asList(new Integer[] { 0, 360, 1, 90, 2, 180, 3, 270 }).contains(rotation);
+        return Arrays.asList(new Integer[] { 360, 90, 180, 270 }).contains(rotation);
     }
 
     class RelativePointSet extends PointSet {

@@ -10,7 +10,7 @@ public class BezierCurve {
     public CircuitPoint[] points;
 
     public BezierCurve(CurvePolygon shape) {
-        int numIterations = 25;
+        int numIterations = 40;
         points = new CircuitPoint[numIterations];
         double weightInc = 1.0 / (numIterations - 1);
         double currWeight = 0;
@@ -28,19 +28,14 @@ public class BezierCurve {
         this(new CurvePolygon(points));
     }
 
-    public void draw(GraphicsContext g, double lineWidth) {
-        g.setStroke(Color.BLACK);
+    public void draw(GraphicsContext g, Color col, double lineWidth) {
+        g.setStroke(col);
         g.setLineWidth(lineWidth);
-
         for (CurvePolygon.Line l : new CurvePolygon(points).lines) {
             PanelDrawPoint p1 = l.startPoint.toPanelDrawPoint();
             PanelDrawPoint p2 = l.endPoint.toPanelDrawPoint();
             g.strokeLine(p1.x, p1.y, p2.x, p2.y);
         }
-    }
-
-    public void draw(GraphicsContext g) {
-        draw(g, 1);
     }
 
     private static CircuitPoint getBezierPoint(CurvePolygon shape, double weight) {

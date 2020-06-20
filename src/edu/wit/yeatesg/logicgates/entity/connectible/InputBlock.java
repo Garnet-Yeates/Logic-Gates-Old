@@ -113,14 +113,14 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
     }
 
     @Override
-    public void draw(GraphicsContext g) {
+    public void draw(GraphicsContext g, Color col) {
         PanelDrawPoint drawPoint;
         PointSet pts = drawPoints;
         Circuit c = getCircuit();
         g.setLineWidth(getLineWidth());
 
         // Draw Border
-        g.setStroke(Color.BLACK);
+        g.setStroke(col == null ? Color.BLACK : col);
         PanelDrawPoint bL = pts.get(1).toPanelDrawPoint();
         PanelDrawPoint tL = pts.get(2).toPanelDrawPoint();
         PanelDrawPoint tR = pts.get(3).toPanelDrawPoint();
@@ -133,16 +133,16 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
         // Draw Connection Thingy
 
         ConnectionNode connectNode = getNodeAt(pts.get(0));
-        connectNode.draw(g);
+        connectNode.draw(g, col);
         // Draw Circle Inside
         CircuitPoint centerPoint = pts.get(5);
-        g.setFill(getColor());
+        g.setFill(col == null ? out.getPowerStatus().getColor() : col);
         double circleSize = (c.getScale() * 1.3);
         drawPoint = centerPoint.toPanelDrawPoint();
         g.fillOval(drawPoint.x - circleSize/2.00, drawPoint.y - circleSize/2.00, circleSize, circleSize);
     }
 
-    @Override
+
     public double getLineWidth() {
         return getCircuit().getLineWidth();
     }
@@ -228,8 +228,8 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
     }
 
     @Override
-    public void onPropertyChange(String property, String old, String newVal) {
-        if (property.equalsIgnoreCase("rotation")) {
+    public void onPropertyChange(String propertyName, String old, String newVal) {
+        if (propertyName.equalsIgnoreCase("rotation")) {
             rotation = Integer.parseInt(newVal);
             reconstruct();
         }

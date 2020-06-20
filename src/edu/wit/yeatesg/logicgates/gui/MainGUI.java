@@ -82,6 +82,10 @@ public class MainGUI extends Application {
         }
     }
 
+    public MenuBar getMenuBar() {
+        return menuBar;
+    }
+
     // INIT WINDOW
 
     private BorderPane mainBorderPane;
@@ -229,7 +233,6 @@ public class MainGUI extends Application {
 
         // The middle of the VBox is the treeView to choose entities to add to the Circuit
         treeView = new TreeView<>();
-        treeView.setFocusTraversable(false);
         treeView.setMinHeight(150); // The listener below makes it so the treeView is always as big as it can get
         stage.heightProperty().addListener((observableValue, number, t1) -> treeView.setPrefHeight(Integer.MAX_VALUE));
         leftOfDivider.getChildren().add(treeView);
@@ -247,7 +250,6 @@ public class MainGUI extends Application {
 
         // Property table
         propertiesGoHere = new BorderPane();
-        propertiesGoHere.setFocusTraversable(false);
         propertiesGoHere.setCenter(new Label("Item Properties and shit go here"));
         leftOfDivider.getChildren().add(propertiesGoHere);
     }
@@ -356,7 +358,6 @@ public class MainGUI extends Application {
         table.setMaxHeight(210);
         table.setMinHeight(210);
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
-        table.setFocusTraversable(false);
         propertiesGoHere.setCenter(table);
         propertiesGoHere.setMinHeight(TABLE_HEIGHT);
     }

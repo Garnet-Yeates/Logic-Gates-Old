@@ -8,7 +8,11 @@ public interface PropertyMutable {
 
     PropertyList getPropertyList();
 
-    void onPropertyChange(String str, String old, String newVal);
+    void onPropertyChange(String propertyName, String old, String newVal);
+
+    default void onPropertyChange(String propertyName, String newValue) {
+        onPropertyChange(propertyName, getPropertyValue(propertyName), newValue);
+    }
 
     String getPropertyValue(String propertyName);
 

@@ -21,6 +21,10 @@ public class CircuitPoint {
         this.y = y;
     }
 
+    public CircuitPoint(String x, String y, Circuit c) {
+        this(Double.parseDouble(x), Double.parseDouble(y), c);
+    }
+
     public CircuitPoint(PanelDrawPoint p) {
         this((p.x - p.c.getXOffset()) / p.c.getScale(),
                 (p.y - p.c.getYOffset()) / p.c.getScale(),
@@ -130,7 +134,6 @@ public class CircuitPoint {
     public String toParsableString() {
         return x + "," + y;
     }
-
 
 
 }

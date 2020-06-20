@@ -2,11 +2,14 @@ package edu.wit.yeatesg.logicgates.entity;
 
 import edu.wit.yeatesg.logicgates.def.BoundingBox;
 import edu.wit.yeatesg.logicgates.def.Circuit;
+import edu.wit.yeatesg.logicgates.def.SimpleGateAND;
 import edu.wit.yeatesg.logicgates.def.Vector;
 import edu.wit.yeatesg.logicgates.entity.connectible.ConnectibleEntity;
+import edu.wit.yeatesg.logicgates.entity.connectible.InputBlock;
 import edu.wit.yeatesg.logicgates.entity.connectible.transmission.Wire;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.paint.Color;
 
 import java.util.Arrays;
 import java.util.LinkedList;
@@ -18,6 +21,8 @@ public abstract class Entity implements PropertyMutable {
 
     private final Circuit c;
 
+    protected enum Size { SMALL, MEDIUM, LARGE }
+
     /**
      * Entity constructor template:
      * set main fields such as rotation, origin, etc based on the params in the constructor
@@ -27,6 +32,10 @@ public abstract class Entity implements PropertyMutable {
     public Entity(Circuit c) {
         id = idAssign++;
         this.c = c;
+    }
+
+    public int getEntityID() {
+        return id;
     }
 
     /**
@@ -55,8 +64,10 @@ public abstract class Entity implements PropertyMutable {
      * PointSet should NOT be fiddled with by the time this is called. This method should be doing the PointSet fiddling
      */
     public void reconstruct() {
-        if (!existsInCircuit())
+        if (!existsInCircuit()) {
             construct(); // Soft error
+            return;
+        }
         remove();
         construct();
         add();
@@ -84,11 +95,16 @@ public abstract class Entity implements PropertyMutable {
     }
 
     public void updateNearby() {
+        if (!existsInCircuit())
+            throw new RuntimeException("You probably fucked up 2" + this);
         for (Entity e : getInterceptingEntities())
             e.update();
     }
 
     public final void spreadUpdate() {
+        System.out.println("SpreadUpdate called on " + this + " exists? " + existsInCircuit());
+        if (!existsInCircuit())
+            throw new RuntimeException("You probably fucked up " + this);
         update();
         updateNearby();
     }
@@ -164,23 +180,23 @@ public abstract class Entity implements PropertyMutable {
         return clone(c);
     }
 
-
     public static Entity parseEntity(Circuit c, boolean isPreview, String s) {
         int closeBrackIndex = s.indexOf(']');
         String enityType = s.substring(1, closeBrackIndex);
         s = s.substring(closeBrackIndex + 1, s.length());
+        String[] fields = s.split(",");
         if (enityType.equalsIgnoreCase("Wire")) {
-            String[] values = s.split(",");
-            if (values.length != 4)
+            if (fields.length != 4)
                 throw new RuntimeException("Invalid Wire String");
-            double x1 = Double.parseDouble(values[0]);
-            double y1 = Double.parseDouble(values[1]);
-            double x2 = Double.parseDouble(values[2]);
-            double y2 = Double.parseDouble(values[3]);
-            Wire added = new Wire(new CircuitPoint(x1, y1, c), new CircuitPoint(x2, y2, c));
-            added.add(); // Same as c.addEntity(added)
-            return added;
-        }
+            double x1 = Double.parseDouble(fields[0]);
+            double y1 = Double.parseDouble(fields[1]);
+            double x2 = Double.parseDouble(fields[2]);
+            double y2 = Double.parseDouble(fields[3]);
+            return new Wire(new CircuitPoint(x1, y1, c), new CircuitPoint(x2, y2, c));
+        } else if (enityType.equalsIgnoreCase("SimpleGateAND"))
+            return new SimpleGateAND(new CircuitPoint(fields[0], fields[1], c), Integer.parseInt(fields[2]));
+        else if (enityType.equalsIgnoreCase("InputBlock"))
+            return new InputBlock(new CircuitPoint(fields[0], fields[1], c), Integer.parseInt(fields[2]));
         return null;
     }
 
@@ -202,7 +218,7 @@ public abstract class Entity implements PropertyMutable {
      * Removes this Entity from its Circuit
      */
     public final void remove() {
-        c.removeExact(this); // If it was successfully removed, postRemove() is called
+        c.removeExact(this); // onRemove is called if it is removed
     }
 
    public void onRemove() {
@@ -295,7 +311,7 @@ public abstract class Entity implements PropertyMutable {
 
 
     public boolean isSelected()  {
-        return getCircuit().currentSelectionReference().contains(this);
+        return getCircuit().currentSelectionReference().containsExact(this);
     }
 
     public final void updateInvalidInterceptPoints() {
@@ -405,7 +421,11 @@ public abstract class Entity implements PropertyMutable {
 
     protected PointSet drawPoints;
 
-    public abstract void draw(GraphicsContext g);
+    public void draw(GraphicsContext g) {
+        draw(g, null);
+    }
+
+    public abstract void draw(GraphicsContext g, Color col);
 
     public abstract double getLineWidth();
 

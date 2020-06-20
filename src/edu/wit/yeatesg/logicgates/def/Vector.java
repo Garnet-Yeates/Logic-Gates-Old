@@ -135,6 +135,10 @@ public class Vector {
                 '}';
     }
 
+    public String toSimpleString() {
+        return "< " + x + "," + y + ">";
+    }
+
     public boolean equals(Object other) {
         return other instanceof Vector && ((Vector) other).x == x && ((Vector) other).y == y;
     }
