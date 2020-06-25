@@ -110,7 +110,7 @@ public abstract class ConnectibleEntity extends Entity {
     }
 
     public boolean isInConnectibleState() {
-        return !isInvalid() && existsInCircuit() && !isSelected();
+        return !isInvalid() && existsInCircuit();
     }
 
     public boolean canConnectToGeneral(ConnectibleEntity other) {

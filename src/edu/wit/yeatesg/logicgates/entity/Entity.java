@@ -63,12 +63,15 @@ public abstract class Entity implements PropertyMutable {
      *
      * PointSet should NOT be fiddled with by the time this is called. This method should be doing the PointSet fiddling
      */
-    public void reconstruct() {
+    public final void reconstruct() {
         if (!existsInCircuit()) {
             construct(); // Soft error
             return;
         }
+        boolean wasSelected = isSelected();
         remove();
+        if (wasSelected)
+            select();
         construct();
         add();
     }
@@ -95,16 +98,11 @@ public abstract class Entity implements PropertyMutable {
     }
 
     public void updateNearby() {
-        if (!existsInCircuit())
-            throw new RuntimeException("You probably fucked up 2" + this);
         for (Entity e : getInterceptingEntities())
             e.update();
     }
 
     public final void spreadUpdate() {
-        System.out.println("SpreadUpdate called on " + this + " exists? " + existsInCircuit());
-        if (!existsInCircuit())
-            throw new RuntimeException("You probably fucked up " + this);
         update();
         updateNearby();
     }
@@ -212,7 +210,15 @@ public abstract class Entity implements PropertyMutable {
      * points and no origin), so different fields need to be updated.
      * @param v the Vector that this Entity is being moved by
      */
-    public abstract void move(Vector v);
+    protected abstract void move(Vector v); // SHOULD ONLY BE CALLED BY moveBy (meaning ONLY move operations)
+
+    public void moveBy(Vector v) {
+        PointSet interceptPoints = getInterceptPoints(); // shallow clone
+        move(v);
+        for (CircuitPoint interceptPoint : interceptPoints)
+            for (Entity e : interceptPoint.getInterceptingEntities())
+                e.update();
+    }
 
     /**
      * Removes this Entity from its Circuit

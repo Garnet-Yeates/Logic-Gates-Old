@@ -6,6 +6,7 @@ import edu.wit.yeatesg.logicgates.entity.connectible.transmission.Wire;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 
 
@@ -24,6 +25,11 @@ public class EntityList<E extends Entity> extends ArrayList<E> {
 
     public EntityList() {
         super();
+    }
+
+    @SafeVarargs
+    public EntityList(E... ents) {
+        this(Arrays.asList(ents));
     }
 
     @SuppressWarnings("unchecked")

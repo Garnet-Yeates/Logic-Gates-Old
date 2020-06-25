@@ -37,7 +37,7 @@ public class SimpleGateAND extends ConnectibleEntity implements Rotatable {
     public void construct() {
         drawPoints = getRelativePointSet().applyToOrigin(origin, rotation);
         getCircuit().pushIntoMapRange(drawPoints);
-        connections = new ConnectionList();
+        connections = new ConnectionList(this);
         interceptPoints = getBoundingBox().getInterceptPoints();
         establishOutputNode(drawPoints.get(0));
         out = (OutputNode) getNodeAt(drawPoints.get(0));

@@ -18,12 +18,16 @@ public class ConnectionList extends ArrayList<ConnectionNode> {
         return getOutputNodes().size() > 0;
     }
 
-    public ConnectionList() {
+    private ConnectibleEntity parent;
+
+    public ConnectionList(ConnectibleEntity parent) {
         super();
+        this.parent = parent;
     }
 
-    public ConnectionList(Collection<? extends ConnectionNode> collection) {
+    public ConnectionList(Collection<? extends ConnectionNode> collection, ConnectibleEntity parent) {
         super(collection);
+        this.parent = parent;
     }
 
     public ArrayList<InputNode> getInputNodes() {
@@ -45,7 +49,7 @@ public class ConnectionList extends ArrayList<ConnectionNode> {
     @Override
     public boolean add(ConnectionNode connectionNode) {
         if (hasConnectionTo(connectionNode.getConnectedTo()))
-            throw new RuntimeException("Already Connected");
+            throw new RuntimeException(parent + " already connected to " + connectionNode.getConnectedTo() + " at " + connectionNode.getLocation());
         return super.add(connectionNode);
     }
 
@@ -130,7 +134,7 @@ public class ConnectionList extends ArrayList<ConnectionNode> {
 
     public ConnectionNode getConnectionTo(ConnectibleEntity potentiallyConnectedTo) {
         for (ConnectionNode node : this)
-            if (node.hasConnectedEntity() && node.getConnectedTo().equals(potentiallyConnectedTo))
+            if (node.hasConnectedEntity() && node.getConnectedTo() == potentiallyConnectedTo)
                 return node;
         return null;
     }
@@ -153,7 +157,7 @@ public class ConnectionList extends ArrayList<ConnectionNode> {
      */
     @Override
     public ConnectionList clone() {
-        return new ConnectionList(this);
+        return new ConnectionList(this, parent);
 
     }
 }

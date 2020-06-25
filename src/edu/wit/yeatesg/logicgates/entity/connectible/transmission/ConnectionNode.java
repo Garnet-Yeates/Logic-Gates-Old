@@ -54,12 +54,15 @@ public class ConnectionNode {
     public boolean equals(Object other) {
         if (other instanceof ConnectionNode) {
             ConnectionNode o = (ConnectionNode) other;
+            // Needs to be EXACT equals (in memory) for parent and connectedTo. Location needs to be sim simma
+            return o.parent == parent && o.connectedTo == connectedTo && o.location.equals(location);
+           /*
             String cTo = connectedTo == null ? "null" : connectedTo.toString();
             String oCTo = o.connectedTo == null ? "null" : o.connectedTo.toString();
-            return (o.parent.equals(parent)
+           return (o.parent.equals(parent)
                      && ((ConnectionNode) other).location.equals(location)
                      && !((connectedTo == null || o.connectedTo == null) && !(o.connectedTo == null && connectedTo == null))
-                     && oCTo.equalsIgnoreCase(cTo));
+                     && oCTo.equalsIgnoreCase(cTo));*/
         }
         return false;
     }

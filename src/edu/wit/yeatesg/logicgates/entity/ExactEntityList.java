@@ -1,6 +1,7 @@
 package edu.wit.yeatesg.logicgates.entity;
 
 
+import java.util.Arrays;
 import java.util.Collection;
 
 public class ExactEntityList<E extends Entity> extends EntityList<E> {
@@ -11,6 +12,24 @@ public class ExactEntityList<E extends Entity> extends EntityList<E> {
 
     public ExactEntityList(Collection<? extends E> list) {
         super(list);
+    }
+
+    @SafeVarargs
+    public ExactEntityList(E... ents) {
+        super(ents);
+    }
+
+    @Override
+    public ExactEntityList<E> clone() {
+        return new ExactEntityList(this);
+    }
+
+    @SuppressWarnings("unchecked")
+    public ExactEntityList<E> deepClone() {
+        ExactEntityList<E> deepClone = new ExactEntityList<>();
+        for (Entity e : this)
+            deepClone.add((E) e.getSimilarEntity());
+        return deepClone;
     }
 
     public boolean containsExact(E entity) {

@@ -10,8 +10,6 @@ import edu.wit.yeatesg.logicgates.points.PanelDrawPoint;
 import javafx.application.Platform;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
-import javafx.scene.control.MenuBar;
-import javafx.scene.control.MenuItem;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseButton;
@@ -19,8 +17,6 @@ import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
 
-import javax.swing.Timer;
-import java.awt.*;
 import java.util.*;
 
 import static edu.wit.yeatesg.logicgates.entity.connectible.transmission.Wire.*;
@@ -62,10 +58,29 @@ public class EditorPanel extends Pane {
         c().modifyOffset(off);
     }
 
+    CircuitPoint LL = null;
+    CircuitPoint RR = null;
+
+
+    public void fixSelection() {
+        c().fixSelection();
+    }
+
     public void onKeyPressed(KeyEvent e) {
         Circuit c = c();
         Circuit.Selection currSelection = c.currentSelectionReference();
         KeyCode code = e.getCode();
+        if (code == S) {
+            System.out.println("SELECTION:");
+            for (Entity en : currSelection)
+                System.out.println(" " + en.toParsableString());
+        }
+        if (code == OPEN_BRACKET)
+            LL = circuitPointAtMouse(true);
+        if (code == CLOSE_BRACKET)
+            RR = circuitPointAtMouse(true);
+        if (code == BACK_SLASH);
+          //  c.getOperands(new Wire(LL, RR));
         if (code == DELETE)
             currSelection.deleteAllEntitiesAndTrack();
         if (code == B)
@@ -89,13 +104,12 @@ public class EditorPanel extends Pane {
         if ((code == RIGHT || code == LEFT || code == UP || code == DOWN )
                 && !currSelection.isEmpty()) {
             System.out.println(code.getName());
-            for (Entity ent : currSelection) {
+            for (Entity ent : currSelection.deepClone()) {
                 Vector vec;
                 if ((vec = Vector.directionVectorFrom(code.getName())) != null) {
-                    c.new EntityMoveOperation(ent.getSimilarEntity(), vec, true);
+                    c.new EntityMoveOperation(ent, vec, true).operate();
                     // Be sure to make the move operation before it is actually moved!!! The state needs to be the state
                     // right before the operation occurs or else it won't work properly
-                    ent.move(vec);
                 }
             }
             repaint(c);
@@ -156,7 +170,7 @@ public class EditorPanel extends Pane {
     //    repaint(c());
         c.recalculateTransmissions();
         currSelection.updateConnectionView();
-        repaint(c);
+        fixSelection(); // Also repaints
     }
 
     public void onKeyReleased(KeyEvent e) {
@@ -168,7 +182,7 @@ public class EditorPanel extends Pane {
         Circuit.Selection currSelection = c.currentSelectionReference();
         c.recalculateTransmissions();
         currSelection.updateConnectionView();
-        repaint(c);
+        fixSelection();
     }
 
     public void onMouseMoved(MouseEvent e) {
@@ -212,6 +226,7 @@ public class EditorPanel extends Pane {
     }
 
     public void onMousePressed(MouseEvent e) {
+        fixSelection(); // Also repaints
         Circuit c = c();
         Circuit.Selection currSelection = c.currentSelectionReference();
         canUserShiftState = false;
@@ -273,9 +288,8 @@ public class EditorPanel extends Pane {
         }
         c().recalculateTransmissions();
         updateConnectionView();
-        repaint(c());
-
         gridSnapJustChanged = false;
+        fixSelection(); // Also repaints
     }
 
     public void repaint() {
@@ -310,8 +324,8 @@ public class EditorPanel extends Pane {
         int w = canvasWidth(), h = canvasHeight();
         Color col = COL_GRID;
         double whiteWeight = 0;
-        if (c().getScale() == 5)
-            whiteWeight = 0.3;
+        if (c().getScale() < 10)
+            whiteWeight = 1 - (c().getScale() / 10.0);
         double normWeight = 1 - whiteWeight;
         int white = (int) (255.0*whiteWeight);
         Color paintCol = Color.rgb((int) (white + col.getRed()*255*normWeight),
@@ -490,7 +504,7 @@ public class EditorPanel extends Pane {
         }
 
         @Override
-        public void paint(GraphicsContext g) {
+        public void draw(GraphicsContext g) {
             g.setLineWidth(2);
             g.setStroke(Color.rgb(0, 100, 230, 1));
             g.setFill(Color.rgb(0, 100, 200, 0.3));
@@ -595,6 +609,63 @@ public class EditorPanel extends Pane {
         return (int) canvas.getHeight();
     }
 
+    public void testORGate(Circuit c, GraphicsContext g, CircuitPoint origin, int rotation, boolean xor) {
+        g.setStroke(Color.BLACK);
+        g.setLineWidth(c.getLineWidth());
+
+        Rotatable.RelativePointSet ps = new Rotatable.RelativePointSet();
+        ps.add(new CircuitPoint(0, 0, c)); // Out Node / Origin, 0
+        ps.add(new CircuitPoint(2.5, -5, c)); // Top right          1
+        ps.add(new CircuitPoint(-2.5, -5, c)); // Top left          2
+        ps.add(new CircuitPoint(-2.5, 0, c)); // Bot left          3
+        ps.add(new CircuitPoint(2.5, 0, c)); // Bot right         4
+
+        double yDist = ps.get(2).y - ps.get(3).y;
+        double xDist = ps.get(0).x - ps.get(3).x;
+        double xPercent = 0.0;
+        double yPercent = 0.15;
+
+        ps.add(new CircuitPoint(ps.get(0).x - xDist + xDist*xPercent
+                , ps.get(3).y + yDist*yPercent, c));      // BL control point     5
+        ps.add(new CircuitPoint(ps.get(0).x + xDist - xDist*xPercent,
+                ps.get(4).y + yDist*yPercent, c));       // BR control point      6
+
+        // Curve from 2 -> 5 -> 0 (Top left -> BL Control -> Origin)
+        // Curve from 1 -> 6 -> 0 (Top right -> BR Control -> Origin
+
+
+        double backCurveYPercent = 0.20; // percent dist from inner side of back curve down to origin, for control point
+        ps.add(new CircuitPoint(ps.get(0).x,
+                ps.get(2).y + backCurveYPercent*-1*yDist, c)); // Back curve controller 7
+
+        double backCurveUpShift = 0.2;
+
+        ps.add(new CircuitPoint(ps.get(1).x, ps.get(1).y - backCurveUpShift, c)); // 8
+        ps.add(new CircuitPoint(ps.get(2).x, ps.get(2).y - backCurveUpShift, c)); // 9
+
+        // Curve from 8 -> 7 -> 9 (Back Curve)
+
+        ps.add(ps.get(8).x, ps.get(8).y - 1, c); // 10
+        ps.add(ps.get(7).x, ps.get(7).y - 1, c); // 11
+        ps.add(ps.get(9).x, ps.get(9).y - 1, c); // 12
+
+        // Curve from 10 -> 11 -> 12 (XOR Gate)
+
+        PointSet dps = ps.applyToOrigin(origin, rotation);
+
+        BezierCurve curve = new BezierCurve(dps.get(2), dps.get(5), dps.get(0));
+        BezierCurve curve2 = new BezierCurve(dps.get(1), dps.get(6), dps.get(0));
+
+        BezierCurve backCurve = new BezierCurve(dps.get(8), dps.get(7), dps.get(9));
+        BezierCurve backCurve2 = new BezierCurve(dps.get(10), dps.get(11), dps.get(12));
+
+        curve.draw(g, Color.BLACK, c.getLineWidth());
+        curve2.draw(g, Color.BLACK, c.getLineWidth());
+        backCurve.draw(g, Color.BLACK, c.getLineWidth());
+        if (xor)
+            backCurve2.draw(g, Color.BLACK, c.getLineWidth());
+    }
+
     public void repaint(Circuit calledFrom) {
         if (calledFrom != null && calledFrom.getCircuitName().contains("theoretical"))
             return;
@@ -633,149 +704,46 @@ public class EditorPanel extends Pane {
 
             drawGridPoints(gc);
 
-            EntityList<Entity> drawOrder = new EntityList<>();
-            EntityList<Entity> drawFirst = new EntityList<>();
-            EntityList<Entity> drawSecond = new EntityList<>();
-            for (Entity e : c.getAllEntities()) {
-                if (!currConnectionView.contains(e)) {
-                    if (e instanceof Wire)
-                        drawFirst.add(e);
-                    else
-                        drawSecond.add(e);
+            int numDraws = c.getScale() < 7 ? 2 : 1;
+            for (int l = 0; l < numDraws; l++) {
+                EntityList<Entity> drawOrder = new EntityList<>();
+                EntityList<Entity> drawFirst = new EntityList<>();
+                EntityList<Entity> drawSecond = new EntityList<>();
+                for (Entity e : c.getAllEntities()) {
+                    if (!currConnectionView.contains(e)) {
+                        if (e instanceof Wire)
+                            drawFirst.add(e);
+                        else
+                            drawSecond.add(e);
+                    }
                 }
+                drawOrder.addAll(drawFirst);
+                drawOrder.addAll(drawSecond);
+
+                for (Entity e : drawOrder) {
+                    e.draw(gc);
+                }
+
+                for (Entity e : currConnectionView) {
+                    e.getBoundingBox().drawBorder(gc);
+                    currConnectionView.draw(e, gc);
+                }
+
+                for (Entity e : currSelection)
+                    e.getBoundingBox().draw(gc);
+
+                if (currentPullPoint != null)
+                    currentPullPoint.drawPullPoint(gc);
+
+                if (currSelectionBox != null)
+                    currSelectionBox.draw(gc);
+
+                c.drawInvalidEntities();
+                testORGate(c, gc, new CircuitPoint(0, -10, c), 270, true);
+                testORGate(c, gc, new CircuitPoint(0, -16, c), 270, false);
             }
-            drawOrder.addAll(drawFirst);
-            drawOrder.addAll(drawSecond);
-
-            for (Entity e : drawOrder) {
-                e.draw(gc);
-            }
-
-            for (Entity e : currConnectionView) {
-                e.getBoundingBox().drawBorder(gc);
-                currConnectionView.draw(e, gc);
-            }
-
-            for (Entity e : currSelection)
-                e.getBoundingBox().paint(gc);
-
-            if (currentPullPoint != null)
-                currentPullPoint.drawPullPoint(gc);
-
-            if (currSelectionBox != null)
-                currSelectionBox.paint(gc);
-
-            c.drawInvalidEntities();
-
-            int off = 20;
-            gc.setStroke(Color.BLACK);
-            gc.setLineWidth(c.getLineWidth());
-
-            Rotatable.RelativePointSet ps = new Rotatable.RelativePointSet();
-            ps.add(new CircuitPoint(0, 0, c)); // Out Node / Origin, 0
-            ps.add(new CircuitPoint(2.5, -5, c)); // Top right          1
-            ps.add(new CircuitPoint(-2.5, -5, c)); // Top left          2
-            ps.add(new CircuitPoint(-2.5, 0, c)); // Bot left          3
-            ps.add(new CircuitPoint(2.5, 0, c)); // Bot right         4
-
-            double yDist = ps.get(2).y - ps.get(3).y;
-            double xDist = ps.get(0).x - ps.get(3).x;
-            double xPercent = 0.0;
-            double yPercent = 0.20;
-
-            ps.add(new CircuitPoint(ps.get(0).x - xDist + xDist*xPercent
-                    , ps.get(3).y + yDist*yPercent, c));      // BL control point     5
-            ps.add(new CircuitPoint(ps.get(0).x + xDist - xDist*xPercent,
-                    ps.get(4).y + yDist*yPercent, c));       // BR control point      6
-
-            // Curve from 2 -> 5 -> 0 (Top left -> BL Control -> Origin)
-            // Curve from 1 -> 6 -> 0 (Top right -> BR Control -> Origin
-
-
-            double backCurveYPercent = 0.20; // percent dist from inner side of back curve down to origin, for control point
-            ps.add(new CircuitPoint(ps.get(0).x,
-                    ps.get(2).y + backCurveYPercent*-1*yDist, c)); // Back curve controller 7
-
-            // Curve from 2 -> 7 -> 1
-
-            ps.add(ps.get(2).x, ps.get(2).y - 0.75, c);
-            ps.add(ps.get(7).x, ps.get(7).y - 0.75, c);
-            ps.add(ps.get(1).x, ps.get(1).y - 0.75, c);
-
-            // Curve from 8 -> 9 -> 10 (XOR Gate)
-
-            PointSet dps = ps.applyToOrigin(new CircuitPoint(0, 0, c), 270);
-            for (int i = 0; i < dps.size(); i++)
-                System.out.println(i + " " + dps.get(i).toParsableString());
-
-            BezierCurve curve = new BezierCurve(dps.get(2), dps.get(5), dps.get(0));
-            BezierCurve curve2 = new BezierCurve(dps.get(1), dps.get(6), dps.get(0));
-
-            BezierCurve backCurve = new BezierCurve(dps.get(2), dps.get(7), dps.get(1));
-            BezierCurve backCurve2 = new BezierCurve(dps.get(8), dps.get(9), dps.get(10));
-
-            curve.draw(gc, Color.BLACK, c.getLineWidth());
-            curve2.draw(gc, Color.BLACK, c.getLineWidth());
-            backCurve.draw(gc, Color.BLACK, c.getLineWidth());
-            backCurve2.draw(gc, Color.BLACK, c.getLineWidth());
-
         });
     }
-
-    /*
-         int off = 20;
-            gc.setStroke(Color.BLACK);
-            gc.setLineWidth(c.getLineWidth());
-
-            Rotatable.RelativePointSet ps = new Rotatable.RelativePointSet();
-            ps.add(new CircuitPoint(0, 0, c)); // Out Node / Origin, 0
-            ps.add(new CircuitPoint(2.5, -5, c)); // Top right          1
-            ps.add(new CircuitPoint(-2.5, -5, c)); // Top left          2
-            ps.add(new CircuitPoint(-2.5, 0, c)); // Bot left          3
-            ps.add(new CircuitPoint(2.5, 0, c)); // Bot right         4
-
-            double yDist = ps.get(2).y - ps.get(3).y;
-            double xDist = ps.get(0).x - ps.get(3).x;
-            double xPercent = 0.15;
-            double yPercent = 0.22;
-
-            ps.add(new CircuitPoint(ps.get(0).x - xDist + xDist*xPercent
-                    , ps.get(3).y + yDist*yPercent, c));      // BL control point     5
-            ps.add(new CircuitPoint(ps.get(0).x + xDist - xDist*xPercent,
-                    ps.get(4).y + yDist*yPercent, c));       // BR control point      6
-
-            // Curve from 2 -> 5 -> 0 (Top left -> BL Control -> Origin)
-            // Curve from 1 -> 6 -> 0 (Top right -> BR Control -> Origin
-
-
-            double backCurveYPercent = 0.20; // percent dist from inner side of back curve down to origin, for control point
-            ps.add(new CircuitPoint(ps.get(0).x,
-                    ps.get(2).y + backCurveYPercent*-1*yDist, c)); // Back curve controller 7
-
-            // Curve from 2 -> 7 -> 1
-
-            ps.add(ps.get(2).x, ps.get(2).y - 0.75, c);
-            ps.add(ps.get(7).x, ps.get(7).y - 0.75, c);
-            ps.add(ps.get(1).x, ps.get(1).y - 0.75, c);
-
-            // Curve from 8 -> 9 -> 10 (XOR Gate)
-
-            PointSet dps = ps.applyToOrigin(new CircuitPoint(0, 0, c), 0);
-            for (int i = 0; i < dps.size(); i++)
-                System.out.println(i + " " + dps.get(i).toParsableString());
-
-            BezierCurve curve = new BezierCurve(dps.get(2), dps.get(5), dps.get(0));
-            BezierCurve curve2 = new BezierCurve(dps.get(1), dps.get(6), dps.get(0));
-
-            BezierCurve backCurve = new BezierCurve(dps.get(2), dps.get(7), dps.get(1));
-            BezierCurve backCurve2 = new BezierCurve(dps.get(8), dps.get(9), dps.get(10));
-
-            curve.draw(gc, Color.BLACK, c.getLineWidth());
-            curve2.draw(gc, Color.BLACK, c.getLineWidth());
-            backCurve.draw(gc, Color.BLACK, c.getLineWidth());
-        //    backCurve2.draw(gc, Color.BLACK, c.getLineWidth());
-
-     */
 
 
     // Mouse press: initialize pull point. it is only calculate on mouse press

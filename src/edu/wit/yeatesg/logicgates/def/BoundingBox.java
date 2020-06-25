@@ -146,10 +146,11 @@ public class BoundingBox {
     public static final Color BOX_COL = Color.rgb(255, 249, 230, 1);
     public static final Color OUTLINE_COL = Color.BLACK;
 
-    public void paint(GraphicsContext g) {
+    public void draw(GraphicsContext g) {
         for (int i = 0; i < 4; i++) {
             Circuit c = p1.getCircuit();
             double strokeSize = (c.getScale() * 0.6);
+            strokeSize *= 0.5;
             double borderThickness = strokeSize / 5;
             double innerStrokeSize = strokeSize - borderThickness;
             for (CircuitPoint p : new CircuitPoint[]{p1, p2, p3, p4}) {

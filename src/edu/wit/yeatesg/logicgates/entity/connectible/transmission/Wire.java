@@ -7,7 +7,6 @@ import edu.wit.yeatesg.logicgates.def.*;
 import edu.wit.yeatesg.logicgates.entity.connectible.*;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 import edu.wit.yeatesg.logicgates.points.PanelDrawPoint;
-import javafx.beans.value.ObservableValue;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
@@ -25,7 +24,7 @@ public class Wire extends ConnectibleEntity implements Dependent {
      */
     public Wire(CircuitPoint startLocation, CircuitPoint endLocation) {
         super(startLocation.getCircuit());
-        System.out.println("construct wire of eid " + getEntityID());
+   //     System.out.println("construct wire of eid " + getEntityID());
         if (!startLocation.getCircuit().equals(endLocation.getCircuit()))
             throw new RuntimeException("Points are on different Circuits");
         if ((startLocation.x != endLocation.x && startLocation.y != endLocation.y) || startLocation.equals(endLocation))
@@ -39,7 +38,7 @@ public class Wire extends ConnectibleEntity implements Dependent {
     public void construct() {
         getCircuit().pushIntoMapRange(startLocation, endLocation);
         interceptPoints = new PointSet();
-        connections = new ConnectionList();
+        connections = new ConnectionList(this);
         edgeToEdgeIterator().forEachRemaining(intPoint -> interceptPoints.add(intPoint));
         update();
         postInit();
@@ -60,6 +59,8 @@ public class Wire extends ConnectibleEntity implements Dependent {
             startLocation = to.getSimilar();
         } else if (whichEdgePoint(edgePoint).equals("end"))
             endLocation = to.getSimilar();
+        else
+            throw new RuntimeException("tu fucked up");
         reconstruct();
     }
 
@@ -74,7 +75,12 @@ public class Wire extends ConnectibleEntity implements Dependent {
 
     @Override
     public String toParsableString() {
-        return "[Wire]" + startLocation.toParsableString() + "," + endLocation.toParsableString();
+        CircuitPoint start = interceptPoints.get(0);
+        CircuitPoint end = interceptPoints.get(interceptPoints.size() - 1);
+        CircuitPoint lefter = isHorizontal() ? (start.x < end.x ? start : end) : (start.y < end.y ? start : end);
+        CircuitPoint righter = lefter.isSimilar(start) ? end : start;
+        return "[Wire]" + lefter.toParsableString() + "," + righter.toParsableString();
+     //   return "[Wire]" + getLefterEdgePoint().toParsableString() + "," + getRighterEdgePoint().toParsableString();
     }
 
     /**
@@ -269,14 +275,7 @@ public class Wire extends ConnectibleEntity implements Dependent {
 
     @Override
     public boolean canConnectTo(ConnectibleEntity e, CircuitPoint at) {
-        if (isEdgePoint(at) && getNumOtherEdgePointsAt(at) < 4 && canConnectToGeneral(e)) {
-            if (e instanceof Wire) {
-                Wire other = (Wire) e;
-                return getDirection() != other.getDirection() || other.getNumOtherEdgePointsAt(at) > 1;
-            } else
-                return true;
-        }
-        return false;
+        return isEdgePoint(at) && getNumOtherEdgePointsAt(at) < 4 && canConnectToGeneral(e);
     }
 
     @Override
@@ -303,34 +302,55 @@ public class Wire extends ConnectibleEntity implements Dependent {
         connections.remove(getConnectionTo(e));
     }
 
+    private boolean blockTransform = false;
 
+    public boolean isTransformBlocked() {
+        return blockTransform;
+    }
 
-    // Bisect checks for wires
+    public void disableTransformable() {
+        blockTransform = true;
+        getCircuit().markNonTransformable(this);
+    }
+
+    public void enableTransformable() {
+        blockTransform = false;
+        update();
+    }
+
+    // Transform checks for wires
+
+    public boolean canTransform() {
+        return !blockTransform && existsInCircuit();
+    }
 
     public void bisectCheck() {
-        if (!isInConnectibleState())
-            return;
-        ArrayList<Wire> interceptingWires = getInterceptingEntities().thatExtend(Wire.class);
-        for (Wire w : interceptingWires) {
-            if (w.isInConnectibleState() && !w.isSimilar(this)) {
+        if (canTransform()) {
+            ArrayList<Wire> interceptingWires = getInterceptingEntities().thatExtend(Wire.class);
+            for (Wire w : interceptingWires) {
                 bisectCheck(w);
                 w.bisectCheck(this);
             }
         }
-
     }
 
     public void bisectCheck(Wire other) {
-        if (!isInConnectibleState() || !other.isInConnectibleState() || isSimilar(other))
+    //    System.out.println("  BISECT CHECK " + this.toParsableString() + " ("
+    //            + id + ")" + " with " + other.toParsableString() + " (" + other.id + ")");
+        if (!canTransform() || !other.canTransform() || isSimilar(other))
             return;
         for (CircuitPoint thisWiresEndpoint : new CircuitPoint[]{ startLocation, endLocation }) {
             if (other.getPointsExcludingEdgePoints().contains(thisWiresEndpoint)
                     && other.getDirection() != getDirection()) {// This means it is bisecting the wire
                 CircuitPoint bisectPoint = thisWiresEndpoint.getSimilar();
                 CircuitPoint otherOldStartLoc = other.getStartLocation();
+     //           System.out.println("  BISECT " + other.toParsableString() + " ("
+     //                   + id + ")" + " using " + this.toParsableString() + " (" + other.id + ")");
                 other.disconnectAll();
                 other.set(other.startLocation, bisectPoint);
                 Wire added = new Wire(bisectPoint.getSimilar(), otherOldStartLoc.getSimilar());
+                if (other.isSelected())
+                    added.select();
                 added.add();
                 other.connectCheck();
                 connectCheck();
@@ -338,28 +358,53 @@ public class Wire extends ConnectibleEntity implements Dependent {
         }
     }
 
-
+    public Wire split(CircuitPoint splitPoint, boolean blockTransform) {
+        if (!intercepts(splitPoint) || isEdgePoint(splitPoint))
+            throw new RuntimeException("Invalid Split");
+        splitPoint = splitPoint.getSimilar();
+        CircuitPoint oldStart = startLocation.getSimilar();
+        set(startLocation, splitPoint);
+        Wire created = new Wire(splitPoint, oldStart);
+        if (isSelected())
+            created.select();
+        if (blockTransform)
+            created.disableTransformable();
+        created.add();
+        return created;
+    }
 
     // Merge checks for Wires
 
     public void mergeCheck() {
-        if (!isInConnectibleState())
-            return;
-        for (Wire w : getInterceptingEntities().thatExtend(Wire.class))
-            if (!w.isSimilar(this) && w.isInConnectibleState())
+        if (canTransform())
+            for (Wire w : getInterceptingEntities().thatExtend(Wire.class))
                 mergeCheck(w);
     }
 
+    private boolean disableMerge;
+
     public void mergeCheck(Wire other) {
-        if (other.isSimilar(this) || !isInConnectibleState() || !other.isInConnectibleState())
+  //      System.out.println("  MERGE CHECK " + this.toParsableString() + " ("
+  //              + id + ")" + " with " + other.toParsableString() + " (" + other.id + ")");
+        if (other.getInterceptPoints().intersection(getInterceptPoints()).size() > 1)
             return;
+        if (disableMerge || other.disableMerge || other.isSimilar(this) || !canTransform() || !other.canTransform()
+                || ( (other.isSelected() || this.isSelected()) && !(other.isSelected() && this.isSelected()) ) ) {
+            return;
+        }
         for (CircuitPoint edgePoint : new CircuitPoint[]{startLocation, endLocation}) {
             for (CircuitPoint otherEdgePoint : new CircuitPoint[]{other.startLocation, other.endLocation}) {
                 if (edgePoint.equals(otherEdgePoint)
                         && other.getDirection() == getDirection()
-                        && (other.getNumOtherEdgePointsAt(edgePoint) < 2)) {
+                        && edgePoint.getInterceptingEntities().getWiresGoingInOppositeDirection(this).size() == 0) {
+             //       System.out.println("  MERGE " + this.toParsableString() + " ("
+              //              + id + ")" + " with " + other.toParsableString() + " (" + other.id + ")");
+                    disableMerge = true;
                     other.remove(); // Checks done in delete
-                    set(edgePoint, other.getOppositeEdgePoint(edgePoint)); // Checks done in set
+                   // System.out.println("SET " + edgePoint.toParsableString() + " to " + other.getOppositeEdgePoint(edgePoint).toParsableString());
+                    set(edgePoint, other.getOppositeEdgePoint(edgePoint)); // Reconstruct done in set
+                    //System.out.println("  DONE MERGE");
+                    disableMerge = false;
                 }
             }
         }

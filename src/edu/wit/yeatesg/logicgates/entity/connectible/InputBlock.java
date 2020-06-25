@@ -32,7 +32,7 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
 
     @Override
     public void construct() {
-        connections = new ConnectionList();
+        connections = new ConnectionList(this);
         drawPoints = getRelativePointSet().applyToOrigin(origin, rotation);
         getCircuit().pushIntoMapRange(drawPoints);
         interceptPoints = getBoundingBox().getInterceptPoints();

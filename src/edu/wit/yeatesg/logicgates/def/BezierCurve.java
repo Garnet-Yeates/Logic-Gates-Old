@@ -10,7 +10,8 @@ public class BezierCurve {
     public CircuitPoint[] points;
 
     public BezierCurve(CurvePolygon shape) {
-        int numIterations = 40;
+        Circuit c = shape.points[0].getCircuit();
+        int numIterations = (int) (c.getScale()*(c.getScale() < 10 ? 2.5 : 1.75));
         points = new CircuitPoint[numIterations];
         double weightInc = 1.0 / (numIterations - 1);
         double currWeight = 0;

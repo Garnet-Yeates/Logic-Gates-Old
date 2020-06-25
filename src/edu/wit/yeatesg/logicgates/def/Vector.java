@@ -117,6 +117,10 @@ public class Vector {
             return null;
     }
 
+    public static Vector getCardinalDirectionVector(CircuitPoint initial, CircuitPoint terminal) {
+        return directionVectorFrom(initial, terminal, getGeneralDirection(initial, terminal));
+    }
+
     public static Direction getGeneralDirection(CircuitPoint p1, CircuitPoint p2) {
         if (!p1.isInLineWith(p2))
             throw new RuntimeException();

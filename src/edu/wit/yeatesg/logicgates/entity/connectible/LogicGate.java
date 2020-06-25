@@ -49,7 +49,7 @@ public abstract class LogicGate extends ConnectibleEntity implements Dependent, 
     public void construct() {
         drawPoints = getRelativePointSet().applyToOrigin(origin, rotation);
         getCircuit().pushIntoMapRange(drawPoints);
-        connections = new ConnectionList();
+        connections = new ConnectionList(this);
         curvesToDraw = new ArrayList<>();
         constructInterceptPoints();
         boundingBox = new BoundingBox(interceptPoints, this);
