@@ -48,21 +48,24 @@ public class ExactEntityList<E extends Entity> extends EntityList<E> {
         throw new UnsupportedOperationException();
     }
 
-    public int indexOfExact(Object o) {
+    public int indexOfExact(E ent) {
         for (int i = 0; i < size(); i++)
-            if (get(i) == o)
+            if (get(i) == ent)
                 return i;
         return -1;
     }
 
-    public int indexOfSimilar(Object o) {
-        return super.indexOf(o);
+    public int indexOfSimilar(E ent) {
+        for (int i = 0; i < size(); i++)
+            if (get(i).isSimilar(ent))
+                return i;
+        return -1;
     }
 
     public boolean removeExact(E e) {
         int indexOfExact;
         if ((indexOfExact = indexOfExact(e)) != -1) {
-            remove(indexOfExact);
+            efficientRemove(indexOfExact);
             return true;
         }
         return false;
@@ -82,7 +85,6 @@ public class ExactEntityList<E extends Entity> extends EntityList<E> {
         removeSimilar(e);
         return this;
     }
-
 
     public boolean removeSimilar(E e) {
         return super.remove(e);

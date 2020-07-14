@@ -67,13 +67,11 @@ public class OutputNode extends ConnectionNode implements Dependent {
         }
     }
 
-    public void draw(GraphicsContext g) {
-        draw(g, null);
-    }
-
     @Override
-    public void draw(GraphicsContext g, Color col) {
-        g.setFill(col == null ? getPowerStatus().getColor() : col);
+    public void draw(GraphicsContext g, Color col, double opacity) {
+        col = col == null ? getPowerStatus().getColor() : col;
+        col = Color.rgb((int) (255*col.getRed()), (int) (255*col.getGreen()), (int) (255*col.getBlue()), opacity);
+        g.setFill(col);
         double circleSize = parent.getCircuit().getScale() * 0.6;
         if (getLocation().getCircuit().getScale() == 5)
             circleSize *= 1.35;

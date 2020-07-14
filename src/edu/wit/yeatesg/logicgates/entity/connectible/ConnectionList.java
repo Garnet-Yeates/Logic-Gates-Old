@@ -1,11 +1,13 @@
 package edu.wit.yeatesg.logicgates.entity.connectible;
 
+import edu.wit.yeatesg.logicgates.def.Direction;
 import edu.wit.yeatesg.logicgates.entity.connectible.transmission.ConnectionNode;
 import edu.wit.yeatesg.logicgates.entity.connectible.transmission.InputNode;
 import edu.wit.yeatesg.logicgates.entity.connectible.transmission.OutputNode;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 
 public class ConnectionList extends ArrayList<ConnectionNode> {
@@ -149,6 +151,17 @@ public class ConnectionList extends ArrayList<ConnectionNode> {
         if (o instanceof InputNode || o instanceof OutputNode)
             throw new UnsupportedOperationException("Input and Output Nodes cannot be removed from the ConnectionList");
         return super.remove(o);
+    }
+
+    /**
+     * Sorts the list of connection nodes from lefter to righter so that index 0 is the left/top most and index
+     * size - 1 is the right/bottom most
+     */
+    public void sort(Direction dir) {
+        if (dir == Direction.HORIZONTAL)
+            sort(ConnectionNode.getHorizontalComparator());
+        else
+            sort(ConnectionNode.getVerticalComparator());
     }
 
     /**

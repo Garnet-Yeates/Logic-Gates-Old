@@ -82,7 +82,6 @@ public abstract class Entity implements PropertyMutable {
      * Entity.
      */
     public void onAddToCircuit() {
-        inCircuit = true;
         addInterceptEntries();
         spreadUpdate();
     }
@@ -91,22 +90,31 @@ public abstract class Entity implements PropertyMutable {
         c.addEntity(this);
     }
 
+    private boolean disableUpdate = false;
+
+    public void disableUpdate() {
+        disableUpdate = true;
+    }
+
+    public void enableUpdate() {
+        disableUpdate = false;
+    }
+
+    public void spreadUpdate() {
+        if (!disableUpdate && existsInCircuit()) {
+            update();
+            for (Entity e : getInterceptingEntities())
+                e.update();
+        }
+    }
+
     public final void update() {
-        updateInvalidInterceptPoints();
-        if (this instanceof ConnectibleEntity)
-            ((ConnectibleEntity) this).connectCheck();
+        if (!disableUpdate && existsInCircuit()) {
+            updateInvalidInterceptPoints();
+            if (this instanceof ConnectibleEntity)
+                ((ConnectibleEntity) this).connectCheck();
+        }
     }
-
-    public void updateNearby() {
-        for (Entity e : getInterceptingEntities())
-            e.update();
-    }
-
-    public final void spreadUpdate() {
-        update();
-        updateNearby();
-    }
-
 
     public void addWithStateOperation() {
         c.addEntityAndTrackOperation(this);
@@ -120,7 +128,7 @@ public abstract class Entity implements PropertyMutable {
     }
 
     /**
-     * Should only really be called when {@link #remove()} is called and when the PointSet is updated (i.e the entity is moved)
+     * Should only really be called when {@link #remove()} is called
      */
     public void removeInterceptEntries() {
         getCircuit().getInterceptMap().removeInterceptPointsFor(this);
@@ -138,12 +146,19 @@ public abstract class Entity implements PropertyMutable {
         c.removeSimilarEntityAndTrackOperation(this);
     }
 
-    private boolean inCircuit = false;
+    private int circuitIndex = -1;
 
-    public boolean existsInCircuit() {
-        return inCircuit;
+    public int getCircuitIndex() {
+        return circuitIndex;
     }
 
+    public void setCircuitIndex(int index) {
+        circuitIndex = index;
+    }
+
+    public boolean existsInCircuit() {
+        return circuitIndex > -1;
+    }
 
 
     /**
@@ -207,18 +222,11 @@ public abstract class Entity implements PropertyMutable {
     /**
      * Different entities will have different implementations for when they move by a vector. This is because some
      * entities act differently upon being moved, such as Wires (because they only have intercept points, no draw
-     * points and no origin), so different fields need to be updated.
+     * points and no oriegin), so different fields need to be updated.
      * @param v the Vector that this Entity is being moved by
      */
-    protected abstract void move(Vector v); // SHOULD ONLY BE CALLED BY moveBy (meaning ONLY move operations)
+    public abstract void move(Vector v); // SHOULD ONLY BE CALLED BY moveBy (meaning ONLY move operations)
 
-    public void moveBy(Vector v) {
-        PointSet interceptPoints = getInterceptPoints(); // shallow clone
-        move(v);
-        for (CircuitPoint interceptPoint : interceptPoints)
-            for (Entity e : interceptPoint.getInterceptingEntities())
-                e.update();
-    }
 
     /**
      * Removes this Entity from its Circuit
@@ -228,7 +236,7 @@ public abstract class Entity implements PropertyMutable {
     }
 
    public void onRemove() {
-        inCircuit = false;
+        circuitIndex = -1;
    }
 
     // General Intercepting
@@ -299,25 +307,39 @@ public abstract class Entity implements PropertyMutable {
         return invalidInterceptPoints.size() > 0;
     }
 
-    public boolean select() {
-        return getCircuit().select(this);
+    // Circuit Selection
+
+    private int selectionIndex = -1;
+
+    public void setSelectionIndex(int index) {
+        selectionIndex = index;
+    }
+
+    public int getSelectionIndex() {
+        return selectionIndex;
+    }
+
+    public boolean isSelected()  {
+        return selectionIndex > -1;
+    }
+
+    public void select() {
+        getCircuit().select(this);
     }
 
     public void onSelect() {
-        // TODO nothing yet
+        selectionIndex = getCircuit().currentSelectionReference().size() - 1;
     }
 
-    public boolean deselect() {
-        return getCircuit().deselect(this);
+
+    public void deselect() {
+        getCircuit().deselect(this);
     }
+
 
     public void onDeselect() {
+        selectionIndex = -1;
         update();
-    }
-
-
-    public boolean isSelected()  {
-        return getCircuit().currentSelectionReference().containsExact(this);
     }
 
     public final void updateInvalidInterceptPoints() {
@@ -325,12 +347,11 @@ public abstract class Entity implements PropertyMutable {
         boolean wasInvalid = isInvalid();
         for (Entity other : getInterceptingEntities())
             invalidInterceptPoints.addAll(getInvalidInterceptPoints(other));
-        if (isInvalid()) {
-            if (existsInCircuit())
-                getCircuit().markInvalid(this);
+        if (isInvalid() && existsInCircuit()) {
+            getCircuit().markInvalid(this);
             if (this instanceof ConnectibleEntity)
                 ((ConnectibleEntity) this).disconnectAll();
-        } else if (wasInvalid) {
+        } else if (wasInvalid && existsInCircuit()) {
             getCircuit().markValid(this);
         }
     }
@@ -428,10 +449,16 @@ public abstract class Entity implements PropertyMutable {
     protected PointSet drawPoints;
 
     public void draw(GraphicsContext g) {
-        draw(g, null);
+        draw(g, null, 1);
     }
 
-    public abstract void draw(GraphicsContext g, Color col);
+    public abstract void draw(GraphicsContext g, Color col, double opacity);
+
+    public static final Color PREVIEW_COLOR = Color.rgb(90, 90, 90);
+
+    public void drawPreview(GraphicsContext g) {
+        draw(g, PREVIEW_COLOR, 1);
+    }
 
     public abstract double getLineWidth();
 

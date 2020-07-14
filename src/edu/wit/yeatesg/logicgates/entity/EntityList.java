@@ -27,6 +27,32 @@ public class EntityList<E extends Entity> extends ArrayList<E> {
         super();
     }
 
+    // swaps the element at the end of the list with the one at the index
+    public E efficientRemove(int index) {
+        int sizeBefore = size();
+        E actuallyRemoving = get(index);
+        E removed = super.remove(sizeBefore - 1);
+        if (index != sizeBefore - 1) {
+            set(index, removed);
+            onSwap(removed, index);
+        }
+        return actuallyRemoving;
+    }
+
+    // Can be implemented
+    public void onSwap(Entity e, int toIndex) { }
+
+    @Override
+    public boolean remove(Object o) {
+        efficientRemove(indexOf(o));
+        return true;
+    }
+
+    @Override
+    public E remove(int index) {
+        return efficientRemove(index);
+    }
+
     @SafeVarargs
     public EntityList(E... ents) {
         this(Arrays.asList(ents));

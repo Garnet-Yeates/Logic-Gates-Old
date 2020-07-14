@@ -147,22 +147,31 @@ public class BoundingBox {
     public static final Color OUTLINE_COL = Color.BLACK;
 
     public void draw(GraphicsContext g) {
-        for (int i = 0; i < 4; i++) {
-            Circuit c = p1.getCircuit();
-            double strokeSize = (c.getScale() * 0.6);
-            strokeSize *= 0.5;
-            double borderThickness = strokeSize / 5;
-            double innerStrokeSize = strokeSize - borderThickness;
-            for (CircuitPoint p : new CircuitPoint[]{p1, p2, p3, p4}) {
+        Circuit c = p1.getCircuit();
+
+        double borderLen = c.getScale()*0.65;
+        borderLen *= 0.4;
+        double borderThicc = borderLen*0.15;
+        double off = borderLen / 2;
+
+        for (CircuitPoint p : new CircuitPoint[]{p1, p2, p3, p4}) {
+            for (int i = 0; i < 1; i++) {
                 PanelDrawPoint pp = p.toPanelDrawPoint();
-                g.setStroke(OUTLINE_COL);
-                g.setLineWidth(strokeSize);
-                g.strokeLine(pp.x, pp.y, pp.x, pp.y);
-                g.setStroke(BOX_COL);
-                g.setLineWidth(innerStrokeSize);
-                g.strokeLine(pp.x, pp.y, pp.x, pp.y);
+                g.setFill(BOX_COL);
+                g.fillRect(pp.x - off, pp.y - off, borderLen, borderLen);
             }
         }
+
+        for (CircuitPoint p : new CircuitPoint[]{p1, p2, p3, p4}) {
+            for (int i = 0; i < 3; i++) {
+                PanelDrawPoint pp = p.toPanelDrawPoint();
+                g.setStroke(OUTLINE_COL);
+                g.setLineWidth(borderThicc);
+                g.strokeRect(pp.x - off, pp.y - off, borderLen, borderLen);
+            }
+        }
+
+
     }
 
     public Color HIGHLIGHT_COL = Color.ORANGE;

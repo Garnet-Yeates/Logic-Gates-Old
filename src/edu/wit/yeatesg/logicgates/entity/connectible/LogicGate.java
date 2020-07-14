@@ -33,12 +33,9 @@ public abstract class LogicGate extends ConnectibleEntity implements Dependent, 
     }
 
     protected Size size;
-    protected int numInputs;
     protected CircuitPoint origin;
     protected int rotation;
     protected BoundingBox boundingBox;
-
-    protected ArrayList<BezierCurve> curvesToDraw = new ArrayList<>();
 
     /**
      * Should be implemented by sub classes and be different depending on size/numinputs
@@ -50,7 +47,6 @@ public abstract class LogicGate extends ConnectibleEntity implements Dependent, 
         drawPoints = getRelativePointSet().applyToOrigin(origin, rotation);
         getCircuit().pushIntoMapRange(drawPoints);
         connections = new ConnectionList(this);
-        curvesToDraw = new ArrayList<>();
         constructInterceptPoints();
         boundingBox = new BoundingBox(interceptPoints, this);
     }
@@ -163,7 +159,7 @@ public abstract class LogicGate extends ConnectibleEntity implements Dependent, 
     }
 
     @Override
-    public void draw(GraphicsContext g, Color col) {
+    public void draw(GraphicsContext g, Color col, double opacity) {
 
     }
 

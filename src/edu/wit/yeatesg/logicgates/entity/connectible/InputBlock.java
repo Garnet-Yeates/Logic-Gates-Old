@@ -113,14 +113,17 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
     }
 
     @Override
-    public void draw(GraphicsContext g, Color col) {
+    public void draw(GraphicsContext g, Color col, double opacity) {
         PanelDrawPoint drawPoint;
         PointSet pts = drawPoints;
         Circuit c = getCircuit();
         g.setLineWidth(getLineWidth());
 
         // Draw Border
-        g.setStroke(col == null ? Color.BLACK : col);
+        Color strokeCol = col == null ? Color.BLACK : col;
+        strokeCol = Color.rgb((int) (255*strokeCol.getRed()), (int) (255*strokeCol.getGreen()), (int) (255*strokeCol.getBlue()), opacity);
+        g.setStroke(strokeCol);
+
         PanelDrawPoint bL = pts.get(1).toPanelDrawPoint();
         PanelDrawPoint tL = pts.get(2).toPanelDrawPoint();
         PanelDrawPoint tR = pts.get(3).toPanelDrawPoint();
@@ -133,7 +136,7 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
         // Draw Connection Thingy
 
         ConnectionNode connectNode = getNodeAt(pts.get(0));
-        connectNode.draw(g, col);
+        connectNode.draw(g, col, opacity);
         // Draw Circle Inside
         CircuitPoint centerPoint = pts.get(5);
         g.setFill(col == null ? out.getPowerStatus().getColor() : col);

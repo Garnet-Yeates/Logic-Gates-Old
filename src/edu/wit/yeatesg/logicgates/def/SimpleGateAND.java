@@ -153,8 +153,10 @@ public class SimpleGateAND extends ConnectibleEntity implements Rotatable {
     }
 
     @Override
-    public void draw(GraphicsContext g, Color col) {
-        g.setStroke(col == null ? Color.BLACK : col);
+    public void draw(GraphicsContext g, Color col, double opacity) {
+        Color strokeCol = col == null ? Color.BLACK : col;
+        strokeCol = Color.rgb((int) (255*strokeCol.getRed()), (int) (255*strokeCol.getGreen()), (int) (255*strokeCol.getBlue()), opacity);
+        g.setStroke(strokeCol);
         g.setLineWidth(getLineWidth());
         PointSet ps = drawPoints;
 
@@ -175,7 +177,7 @@ public class SimpleGateAND extends ConnectibleEntity implements Rotatable {
         g.strokeLine(p6.x, p6.y, p1.x, p1.y);
 
         for (ConnectionNode node : connections)
-            node.draw(g, col);
+            node.draw(g, col, opacity);
     }
 
 

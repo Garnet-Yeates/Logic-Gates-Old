@@ -260,8 +260,8 @@ public class Wire extends ConnectibleEntity implements Dependent {
 
     @Override
     public void connectCheck() {
-        bisectCheck();
         mergeCheck();
+        bisectCheck();
         super.connectCheck();
     }
 
@@ -313,9 +313,14 @@ public class Wire extends ConnectibleEntity implements Dependent {
         getCircuit().markNonTransformable(this);
     }
 
-    public void enableTransformable() {
+    public void enableTransformable(boolean update) {
         blockTransform = false;
-        update();
+        if (update)
+            update();
+    }
+
+    public void enableTransformable() {
+        enableTransformable(true);
     }
 
     // Transform checks for wires
@@ -324,8 +329,22 @@ public class Wire extends ConnectibleEntity implements Dependent {
         return !blockTransform && existsInCircuit();
     }
 
-    public void bisectCheck() {
-        if (canTransform()) {
+    private boolean blockBisect = false;
+
+    public void disableBisect() {
+        blockBisect = true;
+    }
+
+    public void enableBisect() {
+        blockBisect = false;
+    }
+
+    public boolean canBisect() {
+        return canTransform() && !blockBisect;
+    }
+
+    private void bisectCheck() {
+        if (canBisect()) {
             ArrayList<Wire> interceptingWires = getInterceptingEntities().thatExtend(Wire.class);
             for (Wire w : interceptingWires) {
                 bisectCheck(w);
@@ -334,77 +353,79 @@ public class Wire extends ConnectibleEntity implements Dependent {
         }
     }
 
-    public void bisectCheck(Wire other) {
-    //    System.out.println("  BISECT CHECK " + this.toParsableString() + " ("
-    //            + id + ")" + " with " + other.toParsableString() + " (" + other.id + ")");
-        if (!canTransform() || !other.canTransform() || isSimilar(other))
+    private void bisectCheck(Wire other) {
+        if (!canBisect() || !other.canBisect() || isSimilar(other))
             return;
-        for (CircuitPoint thisWiresEndpoint : new CircuitPoint[]{ startLocation, endLocation }) {
-            if (other.getPointsExcludingEdgePoints().contains(thisWiresEndpoint)
+        for (CircuitPoint edgePoint : new CircuitPoint[]{ startLocation, endLocation }) {
+            if (other.getPointsExcludingEdgePoints().contains(edgePoint)
                     && other.getDirection() != getDirection()) {// This means it is bisecting the wire
-                CircuitPoint bisectPoint = thisWiresEndpoint.getSimilar();
+                CircuitPoint bisectPoint = edgePoint.getSimilar();
                 CircuitPoint otherOldStartLoc = other.getStartLocation();
-     //           System.out.println("  BISECT " + other.toParsableString() + " ("
-     //                   + id + ")" + " using " + this.toParsableString() + " (" + other.id + ")");
+                blockBisect = true;
+                blockMerge = true;
                 other.disconnectAll();
                 other.set(other.startLocation, bisectPoint);
                 Wire added = new Wire(bisectPoint.getSimilar(), otherOldStartLoc.getSimilar());
                 if (other.isSelected())
                     added.select();
                 added.add();
-                other.connectCheck();
-                connectCheck();
+                blockBisect = false;
+                blockMerge = false;
             }
         }
     }
 
     public Wire split(CircuitPoint splitPoint, boolean blockTransform) {
         if (!intercepts(splitPoint) || isEdgePoint(splitPoint))
-            throw new RuntimeException("Invalid Split");
+            throw new RuntimeException("Invalid Split " + splitPoint.toParsableString() + " on " + this.toParsableString());
+        if (blockTransform)
+            disableTransformable();
         splitPoint = splitPoint.getSimilar();
         CircuitPoint oldStart = startLocation.getSimilar();
         set(startLocation, splitPoint);
         Wire created = new Wire(splitPoint, oldStart);
-        if (isSelected())
-            created.select();
         if (blockTransform)
             created.disableTransformable();
+        if (isSelected())
+            created.select();
         created.add();
         return created;
     }
 
     // Merge checks for Wires
 
-    public void mergeCheck() {
+    private void mergeCheck() {
         if (canTransform())
             for (Wire w : getInterceptingEntities().thatExtend(Wire.class))
                 mergeCheck(w);
     }
 
-    private boolean disableMerge;
+    private boolean blockMerge;
 
-    public void mergeCheck(Wire other) {
-  //      System.out.println("  MERGE CHECK " + this.toParsableString() + " ("
-  //              + id + ")" + " with " + other.toParsableString() + " (" + other.id + ")");
+    private void mergeCheck(Wire other) {
+   //     System.out.println("  MERGE CHECK " + this.toParsableString() + " ("
+    //            + id + ")" + " with " + other.toParsableString() + " (" + other.id + ")");
         if (other.getInterceptPoints().intersection(getInterceptPoints()).size() > 1)
             return;
-        if (disableMerge || other.disableMerge || other.isSimilar(this) || !canTransform() || !other.canTransform()
-                || ( (other.isSelected() || this.isSelected()) && !(other.isSelected() && this.isSelected()) ) ) {
+        if (blockMerge || other.blockMerge || other.isSimilar(this) || !canTransform() || !other.canTransform()
+                || (isSelected() != other.isSelected()) ) {
             return;
         }
         for (CircuitPoint edgePoint : new CircuitPoint[]{startLocation, endLocation}) {
             for (CircuitPoint otherEdgePoint : new CircuitPoint[]{other.startLocation, other.endLocation}) {
                 if (edgePoint.equals(otherEdgePoint)
                         && other.getDirection() == getDirection()
-                        && edgePoint.getInterceptingEntities().getWiresGoingInOppositeDirection(this).size() == 0) {
+                        && getNumOtherEdgePointsInOppositeDirectionAt(edgePoint) == 0) {
              //       System.out.println("  MERGE " + this.toParsableString() + " ("
-              //              + id + ")" + " with " + other.toParsableString() + " (" + other.id + ")");
-                    disableMerge = true;
+             //               + id + ")" + " with " + other.toParsableString() + " (" + other.id + ")");
+                    blockMerge = true;
+                    blockBisect = true;
                     other.remove(); // Checks done in delete
                    // System.out.println("SET " + edgePoint.toParsableString() + " to " + other.getOppositeEdgePoint(edgePoint).toParsableString());
                     set(edgePoint, other.getOppositeEdgePoint(edgePoint)); // Reconstruct done in set
                     //System.out.println("  DONE MERGE");
-                    disableMerge = false;
+                    blockMerge = false;
+                    blockBisect = false;
                 }
             }
         }
@@ -413,6 +434,15 @@ public class Wire extends ConnectibleEntity implements Dependent {
     public int getNumOtherEdgePointsAt(CircuitPoint edgeOfThisWire) {
         int num = 0;
         ArrayList<Wire> otherWires = getInterceptingEntities().thatExtend(Wire.class);
+        for (Wire w : otherWires)
+            if (w.startLocation.equals(edgeOfThisWire) || w.endLocation.equals(edgeOfThisWire))
+                num++;
+        return num;
+    }
+
+    public int getNumOtherEdgePointsInOppositeDirectionAt(CircuitPoint edgeOfThisWire) {
+        int num = 0;
+        ArrayList<Wire> otherWires = getInterceptingEntities().getWiresGoingInOppositeDirection(getDirection());
         for (Wire w : otherWires)
             if (w.startLocation.equals(edgeOfThisWire) || w.endLocation.equals(edgeOfThisWire))
                 num++;
@@ -481,13 +511,13 @@ public class Wire extends ConnectibleEntity implements Dependent {
     }
 
     @Override
-    public void draw(GraphicsContext g, Color col) {
-        draw(g, col == null ? getColor() : col, true);
+    public void draw(GraphicsContext g, Color col, double opacity) {
+        draw(g, col == null ? getColor() : col, opacity, true);
     }
 
-    public void draw(GraphicsContext g, Color col, boolean drawJunctions) {
+    public void draw(GraphicsContext g, Color col, double opacity, boolean drawJunctions) {
+        col = Color.rgb((int) (255*col.getRed()), (int) (255*col.getGreen()), (int) (255*col.getBlue()), opacity);
         g.setStroke(col);
-        g.setImageSmoothing(false);
         g.setLineWidth(getLineWidth());
         PanelDrawPoint p1 = startLocation.toPanelDrawPoint();
         PanelDrawPoint p2 = endLocation.toPanelDrawPoint();

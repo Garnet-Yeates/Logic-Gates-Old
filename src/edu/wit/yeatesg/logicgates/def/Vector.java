@@ -37,6 +37,10 @@ public class Vector {
         return new Vector(x, y);
     }
 
+    public String toParsableString() {
+        return "<" + x + "," + y + ">";
+    }
+
     public static List<Vector> getDirectionVecs() {
         return Arrays.asList(DIRECTION_VECS);
     }

@@ -6,6 +6,8 @@ import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
+import java.util.Comparator;
+
 public class ConnectionNode {
 
    protected CircuitPoint location;
@@ -18,6 +20,14 @@ public class ConnectionNode {
        this.parent = connectingFrom;
    }
 
+   public static Comparator<ConnectionNode> getHorizontalComparator() {
+       return Comparator.comparingDouble(node -> node.location.x);
+   }
+
+   public static Comparator<ConnectionNode> getVerticalComparator() {
+       return Comparator.comparingDouble(o -> o.location.y);
+   }
+
    public ConnectionNode clone(Circuit onto) {
        return new ConnectionNode(location.clone(onto), parent.clone(onto), connectedTo.clone(onto));
    }
@@ -27,7 +37,7 @@ public class ConnectionNode {
    }
 
     public CircuitPoint getLocation() {
-        return location;
+        return location.getSimilar();
     }
 
     public void setLocation(CircuitPoint location) {
@@ -69,10 +79,10 @@ public class ConnectionNode {
 
 
     public void draw(GraphicsContext g) {
-       draw(g, null);
+       draw(g, null, 1);
     }
 
-    public void draw(GraphicsContext g, Color col) { }
+    public void draw(GraphicsContext g, Color col, double opacity) { }
 
     @Override
     public String toString() {

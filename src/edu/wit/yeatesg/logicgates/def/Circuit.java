@@ -39,10 +39,14 @@ public class Circuit implements PropertyMutable {
 
     private ExactEntityList<Wire> nonTransformables = new ExactEntityList<>();
 
-    private void clearNonTransformables() {
+    public void clearNonTransformables(boolean update) {
         for (Wire w : nonTransformables)
-            w.enableTransformable();
+            w.enableTransformable(update);
         nonTransformables.clear();
+    }
+
+    public void clearNonTransformables() {
+        clearNonTransformables(true);
     }
 
     public void markNonTransformable(Wire w) {
@@ -64,8 +68,19 @@ public class Circuit implements PropertyMutable {
             if (entity.getCircuit() != Circuit.this)
                 throw new RuntimeException("Entity does not have a reference to this Circuit in memory");
             super.add(entity);
+            entity.setCircuitIndex(size() - 1);
             entity.onAddToCircuit();
             return true;
+        }
+
+        @Override
+        public int indexOfExact(E ent) {
+            return ent.getCircuitIndex();
+        }
+
+        @Override
+        public void onSwap(Entity e, int toIndex) {
+            e.setCircuitIndex(toIndex);
         }
 
         @SuppressWarnings("unchecked")
@@ -283,7 +298,6 @@ public class Circuit implements PropertyMutable {
                 for (Entity otherEntity : getEntitiesThatIntercept(intPoint))
                     if (!thatInterceptE.containsExact(otherEntity) && otherEntity != e) {
                         thatInterceptE.add(otherEntity);
-                   ///     System.out.println("E = " + e + " ," + " ONCIRCUIT = " + otherEntity.existsInCircuit() + "intercepts = " + otherEntity);
                     }// We WANT != here instead of !equals(). This is because
             return thatInterceptE;                        // we want to be able to check interceptions for similar entities
         }                                                 // that may not be on the circuit
@@ -425,9 +439,7 @@ public class Circuit implements PropertyMutable {
         g.fillOval(drawX, drawY, circleSize, circleSize);
     }
 
-    public void fixSelection() {
-      //  for (Entity e : currSelection.clone())
-      //      e.update();
+    public void reRe() {
         recalculateTransmissions();
         repaint();
     }
@@ -507,6 +519,16 @@ public class Circuit implements PropertyMutable {
             list.forEach(this::select);
         }
 
+        @Override
+        public void onSwap(Entity e, int toIndex) {
+            e.setSelectionIndex(toIndex);
+        }
+
+        @Override
+        public int indexOfExact(Entity ent) {
+            return ent.getSelectionIndex();
+        }
+
         public boolean intercepts(CircuitPoint p) {
             for (Entity e : this)
                 if (e.getBoundingBox().intercepts(p))
@@ -519,10 +541,17 @@ public class Circuit implements PropertyMutable {
             throw new UnsupportedOperationException("Use select(Entity)");
         }
 
+        /**
+         * The only method that adds elements to this list
+         * @param entity
+         * @return
+         */
         public boolean select(Entity entity) {
             boolean added = false;
             if (!containsExact(entity)) {
                 added = super.add(entity);
+                entity.setSelectionIndex(size() - 1);
+                entity.onSelect();
                 entity.update();
                 updateConnectionView();
             }
@@ -877,130 +906,142 @@ public class Circuit implements PropertyMutable {
         public abstract void operate();
     }
 
+    public void bridgeWires(PointSet causingBridgeAt) {
+        causingBridgeAt.forEach(this::bridgeWires);
+    }
 
-    private enum OperandFocus { SELECTED, NON_SELECTED }
-    private static final OperandFocus SELECTED = OperandFocus.SELECTED;
-    private static final OperandFocus NON_SELECTED = OperandFocus.NON_SELECTED;
+    public void bridgeWires(CircuitPoint p) {
+        EntityList<Wire> recreating = p.getInterceptingEntities()
+                .getWiresGoingInOppositeDirection(Direction.VERTICAL);
+        recreating.forEach(Wire::remove);
+        recreating.forEach(Wire::disableBisect);
+        recreating.forEach(Wire::add);
+        recreating.forEach(Wire::enableBisect);
+        recreating.forEach(Wire::update);
+    }
 
-    public ExactEntityList<Entity> getOperands(Entity mainOperand, OperandFocus focus) {
-        ExactEntityList<Entity> operands = new ExactEntityList<>();
+    public boolean isWireBridgeAt(CircuitPoint location) {
+        for (Wire w : location.getInterceptingEntities().thatExtend(Wire.class))
+            System.out.println(w.toParsableString());
+        boolean foundHorizontalOne = false;
+        for (Wire w : location.getInterceptingEntities().getWiresGoingInSameDirection(Direction.HORIZONTAL)) {
+            if (!w.isEdgePoint(location)) {
+                foundHorizontalOne = true;
+                break;
+            }
+        }
+        if (foundHorizontalOne)
+            for (Wire w : location.getInterceptingEntities().getWiresGoingInSameDirection(Direction.VERTICAL))
+                if (!w.isEdgePoint(location))
+                    return true;
+        return false;
+    }
+
+    private enum SelectiveFocus { SELECTED, NON_SELECTED }
+    private static final SelectiveFocus SELECTED = SelectiveFocus.SELECTED;
+    private static final SelectiveFocus NON_SELECTED = SelectiveFocus.NON_SELECTED;
+
+    public OperandList<Entity> getOperands(Entity mainOperand, SelectiveFocus focus) {
+        OperandList<Entity> operands = new OperandList<>();
         if (!(mainOperand instanceof Wire)) {
-            operands.add(getOldestSimilarEntity(mainOperand));
+            for (Entity e : mainOperand.getInterceptingEntities()) {
+                if (e.isSimilar(mainOperand)
+                        && e.isSelected() == (focus == SelectiveFocus.SELECTED)) // e's selected state must match the focus
+                {
+                    operands.add(e);
+                    break;
+                }
+            }
         } else {
-            Wire similar = (Wire) mainOperand;
-            ExactEntityList<Wire> wireops;
-      //      wireops = getWireOperands(similar, focus);
-            wireops = getWireOperands(similar.getStartLocation(), null, similar, null, focus);
-            if (wireops == null || wireops.isEmpty())
-                throw new RuntimeException("Could not get Wire operands for " + mainOperand);
-            operands.addAll(wireops);
+            Wire building = (Wire) mainOperand;
+            OperandList<Wire> wirePieces;
+            wirePieces = buildWireFromCircuit(building, focus);
+            if (wirePieces == null || wirePieces.isEmpty())
+                throw new RuntimeException("Could not get Wire pieces for " + building);
+            operands.addAll(wirePieces);
+            operands.causingBisectHere = wirePieces.causingBisectHere;
         }
         return operands;
     }
 
-    // When you get to a new Wire (or multiple new wires, add them to the currOperands clone immediately)
-    // return the first non null one
-    public ExactEntityList<Wire> getWireOperands(CircuitPoint currLoc,
-                                                 Vector dir,
-                                                 Wire similarWire,
-                                                 ExactEntityList<Wire> currOperands,
-                                                 OperandFocus focus) {
-        boolean shouldSelect = focus == OperandFocus.SELECTED;
-        currLoc = currLoc.getSimilar();
-        CircuitPoint start = similarWire.getStartLocation();
-        CircuitPoint end = similarWire.getEndLocation();
-        CircuitPoint next = null;
-        if (dir != null)
-            next = currLoc.getIfModifiedBy(dir);
-        Wire currWire = (currOperands == null || currOperands.isEmpty()) ? null : currOperands.get(currOperands.size() - 1);
-        if (currWire == null && dir == null) { // Initial case
-            EntityList<Wire> interceptingWires = currLoc.getInterceptingEntities().getWiresGoingInSameDirection(similarWire);
-            dir = Vector.getCardinalDirectionVector(similarWire.getStartLocation(), similarWire.getEndLocation());
-            ExactEntityList<Wire> possibleReturn;
-            for (Wire w : interceptingWires) {
-                if (w.isSelected() == shouldSelect) {
-                    w.disableTransformable();
-                    if ((possibleReturn = getWireOperands(currLoc.getSimilar(), dir, similarWire, new ExactEntityList<>(w), focus)) != null)
-                        return possibleReturn;
+    /**
+     * Attempts to use Wires on the circuit to 'build' a potentially larger Wire. For example, if you use
+     * an AddOperation to add a Wire with length 12, and it gets cut in two spots by 2 perpendicular wires after
+     * being added/updated, then the respective EntityRemoveOperation needs to be able to 'build' back the Wire out
+     * of the pieces on the circuit for the operation to work. So the remove operation would remove 3 wires.
+     * @param building a similar Wire that isn't on the Circuit (typically used for state operation memory)
+     * @param focus whether or not the Wire being built needs to be selected or needs to be not selected
+     * @return an {@link ExactEntityList} containing the Wires on this circuit that would need to be merged together
+     * to be equivalent to the similar building Wire.
+     */
+    public OperandList<Wire> buildWireFromCircuit(Wire building, SelectiveFocus focus) {
+        OperandList<Wire> list = new OperandList<>();
+        for (Wire w : building.getInterceptingEntities().getWiresGoingInSameDirection(building))
+            w.disableTransformable();
+
+        for (CircuitPoint p : new CircuitPoint[] { building.getStartLocation(), building.getEndLocation()}) {
+            o: for (Wire w : p.getInterceptingEntities().getWiresGoingInSameDirection(building)) {
+                if (!w.isEdgePoint(p)) {
+                    w.split(p, true);
+                    EntityList<Wire> wiresInOppositeDir = p.getInterceptingEntities().getWiresGoingInOppositeDirection(w);
+                    if (wiresInOppositeDir.size() > 0) {
+                        for (Wire oppDir : wiresInOppositeDir)
+                            if (oppDir.isEdgePoint(p))
+                                continue o;
+                        // If we get to here, we know we are causing a bisect
+                        list.causingBisectHere.add(p.getSimilar());
+                    }
                 }
             }
-            return null;
         }
-        else if (currWire != null && dir != null) {
-            if (!currLoc.intercepts(currWire))
-                throw new RuntimeException("Tu fucked up");
-            if (currLoc.isSimilar(start)) {                    // We are at start loc of sim simma
-                if (currWire.isEdgePoint(currLoc)) {
-                    if (currWire.intercepts(next)) { // start of sim simma and start of first wire
-                        return getWireOperands(next, dir, similarWire, currOperands, focus);
-                    } else { // start of sim simma and end of some random wire that is irrelevant
-                        return null;
-                    }
-                }
-                else {// Not an edge point, split the Wire and advance
-                    splitWireAndAddHalfToOperands(currWire, currLoc, dir, start, end, currOperands);
-                    return getWireOperands(next, dir, similarWire, currOperands, focus);
-                }
-            } else if (currLoc.isSimilar(end)) {                         // We are at the end loc of sim simma
-                if (!currWire.isEdgePoint(currLoc)) { // Not an edge point, split the Wire
-                    splitWireAndAddHalfToOperands(currWire, currLoc, dir, start, end, currOperands);
-                }
-                return currOperands;
-            } else {  //We are not on the edge points of sim simma below here
-                if (currWire.isEdgePoint(currLoc)) {
-                    if (currWire.intercepts(next)) {
-                        // We just started traversing currWire
-                        return getWireOperands(next, dir, similarWire, currOperands, focus);
-                    } else {
-                        // We are at the end of currWire
-                        // We need to check intercepting
-                        EntityList<Wire> possibleWiresToLookAt = new ExactEntityList<>(currLoc.getInterceptingEntities()
-                                .thatExtend(Wire.class)).exceptExact(currWire)
-                                .getWiresGoingInSameDirection(currWire)
-                                .thatIntercept(next);
-                        // If possibleWiresToLookAt is empty, it will return null
-                        for (Wire possible : possibleWiresToLookAt) {
-                            if (possible.isEdgePoint(currLoc) && possible.isSelected() == shouldSelect) {
-                                ExactEntityList<Wire> currOperandsClone = currOperands.clone();
-                                currOperandsClone.add(possible);
-                                possible.disableTransformable();
-                                ExactEntityList<Wire> possibleReturn;
-                                if ((possibleReturn = getWireOperands(next, dir, similarWire, currOperandsClone, focus)) != null)
-                                    return possibleReturn;
-                            }
-                        }
-                        for (Entity e : currOperands)
-                            if (e instanceof Wire)
-                                ((Wire) e).enableTransformable();
-                        return null;
-                    }
-                } else // We are on neither on the edge points of sim simma or the curr wire, advance
-                    return getWireOperands(next, dir, similarWire, currOperands, focus);
-            }
-        } else
-            throw new RuntimeException("Tu Fucked Up");
+        return getNextPiece(building.getLefterEdgePoint(), building, list, focus);
     }
 
-    /**
-     * Makes sure that the irrelevant half is removed if it was in the operands
-    */
-    public void splitWireAndAddHalfToOperands(Wire currWire,
-                                                     CircuitPoint currLoc,
-                                                     Vector dir,
-                                                     CircuitPoint start,
-                                                     CircuitPoint end,
-                                                     ExactEntityList<Wire> currOperands) {
-        Wire created = currWire.split(currLoc, true);
-        CircuitPoint prev = currLoc.getIfModifiedBy(dir.getMultiplied(-1));
-        CircuitPoint next = currLoc.getIfModifiedBy(dir);
-        for (Wire w : new Wire[] { currWire, created }) {
-            if ( ( currLoc.isSimilar(start) && (!w.intercepts(next)) )
-                    || ( currLoc.isSimilar(end) && (!w.intercepts(prev)) ) ) {
-                currOperands.removeExact(w);
-            }
-            else if (!currOperands.containsExact(w))
-                currOperands.add(w);
+    private static class OperandList<E extends Entity> extends ExactEntityList<E> {
+        private PointSet causingBisectHere = new PointSet();
+
+        @Override
+        public OperandList<E> clone() {
+            OperandList<E> clone = new OperandList<>();
+            clone.addAll(this);
+            clone.causingBisectHere = causingBisectHere;
+            return clone;
         }
+
+        @Override
+        public ExactEntityList<E> deepClone() {
+            throw new UnsupportedOperationException();
+        }
+    }
+
+    // Look for Wire w with left edgePoint at whereAt, add it to currPiecesClone, return first nonNull occurrence
+    // of a recursive call on the right edge point of w.
+    public OperandList<Wire> getNextPiece(CircuitPoint whereAt,
+                                              Wire building,
+                                              OperandList<Wire> currPieces,
+                                              SelectiveFocus focus) {
+        if (building.getRighterEdgePoint().isSimilar(whereAt)) {
+            return currPieces;
+        }
+        boolean select = focus == SelectiveFocus.SELECTED;
+        Wire lastScanned = currPieces.isEmpty() ? null : currPieces.get(currPieces.size() - 1);
+        for (Entity e : whereAt.getInterceptingEntities()) {
+            if (e instanceof Wire
+                    && ((Wire) e).getDirection() == building.getDirection()
+                    && e.isSelected() == select
+                    && ( lastScanned == null || !lastScanned.isSimilar(e)) ) {
+                Wire w = (Wire) e;
+                w.disableTransformable(); // Will also disable transform for irrelevant wires, but idgaf
+                if (w.getLefterEdgePoint().intercepts(whereAt)) {
+                    OperandList<Wire> currOpsClone = currPieces.clone();
+                    currOpsClone.add(w);
+                    OperandList<Wire> possiblePath;
+                    if ((possiblePath = getNextPiece(w.getRighterEdgePoint(), building, currOpsClone, focus)) != null)
+                        return possiblePath;
+                }
+            }
+        }
+        return null;
     }
 
     public class SelectOperation extends StateChangeOperation {
@@ -1020,7 +1061,7 @@ public class Circuit implements PropertyMutable {
         @Override
         public void operate() {
     //        System.out.println(this.getClass().getSimpleName() + " OPERATE ");
-            ExactEntityList<Entity> ops = getOperands(selecting, OperandFocus.NON_SELECTED);
+            OperandList<Entity> ops = getOperands(selecting, SelectiveFocus.NON_SELECTED);
      //       for (Entity e : ops)
       //          System.out.println(e + " selected ? " + e.isSelected());
             out: for (Entity e : ops) {
@@ -1053,113 +1094,71 @@ public class Circuit implements PropertyMutable {
 
         @Override
         public SelectOperation getOpposite() {
-            return new SelectOperation(deselecting, false);
+            SelectOperation oppa = new SelectOperation(deselecting, false);
+            return oppa;
         }
 
         @Override
         public void operate() {
-       //     System.out.println(this.getClass().getSimpleName() + " OPERATE ");
-            ExactEntityList<Entity> ops = getOperands(deselecting, SELECTED);
-       //     for (Entity e : ops)
-      //          System.out.println(e + " selected ? " + e.isSelected());
-            out: for (Entity e : ops) {
-                // These entities should be direct references
-                // Deselect Operation must prioritize selected entities. If it cannot find a selected entity, end my life
-                if (e.isSelected()) {
-                    e.deselect();
-                } else {
-                    for (Entity e2 : new ExactEntityList<>(getSimilarEntities(e)).exceptExact(e))
-                        if (e2.isSelected()) {
-                            e2.deselect();
-                            break out;
-                        }
-                    Circuit.this.clearNonTransformables();
-                    throw new RuntimeException("Could not find selected entity to deselect on Circuit");
-                }
-            }
-            Circuit.this.clearNonTransformables();
+            OperandList<Entity> ops = getOperands(deselecting, SELECTED);
+            for (Entity e : ops)
+                e.deselect();
         }
 
     }
 
 
     // Must be selected
-    public class EntityMoveOperation extends StateChangeOperation {
+    public class SelectionMoveOperation extends StateChangeOperation {
 
-        private Entity moving;
+        private Selection moving;
         private Vector movement;
 
-        public EntityMoveOperation(Entity similarMoving, Vector movement, boolean track) {
+        public SelectionMoveOperation(Selection selection, Vector movement, boolean track) {
             super(track);
-            moving = similarMoving.getSimilarEntity();
+            moving = selection.deepClone();
             this.movement = movement.clone();
         }
 
         @Override
-        public EntityMoveOperation getOpposite() {
-            Entity clone = moving.getSimilarEntity();
-            clone.moveBy(movement);
-            return new EntityMoveOperation(clone, movement.getMultiplied(-1), false);
+        public SelectionMoveOperation getOpposite() {
+            Selection deepClone = moving.deepClone();
+            for (Entity e : deepClone) {
+                e.disableUpdate();
+                e.move(movement);
+            }
+            return new SelectionMoveOperation(deepClone, movement.getMultiplied(-1), false);
         }
 
         @Override
         public void operate() {
-      //      System.out.println("SIM SIMMA TO MOVE: " + moving.toParsableString());
-      //      System.out.println("OUR SELECTION BEFORE OPS: ");
-   //         for (Entity e : currSelection)
-   //             System.out.println(" " + e.toParsableString());
-            ExactEntityList<Entity> ops = getOperands(moving, SELECTED);
-       //     System.out.println("OUR SELECTION AFTER OPS: ");
-      //      for (Entity e : currSelection)
-      //          System.out.println(" " + e.toParsableString());
-       //     System.out.println(this.getClass().getSimpleName() + " OPERATE MOVE (" + ops.size() + "sub-ops)");
-        //    for (Entity e : ops)
-       //         System.out.println(e.toParsableString() + " selected ? " + e.isSelected());
-            out: for (Entity e : ops) {
-                // These entities should be direct references
-                // Move Operation must prioritize selected entities. If it cannot find a selected entity, end my life
-                if (e.isSelected()) {
-                    e.moveBy(movement);
-                } else {
-                    for (Entity e2 : new ExactEntityList<>(getSimilarEntities(e)).exceptExact(e))
-                        if (e2.isSelected()) {
-                            e2.moveBy(movement);
-                            break out;
-                        }
-
-                    Circuit.this.clearNonTransformables();
-                    throw new RuntimeException("Could not find selected entity to move on Circuit");
-                }
+            EntityList<Entity> shallowClone = currSelection.clone();
+            for (Entity e : shallowClone)
+                e.disableUpdate();
+            for (Entity e : shallowClone)
+                e.move(movement);
+            for (Entity e : shallowClone)
+                e.enableUpdate();
+            for (Entity e : shallowClone)
+                e.spreadUpdate();
+           /* OperandList<Entity> megaOps = new OperandList<>();
+            for (Entity e : moving) {
+                ExactEntityList<Entity> ops = getOperands(e, SELECTED);
+                megaOps.addAll(ops);
+                ops.forEach(Entity::disableUpdate);
+                ops.forEach(entity -> entity.move(movement));
             }
-            Circuit.this.clearNonTransformables();
 
-            // Should be moved / reconstructed by now so getOperands should work (below)
+            for (Entity e : megaOps)
+                e.enableUpdate();
+
+            clearNonTransformables();
+            for (Entity e : megaOps)
+                if (!(e instanceof Wire))
+                    e.update(); // Wires were already updated with clearNonTransformables().*/
         }
     }
 
-
-    public class WireShortenOperation extends EntityDeleteOperation {
-
-        private HashMap<CircuitPoint, Direction> causingBisectHere = new HashMap<>();
-
-        public WireShortenOperation(Wire shortening, CircuitPoint edge, CircuitPoint to) {
-            super(new Wire(edge, to), true);
-            if (new Wire(edge, to).isSimilar(shortening))
-                throw new RuntimeException("This should be a delete operation instead");
-            EntityList<Entity> toIntercepting = to.getInterceptingEntities().exceptSimilar(shortening);
-            EntityList<Wire> toInterceptingWires = toIntercepting.thatExtend(Wire.class);
-            if (!to.interceptsWireEdgePoint()
-                    && toInterceptingWires.getWiresGoingInOppositeDirection(shortening).size() == 1)
-                causingBisectHere.put(to.getSimilar(), shortening.getDirection().getPerpendicular());
-        }
-
-        @Override
-        public StateChangeOperation getOpposite() {
-            EntityAddOperation addOp = new EntityAddOperation(deleting, false);
-            addOp.setCausingMergeMap(causingBisectHere);
-            return addOp;
-        }
-    }
 
     public class EntityDeleteOperation extends StateChangeOperation {
 
@@ -1172,16 +1171,22 @@ public class Circuit implements PropertyMutable {
         }
 
         @Override
-        public StateChangeOperation getOpposite() {
-            return new EntityAddOperation(deleting, false);
+        public EntityAddOperation getOpposite() {
+            EntityAddOperation oppa = new EntityAddOperation(deleting, false);
+            oppa.causingBridgeAt = causingBisectMap;
+            return oppa;
         }
+
+        protected PointSet causingBisectMap = new PointSet();
 
         @Override
         public void operate() {
 //            System.out.println(this.getClass().getSimpleName() + " OPERATE ");
   //          for (Entity e : getOperands(deleting, NON_SELECTED))
    //             System.out.println(e + " selected ? " + e.isSelected());
-            out: for (Entity e : getOperands(deleting, NON_SELECTED)) {
+            OperandList<Entity> operands = getOperands(deleting, NON_SELECTED);
+            causingBisectMap = operands.causingBisectHere;
+            out: for (Entity e : operands) {
                 // These entities should be direct references
                 // Deselect Operation must prioritize selected entities. If it cannot find a selected entity, end my life
                 if (!e.isSelected()) {
@@ -1210,9 +1215,9 @@ public class Circuit implements PropertyMutable {
 
     public class EntityAddOperation extends StateChangeOperation {
 
-        private Entity adding;
+        protected PointSet causingBridgeAt = new PointSet();
 
-        private HashMap<CircuitPoint, Direction> causingMergeMap = new HashMap<>();
+        private Entity adding;
 
         public EntityAddOperation(Entity adding, boolean track) {
             super(track);
@@ -1220,9 +1225,6 @@ public class Circuit implements PropertyMutable {
             this.adding = adding;
         }
 
-        public void setCausingMergeMap(HashMap<CircuitPoint, Direction> causingMergeMap) {
-            this.causingMergeMap = causingMergeMap;
-        }
 
         @Override
         public StateChangeOperation getOpposite() {
@@ -1238,22 +1240,12 @@ public class Circuit implements PropertyMutable {
                 throw new NullPointerException();
             parsed.add();
             if (adding instanceof Wire) {
-                for (CircuitPoint p : causingMergeMap.keySet()) {
-                    System.out.println("CAUSING MERGE AT " + p + " IN DIR " + causingMergeMap.get(p));
-                    Direction mergeDir = causingMergeMap.get(p);
-                    EntityList<Wire> deletingSimilar = p.getInterceptingEntities()
-                            .getWiresGoingInOppositeDirection(mergeDir);
-                    deletingSimilar.deepClone().forEach(Circuit.this::removeSimilarEntity);
-                    // After these are deleted, the other wires will merge back together
-                    if (deletingSimilar.get(0).getLefterEdgePoint().isSimilar(deletingSimilar.get(1).getRighterEdgePoint())) {
-                        addEntity(new Wire(deletingSimilar.get(0).getRighterEdgePoint(), deletingSimilar.get(1).getLefterEdgePoint()));
-                    } else {
-                        addEntity(new Wire(deletingSimilar.get(0).getLefterEdgePoint(), deletingSimilar.get(1).getRighterEdgePoint()));
-                    }
-                }
+                createBridges();
             }
+        }
 
-
+        public void createBridges() {
+            bridgeWires(causingBridgeAt);
         }
 
         @Override
@@ -1298,7 +1290,6 @@ public class Circuit implements PropertyMutable {
             }
         }
     }
-
 
 
     // Scale, Offset, Drawing/Color Stuff Below
