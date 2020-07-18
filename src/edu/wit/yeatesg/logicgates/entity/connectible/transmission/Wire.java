@@ -5,6 +5,8 @@ import edu.wit.yeatesg.logicgates.def.Vector;
 import edu.wit.yeatesg.logicgates.entity.*;
 import edu.wit.yeatesg.logicgates.def.*;
 import edu.wit.yeatesg.logicgates.entity.connectible.*;
+import edu.wit.yeatesg.logicgates.entity.connectible.logicgate.LogicGate;
+import edu.wit.yeatesg.logicgates.entity.connectible.logicgate.SimpleGateAND;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 import edu.wit.yeatesg.logicgates.points.PanelDrawPoint;
 import javafx.scene.canvas.GraphicsContext;
@@ -203,6 +205,13 @@ public class Wire extends ConnectibleEntity implements Dependent {
         } else if (e instanceof ConnectibleEntity) {
             ConnectibleEntity ce = (ConnectibleEntity) e;
             CircuitPoint point = interceptPoints.get(0);
+           if (e instanceof LogicGate) {
+                Direction blocked = ((LogicGate) e).getWireBlockDirection();
+                for (CircuitPoint cp : ((LogicGate) e).getWireBlockLocations())
+                    if (cp.isSimilar(point) && getDirection() == blocked)
+                        return interceptPoints;
+            }
+            // TODO If it touches a logicgate in the no wires here in certain dir kill urself
             if (!hasConnectionTo(ce) && !(ce.hasNodeAt(point) && ce.getNumEntitiesConnectedAt(point) == 0))
                     return interceptPoints; // If it hits the entity once, but cant connect, it's invalid
         }
@@ -295,6 +304,11 @@ public class Wire extends ConnectibleEntity implements Dependent {
             connections.add(new ConnectionNode(atLocation, this, e));
             gate.getNodeAt(atLocation).connectedTo = this;
         }
+        else if (e instanceof LogicGate) {
+            LogicGate gate = (LogicGate) e;
+            connections.add(new ConnectionNode(atLocation, this, e));
+            gate.getNodeAt(atLocation).connectedTo = this;
+        }
     }
 
     @Override
@@ -326,7 +340,7 @@ public class Wire extends ConnectibleEntity implements Dependent {
     // Transform checks for wires
 
     public boolean canTransform() {
-        return !blockTransform && existsInCircuit();
+        return !blockTransform && !blockUpdate && existsInCircuit();
     }
 
     private boolean blockBisect = false;
@@ -610,11 +624,6 @@ public class Wire extends ConnectibleEntity implements Dependent {
                 }
             }
         }
-        return false;
-    }
-
-    @Override
-    public boolean canMove() {
         return false;
     }
 

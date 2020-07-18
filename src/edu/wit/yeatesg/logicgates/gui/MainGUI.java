@@ -1,6 +1,9 @@
 package edu.wit.yeatesg.logicgates.gui;
 
-import edu.wit.yeatesg.logicgates.def.SimpleGateAND;
+import edu.wit.yeatesg.logicgates.entity.Entity;
+import edu.wit.yeatesg.logicgates.entity.connectible.logicgate.GateAND;
+import edu.wit.yeatesg.logicgates.entity.connectible.logicgate.GateOR;
+import edu.wit.yeatesg.logicgates.entity.connectible.logicgate.SimpleGateAND;
 import edu.wit.yeatesg.logicgates.entity.PropertyMutable;
 import edu.wit.yeatesg.logicgates.entity.Property;
 import edu.wit.yeatesg.logicgates.def.Circuit;
@@ -320,7 +323,17 @@ public class MainGUI extends Application {
         c.addEntity(new InputBlock(new CircuitPoint(33, -5, c), 0));
         c.addEntity(new InputBlock(new CircuitPoint(37, -5, c), 0));
 
-        c.addEntity(new SimpleGateAND(new CircuitPoint(-1, 10, c), 0));
+        c.addEntity(new GateAND(new CircuitPoint(5, 5, c), 0));
+        c.addEntity(new GateAND(new CircuitPoint(10, 5, c), 0, Entity.Size.MEDIUM, 3));
+        c.addEntity(new GateAND(new CircuitPoint(15, 5, c), 0, Entity.Size.MEDIUM, 2));
+        c.addEntity(new GateAND(new CircuitPoint(20, 5, c), 0, Entity.Size.MEDIUM, 5));
+        c.addEntity(new GateAND(new CircuitPoint(27, 10, c), 0, Entity.Size.MEDIUM, 7));
+        c.addEntity(new GateAND(new CircuitPoint(27, 15, c), 0, Entity.Size.MEDIUM, 15));
+       c.addEntity(new GateOR(new CircuitPoint(27, 15, c), 0, Entity.Size.MEDIUM, 5));
+
+
+
+    /*    c.addEntity(new SimpleGateAND(new CircuitPoint(-1, 10, c), 0));
         c.addEntity(new SimpleGateAND(new CircuitPoint(-2, 8, c), 0));
         c.addEntity(new SimpleGateAND(new CircuitPoint(-4, 6, c), 0));
         c.addEntity(new SimpleGateAND(new CircuitPoint(-5, 5, c), 0));
@@ -339,7 +352,7 @@ public class MainGUI extends Application {
 
         c.addEntity(new SimpleGateAND(new CircuitPoint(20, 35, c), 0));
 
-        c.addEntity(new SimpleGateAND(new CircuitPoint(30, 35, c), 0));
+        c.addEntity(new SimpleGateAND(new CircuitPoint(30, 35, c), 0));*/
 
 
 // 14, -9

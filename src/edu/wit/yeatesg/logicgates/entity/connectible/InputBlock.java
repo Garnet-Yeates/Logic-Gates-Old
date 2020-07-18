@@ -77,18 +77,6 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
     private int rotation;
 
     @Override
-    public Entity getRotated(int rotation) {
-        if (!validRotation(rotation))
-            throw new RuntimeException("Invalid Rotation");
-        return null;
-    }
-
-    @Override
-    public int getRotation() {
-        return rotation;
-    }
-
-    @Override
     public RelativePointSet getRelativePointSet() {
         RelativePointSet drawPointRelative = new RelativePointSet();
         Circuit c = getCircuit();
@@ -264,26 +252,6 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
         return false;
     }
 
-
-    @Override
-    public boolean canMove() {
-        return true;
-    }
-
-    @Override
-    public Entity onDragMove(CircuitPoint newLocation) {
-        super.onDragMove(newLocation);
-        if (!newLocation.equals(origin)) {
-            InputBlock preview = new InputBlock(newLocation, rotation);
-            return preview;
-        }
-        return null;
-    }
-
-    @Override
-    public void onDragMoveRelease(CircuitPoint newLocation) {
-        super.onDragMoveRelease(newLocation);
-    }
 
     @Override
     public String toString() {

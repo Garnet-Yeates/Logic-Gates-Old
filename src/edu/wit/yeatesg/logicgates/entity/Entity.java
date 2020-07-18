@@ -2,7 +2,9 @@ package edu.wit.yeatesg.logicgates.entity;
 
 import edu.wit.yeatesg.logicgates.def.BoundingBox;
 import edu.wit.yeatesg.logicgates.def.Circuit;
-import edu.wit.yeatesg.logicgates.def.SimpleGateAND;
+import edu.wit.yeatesg.logicgates.entity.connectible.logicgate.GateAND;
+import edu.wit.yeatesg.logicgates.entity.connectible.logicgate.GateOR;
+import edu.wit.yeatesg.logicgates.entity.connectible.logicgate.SimpleGateAND;
 import edu.wit.yeatesg.logicgates.def.Vector;
 import edu.wit.yeatesg.logicgates.entity.connectible.ConnectibleEntity;
 import edu.wit.yeatesg.logicgates.entity.connectible.InputBlock;
@@ -19,9 +21,25 @@ public abstract class Entity implements PropertyMutable {
     private static int idAssign;
     protected int id;
 
-    private final Circuit c;
+    protected final Circuit c;
 
-    protected enum Size { SMALL, MEDIUM, LARGE }
+    public enum Size {
+        SMALL, MEDIUM, LARGE;
+
+        public static Size fromString(String s) {
+            switch (s.toUpperCase()) {
+                case "SMALL":
+                    return SMALL;
+                case "MEDIUM":
+                    return MEDIUM;
+                case "LARGE":
+                    return LARGE;
+                default:
+                    return null;
+            }
+        }
+
+    }
 
     /**
      * Entity constructor template:
@@ -90,18 +108,18 @@ public abstract class Entity implements PropertyMutable {
         c.addEntity(this);
     }
 
-    private boolean disableUpdate = false;
+    protected boolean blockUpdate = false;
 
     public void disableUpdate() {
-        disableUpdate = true;
+        blockUpdate = true;
     }
 
     public void enableUpdate() {
-        disableUpdate = false;
+        blockUpdate = false;
     }
 
     public void spreadUpdate() {
-        if (!disableUpdate && existsInCircuit()) {
+        if (!blockUpdate && existsInCircuit()) {
             update();
             for (Entity e : getInterceptingEntities())
                 e.update();
@@ -109,7 +127,7 @@ public abstract class Entity implements PropertyMutable {
     }
 
     public final void update() {
-        if (!disableUpdate && existsInCircuit()) {
+        if (!blockUpdate && existsInCircuit()) {
             updateInvalidInterceptPoints();
             if (this instanceof ConnectibleEntity)
                 ((ConnectibleEntity) this).connectCheck();
@@ -208,6 +226,10 @@ public abstract class Entity implements PropertyMutable {
             return new Wire(new CircuitPoint(x1, y1, c), new CircuitPoint(x2, y2, c));
         } else if (enityType.equalsIgnoreCase("SimpleGateAND"))
             return new SimpleGateAND(new CircuitPoint(fields[0], fields[1], c), Integer.parseInt(fields[2]));
+        else if (enityType.equalsIgnoreCase("GateAND"))
+            return GateAND.parse(s, c);
+        else if (enityType.equalsIgnoreCase("GateOR"))
+            return GateOR.parse(s, c);
         else if (enityType.equalsIgnoreCase("InputBlock"))
             return new InputBlock(new CircuitPoint(fields[0], fields[1], c), Integer.parseInt(fields[2]));
         return null;
@@ -342,11 +364,12 @@ public abstract class Entity implements PropertyMutable {
         update();
     }
 
-    public final void updateInvalidInterceptPoints() {
+    public final void updateInvalidInterceptPoints(ExactEntityList<Entity> excluding) {
         invalidInterceptPoints.clear();
         boolean wasInvalid = isInvalid();
         for (Entity other : getInterceptingEntities())
-            invalidInterceptPoints.addAll(getInvalidInterceptPoints(other));
+            if (!excluding.containsExact(other))
+                invalidInterceptPoints.addAll(getInvalidInterceptPoints(other));
         if (isInvalid() && existsInCircuit()) {
             getCircuit().markInvalid(this);
             if (this instanceof ConnectibleEntity)
@@ -354,6 +377,10 @@ public abstract class Entity implements PropertyMutable {
         } else if (wasInvalid && existsInCircuit()) {
             getCircuit().markValid(this);
         }
+    }
+
+    public final void updateInvalidInterceptPoints() {
+        updateInvalidInterceptPoints(new ExactEntityList<>());
     }
 
     public EntityList<Entity> getInvalidlyInterceptingEntities() {
@@ -418,30 +445,12 @@ public abstract class Entity implements PropertyMutable {
 
     // For Moving/Repositioning Entities
 
-    public abstract boolean canMove();
-
     public CircuitPoint movingTo = null;
 
     public boolean beingMoved() {
         return movingTo != null;
     }
 
-    /**
-     * Movable subclasses should override this
-     * @param newLocation the CircuitPoint that this Entity's new origin will be
-     */
-    public Entity onDragMove(CircuitPoint newLocation) {
-        movingTo = newLocation;
-        return null;
-    }
-
-    /**
-     * Movable subclasses should override this
-     * @param newLocation the CircuitPoint that this Entity's new origin will be
-     */
-    public void onDragMoveRelease(CircuitPoint newLocation) {
-        movingTo = null;
-    }
 
 
     /** For drawing */

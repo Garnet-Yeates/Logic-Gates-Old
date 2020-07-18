@@ -1,5 +1,9 @@
-package edu.wit.yeatesg.logicgates.def;
+package edu.wit.yeatesg.logicgates.entity.connectible.logicgate;
 
+import edu.wit.yeatesg.logicgates.def.BezierCurve;
+import edu.wit.yeatesg.logicgates.def.BoundingBox;
+import edu.wit.yeatesg.logicgates.def.Circuit;
+import edu.wit.yeatesg.logicgates.def.Vector;
 import edu.wit.yeatesg.logicgates.entity.Entity;
 import edu.wit.yeatesg.logicgates.entity.PointSet;
 import edu.wit.yeatesg.logicgates.entity.PropertyList;
@@ -11,7 +15,6 @@ import edu.wit.yeatesg.logicgates.entity.connectible.transmission.OutputNode;
 import edu.wit.yeatesg.logicgates.entity.connectible.transmission.Wire;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 import edu.wit.yeatesg.logicgates.points.PanelDrawPoint;
-import javafx.beans.value.ObservableValue;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
@@ -43,8 +46,8 @@ public class SimpleGateAND extends ConnectibleEntity implements Rotatable {
         out = (OutputNode) getNodeAt(drawPoints.get(0));
         establishInputNode(drawPoints.get(7));
         establishInputNode(drawPoints.get(8));
-        update();
         assignOutputsToInputs();
+        update();
     }
 
     @Override
@@ -104,18 +107,6 @@ public class SimpleGateAND extends ConnectibleEntity implements Rotatable {
             return e.getInvalidInterceptPoints(this);
         return getInterceptPoints(e); // If it's not a wire, any intersect point is invalid
     }
-
-
-    @Override
-    public Entity getRotated(int rotation) {
-        return null;
-    }
-
-    @Override
-    public int getRotation() {
-        return 0;
-    }
-
 
     @Override
     public RelativePointSet getRelativePointSet() {
@@ -201,11 +192,6 @@ public class SimpleGateAND extends ConnectibleEntity implements Rotatable {
             for (CircuitPoint p : theo.getInterceptPoints(this))
                 if (!permits.contains(new InterceptPermit(this, p)))
                     return true;
-        return false;
-    }
-
-    @Override
-    public boolean canMove() {
         return false;
     }
 

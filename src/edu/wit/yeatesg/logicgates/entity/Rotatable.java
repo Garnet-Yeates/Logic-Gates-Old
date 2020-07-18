@@ -10,18 +10,16 @@ import java.util.List;
 
 public interface Rotatable {
 
-    Entity getRotated(int rotation);
-    int getRotation();
     RelativePointSet getRelativePointSet();
 
     List<Integer> rotations = Arrays.asList(0, 90, 180, 270);
 
     static int getNextRotation(int rotation) {
-        return rotations.get( (rotations.indexOf(rotation) + 1) % 4 );
+        return rotations.get((rotations.indexOf(rotation) + 1) % 4);
     }
 
     default boolean validRotation(int rotation) {
-        return Arrays.asList(new Integer[] { 360, 90, 180, 270 }).contains(rotation);
+        return Arrays.asList(new Integer[]{360, 90, 180, 270}).contains(rotation);
     }
 
     class RelativePointSet extends PointSet {
@@ -32,27 +30,8 @@ public interface Rotatable {
                 Vector relationToOrigin = new Vector(relativeOrigin, point);
                 relationshipToOriginSet.add(relationToOrigin);
             }
-            for (Vector v : relationshipToOriginSet) {
-                double xv = v.x;
-                double yv = v.y;
-                switch (rotation) {
-                    case 1: case 90:
-                        rotation = 90;
-                        v.x = -yv;
-                        v.y = xv;
-                        break;
-                    case 2: case 180:
-                        rotation = 180;
-                        v.x = -xv;
-                        v.y = -yv;
-                        break;
-                    case 3: case 270:
-                        rotation = 270;
-                        v.x = yv;
-                        v.y = -xv;
-                        break;
-                }
-            }
+            for (int i = 0; i < relationshipToOriginSet.size(); i++)
+                relationshipToOriginSet.set(i, relationshipToOriginSet.get(i).getRotated(rotation));
             PointSet drawSet = new PointSet();
             for (int i = 0; i < size(); i++)
                 drawSet.add(origin.getIfModifiedBy(relationshipToOriginSet.get(i)));

@@ -1,8 +1,10 @@
 package edu.wit.yeatesg.logicgates.def;
 
 import edu.wit.yeatesg.logicgates.gui.MainGUI;
+import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
 
 public class LogicGates {
@@ -14,6 +16,37 @@ public class LogicGates {
         r.run();
         return ((System.currentTimeMillis() - start) / 1000.0) + "s";
     }
+
+    public Iterator<CircuitPoint> lefterToRighterIterator(CircuitPoint p1, CircuitPoint p2) {
+        CircuitPoint lefter = p1.y == p2.y ? (
+                p1.x < p2.x ? p1 : p2)
+                : (p1.y < p2.y ? p1 : p2);
+        CircuitPoint righter = lefter == p1 ? p2 : p1;
+        lefter = lefter.getSimilar();
+        righter = righter.getSimilar();
+        int size = (int) (lefter.y == righter.y ? righter.x - lefter.x : righter.y - lefter.y);
+        final CircuitPoint left = lefter, right = righter;
+        return new Iterator<>() {
+            int cursor = 0;
+            Vector dir = new Vector(left, right).getUnitVector();
+            CircuitPoint curr = left.getSimilar();
+
+            @Override
+            public boolean hasNext() {
+                return cursor < size;
+            }
+
+            @Override
+            public CircuitPoint next() {
+                CircuitPoint returning = curr.getSimilar();
+                cursor++;
+                curr = dir.addedTo(curr);
+                return returning;
+            }
+        };
+    }
+
+
 
 
     @SuppressWarnings("unchecked")

@@ -46,6 +46,12 @@ public class CurvePolygon {
             this.endPoint = endPoint;
         }
 
+        public double getLength() {
+            double a = startPoint.x - endPoint.x;
+            double b = startPoint.y - endPoint.y;
+            return Math.sqrt(a*a + b*b);
+        }
+
         public CircuitPoint getPointAtWeight(double endWeight) {
             double startWeight = 1 - endWeight;
             double x = startWeight * startPoint.x + endWeight * endPoint.x;

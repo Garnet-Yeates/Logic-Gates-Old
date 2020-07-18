@@ -1,5 +1,6 @@
 package edu.wit.yeatesg.logicgates.def;
 
+import edu.wit.yeatesg.logicgates.entity.Rotatable;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 import edu.wit.yeatesg.logicgates.points.PanelDrawPoint;
 
@@ -147,7 +148,36 @@ public class Vector {
         return "< " + x + "," + y + ">";
     }
 
+
+    public boolean isSimilar(Vector other) {
+        return equals(other);
+    }
+
     public boolean equals(Object other) {
         return other instanceof Vector && ((Vector) other).x == x && ((Vector) other).y == y;
+    }
+    
+    public Vector getRotated(int rotation) {
+        Vector v = this.clone();
+        double vx = v.x;
+        double vy = v.y;
+        switch (rotation) {
+            case 1:
+            case 90:
+                v.x = -vy;
+                v.y = vx;
+                break;
+            case 2:
+            case 180:
+                v.x = -vx;
+                v.y = -vy;
+                break;
+            case 3:
+            case 270:
+                v.x = vy;
+                v.y = -vx;
+                break;
+        }
+        return v;
     }
 }

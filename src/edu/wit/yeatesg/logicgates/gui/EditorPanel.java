@@ -16,7 +16,9 @@ import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
+import javafx.scene.shape.CubicCurve;
 
+import java.awt.geom.CubicCurve2D;
 import java.util.*;
 
 import static edu.wit.yeatesg.logicgates.entity.connectible.transmission.Wire.*;
@@ -140,8 +142,12 @@ public class EditorPanel extends Pane {
         }
         if (code == ESCAPE) {
             if (currSelection.size() > 0) {
-                currSelection.deselectAllAndTrack();
-                c.appendCurrentStateChanges("Deselect All Via Esc");
+                if (movingSelection)
+                    cancelMovingSelection();
+                else {
+                    currSelection.deselectAllAndTrack();
+                    c.appendCurrentStateChanges("Deselect All Via Esc");
+                }
             }
             if (ppStateShift > 0) {
                 c().stateController().goLeft(); // Undo() wont work
@@ -537,6 +543,7 @@ public class EditorPanel extends Pane {
     }
 
     private void determineMovingSelection(CircuitPoint mousePressedAt) {
+        cancelMovingSelection();
         Circuit.Selection currSelection = c().currentSelectionReference();
         if (currentPullPoint == null
                 && !currSelection.isEmpty()
@@ -546,23 +553,34 @@ public class EditorPanel extends Pane {
     }
 
     private void onStartMovingSelection(CircuitPoint mousePressedAt) {
-        movingSelection = true;
         movingSelectionStartPoint = mousePressedAt.clone();
         lastSelectionMovePoint = movingSelectionStartPoint.clone();
         movingSelectionPreviewEntities = c().currentSelectionReference().deepClone();
     }
 
-    public void onGridSnapChangeWhileDraggingSelection() {
+    private void onGridSnapChangeWhileDraggingSelection() {
+        movingSelection = true;
         CircuitPoint gridSnapAtMouse = circuitPointAtMouse(true);
         for (Entity e : movingSelectionPreviewEntities)
             e.move(new Vector(lastSelectionMovePoint, gridSnapAtMouse));
+        for (Entity e : movingSelectionPreviewEntities)
+            e.updateInvalidInterceptPoints(c().currentSelectionReference());
         lastSelectionMovePoint = gridSnapAtMouse.getSimilar();
-        System.out.println("GridSnapChangeWhileDraggingSelection");
+    }
+
+    private void cancelMovingSelection() {
+        onStopMovingSelection(true);
     }
 
     private void onStopMovingSelection() {
-        Vector movementVec = new Vector(movingSelectionStartPoint, lastSelectionMovePoint);
-        userMoveSelection(movementVec, movementVec.toParsableString());
+        onStopMovingSelection(false);
+    }
+
+    private void onStopMovingSelection(boolean cancel) {
+        if (!cancel) {
+            Vector movementVec = new Vector(movingSelectionStartPoint, lastSelectionMovePoint);
+            userMoveSelection(movementVec, movementVec.toParsableString());
+        }
         movingSelection = false;
         movingSelectionStartPoint = null;
         movingSelectionPreviewEntities = null;
@@ -594,6 +612,8 @@ public class EditorPanel extends Pane {
         System.out.println(currSelection.isEmpty());
         if (movingSelection)
             onStopMovingSelection();
+        else
+            cancelMovingSelection(); // Reset fields such as movingSelectionStartPoint etc
     }
 
     public void onPoke() {
@@ -610,7 +630,7 @@ public class EditorPanel extends Pane {
         if (currentPullPoint != null) {
             currentPullPoint.onDragGridSnapChange();
         }
-        if (movingSelection)
+        if (movingSelectionStartPoint != null)
             onGridSnapChangeWhileDraggingSelection();
     }
 
@@ -733,6 +753,8 @@ public class EditorPanel extends Pane {
             gc.setLineWidth(3);
             //      gc.strokeRect(0, 0, canvasWidth(), canvasHeight());
 
+
+
             drawGridPoints(gc);
 
                 EntityList<Entity> drawOrder = new EntityList<>();
@@ -762,22 +784,27 @@ public class EditorPanel extends Pane {
                 testORGate(c, gc, new CircuitPoint(0, -10, c), 0, true);
                 testORGate(c, gc, new CircuitPoint(0, -16, c), 0, false);
 
-
-            if (!movingSelection || lastSelectionMovePoint.isSimilar(movingSelectionStartPoint)) {
-                for (Entity e : currSelection) {
-                    e.draw(gc);
-                    e.getBoundingBox().draw(gc);
-                }
-                c.drawInvalidEntities();
-
-            }
-            else
-                for (Entity e : movingSelectionPreviewEntities)
-                    e.drawPreview(gc);
+            c.drawInvalidEntities(gc);
 
             for (Entity e : currConnectionView) {
                 e.getBoundingBox().drawBorder(gc);
                 currConnectionView.draw(e, gc);
+            }
+
+            if (!movingSelection || lastSelectionMovePoint.isSimilar(movingSelectionStartPoint)) {
+                for (Entity e : currSelection)
+                    e.draw(gc);
+                for (Entity e : currSelection)
+                    e.getBoundingBox().draw(gc);
+            }
+            else {
+                for (Entity e : movingSelectionPreviewEntities) {
+                    e.drawPreview(gc);
+                    for (CircuitPoint invalidPoint : e.getInvalidInterceptPoints()) {
+                        c.drawInvalidGridPoint(gc, invalidPoint);
+                        c.drawInvalidGridPoint(gc, invalidPoint); // Double draw, so you can see it easier
+                    }
+                }
             }
         });
     }

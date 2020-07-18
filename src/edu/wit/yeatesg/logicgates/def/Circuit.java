@@ -304,7 +304,7 @@ public class Circuit implements PropertyMutable {
 
         public void addInterceptPoint(int x, int y, Entity e) {
             if (getRef(x, y).containsExact(e))
-                throw new RuntimeException("Already Added " + e);
+                throw  new RuntimeException("Already Added " + e);
             getRef(x, y).add(e);
         }
 
@@ -418,18 +418,15 @@ public class Circuit implements PropertyMutable {
         invalidEntities.add(e);
     }
 
-    public void drawInvalidEntities() {
+    public void drawInvalidEntities(GraphicsContext g) {
+        boolean movingSelection = getEditorPanel().isMovingSelection();
         for (Entity invalidEntity : invalidEntities)
             for (CircuitPoint interceptPoint : invalidEntity.getInvalidInterceptPoints())
-                drawInvalidGridPoint(interceptPoint);
+                if (!movingSelection || !invalidEntity.isSelected())
+                  drawInvalidGridPoint(g, interceptPoint);
     }
 
-    public void drawGridPoint(CircuitPoint gridSnapped) {
-
-    }
-
-    public void drawInvalidGridPoint(CircuitPoint gridSnapped) {
-        GraphicsContext g = getEditorPanel().getGraphicsContext();
+    public void drawInvalidGridPoint(GraphicsContext g, CircuitPoint gridSnapped) {
         double circleSize = scale*0.75;
         double offset = circleSize / 2.0;
         PanelDrawPoint drawPoint = gridSnapped.toPanelDrawPoint();
@@ -978,7 +975,6 @@ public class Circuit implements PropertyMutable {
         OperandList<Wire> list = new OperandList<>();
         for (Wire w : building.getInterceptingEntities().getWiresGoingInSameDirection(building))
             w.disableTransformable();
-
         for (CircuitPoint p : new CircuitPoint[] { building.getStartLocation(), building.getEndLocation()}) {
             o: for (Wire w : p.getInterceptingEntities().getWiresGoingInSameDirection(building)) {
                 if (!w.isEdgePoint(p)) {
@@ -1132,25 +1128,12 @@ public class Circuit implements PropertyMutable {
 
         @Override
         public void operate() {
-            EntityList<Entity> shallowClone = currSelection.clone();
-            for (Entity e : shallowClone)
-                e.disableUpdate();
-            for (Entity e : shallowClone)
-                e.move(movement);
-            for (Entity e : shallowClone)
-                e.enableUpdate();
-            for (Entity e : shallowClone)
-                e.spreadUpdate();
-           /* OperandList<Entity> megaOps = new OperandList<>();
-            for (Entity e : moving) {
-                ExactEntityList<Entity> ops = getOperands(e, SELECTED);
-                megaOps.addAll(ops);
-                ops.forEach(Entity::disableUpdate);
-                ops.forEach(entity -> entity.move(movement));
-            }
-
-            for (Entity e : megaOps)
-                e.enableUpdate();
+            OperandList<Entity> megaOps = new OperandList<>();
+            for (Entity e : moving)
+                megaOps.addAll(getOperands(e, SELECTED));
+            megaOps.forEach(Entity::disableUpdate);
+            megaOps.forEach(entity -> entity.move(movement));
+            megaOps.forEach(Entity::enableUpdate);
 
             clearNonTransformables();
             for (Entity e : megaOps)

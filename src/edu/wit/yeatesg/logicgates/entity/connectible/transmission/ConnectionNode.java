@@ -15,7 +15,7 @@ public class ConnectionNode {
    protected ConnectibleEntity parent;
 
    public ConnectionNode(CircuitPoint location, ConnectibleEntity connectingFrom, ConnectibleEntity connectedTo) {
-       this.location = location;
+       this.location = location.getSimilar();
        this.connectedTo = connectedTo;
        this.parent = connectingFrom;
    }

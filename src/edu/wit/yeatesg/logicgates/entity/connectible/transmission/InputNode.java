@@ -40,9 +40,9 @@ public class InputNode extends ConnectionNode implements Dependent {
         col = col == null ? getPowerStatus().getColor() : col;
         col = Color.rgb((int) (255*col.getRed()), (int) (255*col.getGreen()), (int) (255*col.getBlue()), opacity);
         g.setFill(col);
-        double circleSize = parent.getCircuit().getScale() * 0.6;
-        if (getLocation().getCircuit().getScale() == 5)
-            circleSize *= 1.35;
+        double circleSize = parent.getCircuit().getScale() * 0.55;
+        if (getLocation().getCircuit().getScale() < 10)
+            circleSize *= 1.15;
         PanelDrawPoint drawPoint = getLocation().toPanelDrawPoint();
         g.fillOval(drawPoint.x - circleSize/2.00, drawPoint.y - circleSize/2.00, circleSize, circleSize);
     }

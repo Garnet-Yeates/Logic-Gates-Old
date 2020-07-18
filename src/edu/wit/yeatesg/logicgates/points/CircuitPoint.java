@@ -98,6 +98,18 @@ public class CircuitPoint {
         return false;
     }
 
+    /**
+     * Treats this CircuitPoint as a Point relative to 0,0, gets the vector from
+     * 0,0 to this point, rotates that vector, and adds the rotated vector to the supplied origin
+     * @param origin
+     * @param rotation
+     * @return
+     */
+    public CircuitPoint getRotated(CircuitPoint origin, int rotation) {
+        Vector zeroToThis = new Vector(new CircuitPoint(0, 0, c), this);
+        return origin.getIfModifiedBy(zeroToThis.getRotated(rotation));
+    }
+
     public CircuitPoint getSimilar() {
         return clone(c);
     }

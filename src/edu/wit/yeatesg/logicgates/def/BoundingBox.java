@@ -18,8 +18,8 @@ public class BoundingBox {
     public BoundingBox(PointSet points, Entity owner) {
         this.owner = owner;
         Circuit c = points.get(0).getCircuit();
-        double leftMost = Double.MAX_VALUE, rightMost = Double.MIN_VALUE, topMost = Double.MAX_VALUE,
-                bottomMost = Double.MIN_VALUE;
+        double leftMost = Double.MAX_VALUE, rightMost = Double.MAX_VALUE*-1, topMost = Double.MAX_VALUE,
+                bottomMost = Double.MAX_VALUE*-1;
         for (CircuitPoint cp : points) {
             if (cp.x < leftMost)
                 leftMost = cp.x;
@@ -30,6 +30,14 @@ public class BoundingBox {
             if (cp.y > bottomMost)
                 bottomMost = cp.y;
         }
+        System.out.println();
+        System.out.println("LEFT MOST " + leftMost);
+        System.out.println("RIGHT MOST " + rightMost);
+        System.out.println("TOP MOST " + topMost);
+        System.out.println("BOT MOST " + bottomMost);
+        System.out.println();
+
+
         initFromTwoCorners(new CircuitPoint(leftMost, topMost, c), new CircuitPoint(rightMost, bottomMost, c));
         
     }
@@ -75,8 +83,6 @@ public class BoundingBox {
     public double getLeft() {
         return p1.x;
     }
-
-
 
     public int getDrawWidth() {
         return (int) (getWidth() * p1.getCircuit().getScale());
@@ -150,7 +156,6 @@ public class BoundingBox {
         Circuit c = p1.getCircuit();
 
         double borderLen = c.getScale()*0.65;
-        borderLen *= 0.4;
         double borderThicc = borderLen*0.15;
         double off = borderLen / 2;
 
