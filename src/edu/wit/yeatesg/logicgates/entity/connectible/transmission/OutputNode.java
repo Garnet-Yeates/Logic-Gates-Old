@@ -1,6 +1,7 @@
 package edu.wit.yeatesg.logicgates.entity.connectible.transmission;
 
 import edu.wit.yeatesg.logicgates.entity.connectible.ConnectibleEntity;
+import edu.wit.yeatesg.logicgates.entity.connectible.OutputBlock;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 import edu.wit.yeatesg.logicgates.points.PanelDrawPoint;
 import javafx.scene.canvas.GraphicsContext;
@@ -45,8 +46,9 @@ public class OutputNode extends ConnectionNode implements Dependent {
                 Dependent thatDependsOnThis = null;
                 if (ce instanceof Wire)
                     thatDependsOnThis = (Dependent) ce;
-                else if (ce.getConnectionTo(connectingWire) instanceof InputNode)
+                else if (ce.getConnectionTo(connectingWire) instanceof InputNode) {
                     thatDependsOnThis = (Dependent) ce.getConnectionTo(connectingWire);
+                }
                 if (thatDependsOnThis == null || thatDependsOnThis.getPowerStatus() != PowerStatus.UNDETERMINED)
                     continue;
                 if (!thatDependsOnThis.dependingOn().contains(this)) {

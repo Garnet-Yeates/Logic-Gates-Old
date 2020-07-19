@@ -4,6 +4,7 @@ package edu.wit.yeatesg.logicgates.entity.connectible.logicgate;
 import edu.wit.yeatesg.logicgates.def.BezierCurve;
 import edu.wit.yeatesg.logicgates.def.Circuit;
 import edu.wit.yeatesg.logicgates.def.Direction;
+import edu.wit.yeatesg.logicgates.def.Vector;
 import edu.wit.yeatesg.logicgates.entity.Entity;
 import edu.wit.yeatesg.logicgates.entity.PointSet;
 import edu.wit.yeatesg.logicgates.entity.connectible.ConnectibleEntity;
@@ -67,8 +68,13 @@ public class GateAND extends LogicGate {
     }
 
     @Override
-    protected int getInputOriginIndex() {
-        return 7;
+    protected double getOuterWingXOffset() {
+        return 0;
+    }
+
+    @Override
+    protected double getOuterWingYOffset() {
+        return 0;
     }
 
     @Override
@@ -76,27 +82,42 @@ public class GateAND extends LogicGate {
         RelativePointSet relatives = new RelativePointSet();
         Circuit c = getCircuit();
         // Origin (middle bot of curve (u shaped curve))
-        relatives.add(0, 0, c);
+        relatives.add(0, 0, c);             // 0
 
         // Top left of curve
-        relatives.add(-2.49, -2.49, c);
+        relatives.add(-2.49, -2.49, c);    //  1
         // Bottom left of curve
-        relatives.add(-2.49, 0.8, c);
+        relatives.add(-2.49, 0.8, c);      //  2
         // Bottom right of curve
-        relatives.add(2.49, 0.8, c);
+        relatives.add(2.49, 0.8, c);       //  3
         // Top right of curve
-        relatives.add(2.49, -2.49, c);
+        relatives.add(2.49, -2.49, c);     //  4
 
         // Top right
-        relatives.add(2.49, -5, c);
+        relatives.add(2.49, -5, c);        //  5
         // Top left
-        relatives.add(-2.49, -5, c);
+        relatives.add(-2.49, -5, c);       //  6
 
         relatives.add(0, -5, c); // Input Origin (index 7)
 
   //      relatives.add();
 
         return relatives;
+    }
+
+    @Override
+    public Vector getOriginToInputOrigin() {
+        return new Vector(0, -5);
+    }
+
+    @Override
+    public InputWing getRelativeMainInputWing() {
+        return new LineInputWing(new CircuitPoint(-2, -5, c), new CircuitPoint(2, -5, c));
+    }
+
+    @Override
+    public InputWing getInputWing(CircuitPoint relativeStart, CircuitPoint relativeControl, CircuitPoint relativeEnd) {
+        return new LineInputWing(relativeStart.getRotated(origin, rotation), relativeEnd.getRotated(origin, rotation));
     }
 
     @Override
@@ -139,6 +160,7 @@ public class GateAND extends LogicGate {
 
     @Override
     public void draw(GraphicsContext g, Color col, double opacity) {
+        drawInputTails(g, col);
         Color strokeCol = col == null ? Color.BLACK : col;
         strokeCol = Color.rgb((int) (255*strokeCol.getRed()), (int) (255*strokeCol.getGreen()), (int) (255*strokeCol.getBlue()), opacity);
         g.setStroke(strokeCol);
@@ -165,6 +187,9 @@ public class GateAND extends LogicGate {
 
         for (ConnectionNode node : connections)
             node.draw(g, col, opacity);
-
     }
+
+
+
+
 }

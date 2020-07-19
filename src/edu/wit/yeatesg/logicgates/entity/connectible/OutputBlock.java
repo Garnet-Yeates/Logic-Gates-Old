@@ -1,12 +1,12 @@
 package edu.wit.yeatesg.logicgates.entity.connectible;
 
-import com.sun.prism.Graphics;
 import edu.wit.yeatesg.logicgates.def.Circuit;
 import edu.wit.yeatesg.logicgates.def.Direction;
 import edu.wit.yeatesg.logicgates.def.Vector;
 import edu.wit.yeatesg.logicgates.entity.*;
 import edu.wit.yeatesg.logicgates.def.BoundingBox;
 import edu.wit.yeatesg.logicgates.entity.connectible.transmission.ConnectionNode;
+import edu.wit.yeatesg.logicgates.entity.connectible.transmission.InputNode;
 import edu.wit.yeatesg.logicgates.entity.connectible.transmission.OutputNode;
 import edu.wit.yeatesg.logicgates.entity.connectible.transmission.Wire;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
@@ -18,17 +18,16 @@ import javafx.scene.text.Font;
 import javafx.scene.text.Text;
 import javafx.scene.text.TextAlignment;
 
-import java.awt.*;
 import java.util.Arrays;
 
 import static edu.wit.yeatesg.logicgates.entity.connectible.transmission.Dependent.*;
 
-public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable {
+public class OutputBlock extends ConnectibleEntity implements Rotatable {
 
     private CircuitPoint origin;
-    private OutputNode out;
+    private InputNode in;
 
-    public InputBlock(CircuitPoint origin, int rotation) {
+    public OutputBlock(CircuitPoint origin, int rotation) {
         super(origin.getCircuit());
         this.origin = origin.getSimilar();
         this.rotation = rotation;
@@ -42,38 +41,36 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
         getCircuit().pushIntoMapRange(drawPoints);
         interceptPoints = getBoundingBox().getInterceptPoints();
         update();
-        establishOutputNode(drawPoints.get(0));
-        out = (OutputNode) getNodeAt(drawPoints.get(0));
+        establishInputNode(drawPoints.get(0));
+        in = (InputNode) getNodeAt(drawPoints.get(0));
         postInit();
     }
 
     @Override
-    public InputBlock clone(Circuit c) {
-        return new InputBlock(origin.clone(c), rotation);
+    public OutputBlock clone(Circuit c) {
+        return new OutputBlock(origin.clone(c), rotation);
     }
 
 
     @Override
     public boolean isSimilar(Entity other) {
-        return (other instanceof InputBlock && ((InputBlock) other).origin.equals(origin));
+        return (other instanceof OutputBlock && ((OutputBlock) other).origin.equals(origin));
     }
 
     @Override
     public String toParsableString() {
-        return "[InputBlock]" + origin.toParsableString() + "," + rotation;
+        return "[OutputBlock]" + origin.toParsableString() + "," + rotation;
     }
 
     @Override
     protected void assignOutputsToInputs() { /* Output Node Dependency List Will Be Empty For Input Nodes */}
 
     @Override
-    public void determinePowerStateOf(OutputNode outputNode) {
-        outputNode.setPowerStatus(powerStatus ? PowerStatus.ON : PowerStatus.OFF);
-    }
+    public void determinePowerStateOf(OutputNode outputNode) { }
 
     @Override
     public boolean canPullPointGoHere(CircuitPoint gridSnap) {
-        return out.getLocation().equals(gridSnap);
+        return in.getLocation().equals(gridSnap);
     }
 
 
@@ -86,18 +83,18 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
         RelativePointSet drawPointRelative = new RelativePointSet();
         Circuit c = getCircuit();
         drawPointRelative.add(0, 0, c); // Origin (bottom middle) is 0
-        drawPointRelative.add(-1, 0, c); // bottom left is 1
-        drawPointRelative.add(-1, -2, c); // top left is 2
-        drawPointRelative.add(1, -2, c); // top right is 3
-        drawPointRelative.add(1, 0, c); // bottom right is 4
-        drawPointRelative.add(0, -1, c); // center point is 5
+        drawPointRelative.add(-1, 0, c); // top left is 1
+        drawPointRelative.add(-1, 2, c); // bot left is 2
+        drawPointRelative.add(1, 2, c); // bot right is 3
+        drawPointRelative.add(1, 0, c); // top right is 4
+        drawPointRelative.add(0, 1, c); // center point is 5
         return drawPointRelative;
     }
 
     // Other stuff
 
     public Color getColor() {
-        return out.getPowerStatus().getColor();
+        return in.getPowerStatus().getColor();
     }
 
     @Override
@@ -105,86 +102,44 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
         return new BoundingBox(drawPoints.get(2), drawPoints.get(4), this);
     }
 
-    public static void drawText(String text, double lineWidth, Circuit c, GraphicsContext g, Color col, CircuitPoint center, double fit) {
-        Color strokeCol = col == null ? Color.BLACK : col;
-        g.setStroke(strokeCol);
-
-        Text toFindSize = new Text(text);
-        double width;
-        double height;
-        System.out.println("FIT " + fit);
-        System.out.println("SCALE" + c.getScale());
-        double fontSize = (fit / (c.getScale()*1.5))*c.getScale() * 2.6;
-        Font f;
-        int numIts = 0;
-        do{
-            numIts++;
-            toFindSize.setFont(f = new Font("Consolas", fontSize -= Math.max(0.5, fontSize*0.1)));
-            toFindSize.setTextAlignment(TextAlignment.LEFT);
-            toFindSize.setLineSpacing(0);
-            toFindSize.applyCss();
-            width = toFindSize.getLayoutBounds().getWidth();
-            height = fontSize*0.65;
-        } while (width > fit || height > fit);
-
-        System.out.println("NUM ITS " + numIts);
-
-        PanelDrawPoint pp = center.toPanelDrawPoint();
-
-        pp.y += height / 2;
-        pp.x -= width / 2;
-
-        g.setFill(strokeCol);
-        g.setLineWidth(lineWidth);
-        g.setFont(f);
-        g.setTextAlign(TextAlignment.LEFT);
-        g.fillText(text, pp.x, pp.y);
-
-    }
-
     @Override
     public void draw(GraphicsContext g, Color col, double opacity) {
-        // Draw Border
-        Color strokeCol = col == null ? Color.BLACK : col;
-        strokeCol = Color.rgb((int) (255*strokeCol.getRed()), (int) (255*strokeCol.getGreen()), (int) (255*strokeCol.getBlue()), opacity);
-        g.setStroke(strokeCol);
-
         PanelDrawPoint drawPoint;
         PointSet pts = drawPoints;
         Circuit c = getCircuit();
         g.setLineWidth(getLineWidth());
 
-        PanelDrawPoint bL = pts.get(1).toPanelDrawPoint();
-        PanelDrawPoint tL = pts.get(2).toPanelDrawPoint();
-        PanelDrawPoint tR = pts.get(3).toPanelDrawPoint();
-        PanelDrawPoint bR = pts.get(4).toPanelDrawPoint();
-        g.strokeLine(bL.x, bL.y, tL.x, tL.y);
-        g.strokeLine(tL.x, tL.y, tR.x, tR.y);
-        g.strokeLine(tR.x, tR.y, bR.x, bR.y);
-        g.strokeLine(bR.x, bR.y, bL.x, bL.y);
+        // Draw Border
+        Color strokeCol = col == null ? Color.BLACK : col;
+        strokeCol = Color.rgb((int) (255*strokeCol.getRed()), (int) (255*strokeCol.getGreen()), (int) (255*strokeCol.getBlue()), opacity);
+        g.setStroke(strokeCol);
+
+        PanelDrawPoint tL = pts.get(1).toPanelDrawPoint();
+        PanelDrawPoint bL = pts.get(2).toPanelDrawPoint();
+        PanelDrawPoint bR = pts.get(3).toPanelDrawPoint();
+        PanelDrawPoint tR = pts.get(4).toPanelDrawPoint();
+        double dist = new Vector(tL, tR).getLength();
+        BoundingBox forOval = new BoundingBox(tL, bR, null);
+        g.strokeOval(forOval.p1.toPanelDrawPoint().x, forOval.p1.toPanelDrawPoint().y, dist, dist);
 
         // Draw Connection Thingy
-
 
         ConnectionNode connectNode = getNodeAt(pts.get(0));
         connectNode.draw(g, col, opacity);
         // Draw Circle Inside
         CircuitPoint centerPoint = pts.get(5);
-        g.setFill(col == null ? out.getPowerStatus().getColor() : col);
+        g.setFill(col == null ? in.getPowerStatus().getColor() : col);
         double circleSize = (c.getScale() * 1.3);
         drawPoint = centerPoint.toPanelDrawPoint();
         g.fillOval(drawPoint.x - circleSize/2.00, drawPoint.y - circleSize/2.00, circleSize, circleSize);
 
-
-        // Draw Text 0 / 1
-        PowerStatus outStatus = out.getPowerStatus();
-        String text = outStatus == PowerStatus.OFF ? "0" : (outStatus == PowerStatus.ON ? "1" : "");
+        PowerStatus inStatus = in.getPowerStatus();
+        String text = inStatus == PowerStatus.OFF ? "0" : (inStatus == PowerStatus.ON ? "1" : "");
         double widthOfThisHereInputBlock = c.getScale()*2; // TODO change for diff size
         double maxWidth = widthOfThisHereInputBlock*0.75;
-        if (col == null && outStatus == PowerStatus.OFF)
+        if (col == null && inStatus == PowerStatus.OFF)
             strokeCol = Color.rgb(40, 40, 40);
-        drawText(text, getLineWidth()*0.5, c, g, strokeCol, centerPoint.getSimilar(), maxWidth);
-
+        InputBlock.drawText(text, getLineWidth()*0.5, c, g, strokeCol, centerPoint.getSimilar(), maxWidth);
     }
 
 
@@ -200,21 +155,15 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
     }
 
 
-    private boolean powerStatus;
-
-    @Override
-    public void onPoke() {
-        powerStatus = !powerStatus;
-    }
 
     @Override
     public void connect(ConnectibleEntity e, CircuitPoint atLocation) {
         if (!(e instanceof Wire))
-            throw new RuntimeException("InputBlocks can only connect to Wires");
+            throw new RuntimeException("OutputBlocks can only connect to Wires");
         if (!canConnectTo(e, atLocation))
             throw new RuntimeException("Cannot connect these 2 entities");
         if (!hasNodeAt(atLocation))
-            throw new RuntimeException("Can't connect to InputBlock here, no ConnectionNode at this CircuitPoint");
+            throw new RuntimeException("Can't connect to OutputBlock here, no ConnectionNode at this CircuitPoint");
         Wire connectingWire = (Wire) e;
         getNodeAt(atLocation).setConnectedTo(connectingWire);
         connectingWire.connections.add(new ConnectionNode(atLocation, e, this));
@@ -242,7 +191,7 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
     public void connectCheck(ConnectibleEntity e) {
         CircuitPoint nodeLoc = drawPoints.get(0);
         if (canConnectTo(e, nodeLoc) && e.canConnectTo(this, nodeLoc))
-                connect(e, nodeLoc);
+            connect(e, nodeLoc);
     }
 
 
@@ -309,7 +258,7 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
 
     @Override
     public String toString() {
-        return "InputBlock{" +
+        return "OutputBlock{" +
                 "origin=" + origin +
                 '}';
     }

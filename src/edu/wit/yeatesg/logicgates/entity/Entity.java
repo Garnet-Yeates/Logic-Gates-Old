@@ -2,8 +2,10 @@ package edu.wit.yeatesg.logicgates.entity;
 
 import edu.wit.yeatesg.logicgates.def.BoundingBox;
 import edu.wit.yeatesg.logicgates.def.Circuit;
+import edu.wit.yeatesg.logicgates.entity.connectible.OutputBlock;
 import edu.wit.yeatesg.logicgates.entity.connectible.logicgate.GateAND;
 import edu.wit.yeatesg.logicgates.entity.connectible.logicgate.GateOR;
+import edu.wit.yeatesg.logicgates.entity.connectible.logicgate.GateXOR;
 import edu.wit.yeatesg.logicgates.entity.connectible.logicgate.SimpleGateAND;
 import edu.wit.yeatesg.logicgates.def.Vector;
 import edu.wit.yeatesg.logicgates.entity.connectible.ConnectibleEntity;
@@ -230,8 +232,12 @@ public abstract class Entity implements PropertyMutable {
             return GateAND.parse(s, c);
         else if (enityType.equalsIgnoreCase("GateOR"))
             return GateOR.parse(s, c);
+        else if (enityType.equalsIgnoreCase("GateXOR"))
+            return GateXOR.parse(s, c);
         else if (enityType.equalsIgnoreCase("InputBlock"))
             return new InputBlock(new CircuitPoint(fields[0], fields[1], c), Integer.parseInt(fields[2]));
+        else if (enityType.equalsIgnoreCase("OutputBlock"))
+            return new OutputBlock(new CircuitPoint(fields[0], fields[1], c), Integer.parseInt(fields[2]));
         return null;
     }
 

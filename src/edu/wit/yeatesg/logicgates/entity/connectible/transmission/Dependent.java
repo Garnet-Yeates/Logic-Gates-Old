@@ -173,10 +173,10 @@ public interface Dependent
     enum PowerStatus
     {
         /** Used to display the 'true', '1', 'on', 'powered', 'active', etc power status */
-        ON(Color.rgb(50, 199, 0, 1)),
+        ON(Color.rgb(55, 219, 0, 1)),
 
         /** Used to display the 'false', '0', 'off', etc power status */
-        OFF(Color.rgb(27, 90, 0, 1)),
+        OFF(Color.rgb(31, 118, 0, 1)),
 
         /** Used to show that this Dependent instance has a dependency, but not a super dependency */
         PARTIALLY_DEPENDENT(Color.rgb(53, 200, 226, 1)),

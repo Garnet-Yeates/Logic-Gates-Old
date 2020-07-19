@@ -299,7 +299,14 @@ public class Wire extends ConnectibleEntity implements Dependent {
             connections.add(new ConnectionNode(atLocation, this, e));
             block.getNodeAt(atLocation).connectedTo = this;
             // Handle other cases...
-        } else if (e instanceof SimpleGateAND) {
+        }
+        else if (e instanceof OutputBlock) {
+            OutputBlock block = (OutputBlock) e;
+            connections.add(new ConnectionNode(atLocation, this, e));
+            block.getNodeAt(atLocation).connectedTo = this;
+            // Handle other cases...
+        }
+        else if (e instanceof SimpleGateAND) {
             SimpleGateAND gate = (SimpleGateAND) e;
             connections.add(new ConnectionNode(atLocation, this, e));
             gate.getNodeAt(atLocation).connectedTo = this;
@@ -556,7 +563,11 @@ public class Wire extends ConnectibleEntity implements Dependent {
 
     @Override
     public double getLineWidth() {
-        return getCircuit().getLineWidth() * 1.25;
+        return getLineWidth(c);
+    }
+
+    public static double getLineWidth(Circuit c) {
+        return c.getLineWidth() * 1.25;
     }
 
 

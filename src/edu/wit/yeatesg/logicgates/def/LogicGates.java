@@ -17,7 +17,9 @@ public class LogicGates {
         return ((System.currentTimeMillis() - start) / 1000.0) + "s";
     }
 
-    public Iterator<CircuitPoint> lefterToRighterIterator(CircuitPoint p1, CircuitPoint p2) {
+    public static Iterator<CircuitPoint> lefterToRighterIterator(CircuitPoint p1, CircuitPoint p2) {
+        p1 = p1.getGridSnapped();
+        p2 = p2.getGridSnapped();
         CircuitPoint lefter = p1.y == p2.y ? (
                 p1.x < p2.x ? p1 : p2)
                 : (p1.y < p2.y ? p1 : p2);

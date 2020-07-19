@@ -1,8 +1,10 @@
 package edu.wit.yeatesg.logicgates.gui;
 
 import edu.wit.yeatesg.logicgates.entity.Entity;
+import edu.wit.yeatesg.logicgates.entity.connectible.OutputBlock;
 import edu.wit.yeatesg.logicgates.entity.connectible.logicgate.GateAND;
 import edu.wit.yeatesg.logicgates.entity.connectible.logicgate.GateOR;
+import edu.wit.yeatesg.logicgates.entity.connectible.logicgate.GateXOR;
 import edu.wit.yeatesg.logicgates.entity.connectible.logicgate.SimpleGateAND;
 import edu.wit.yeatesg.logicgates.entity.PropertyMutable;
 import edu.wit.yeatesg.logicgates.entity.Property;
@@ -329,7 +331,28 @@ public class MainGUI extends Application {
         c.addEntity(new GateAND(new CircuitPoint(20, 5, c), 0, Entity.Size.MEDIUM, 5));
         c.addEntity(new GateAND(new CircuitPoint(27, 10, c), 0, Entity.Size.MEDIUM, 7));
         c.addEntity(new GateAND(new CircuitPoint(27, 15, c), 0, Entity.Size.MEDIUM, 15));
-       c.addEntity(new GateOR(new CircuitPoint(27, 15, c), 0, Entity.Size.MEDIUM, 5));
+       c.addEntity(new GateOR(new CircuitPoint(27, 20, c), 0, Entity.Size.MEDIUM, 17));
+        c.addEntity(new GateXOR(new CircuitPoint(27, 25, c), 0, Entity.Size.MEDIUM, 3));
+        c.addEntity(new GateOR(new CircuitPoint(27, 30, c), 0, Entity.Size.MEDIUM, 3));
+        c.addEntity(new GateXOR(new CircuitPoint(27, 35, c), 0, Entity.Size.MEDIUM, 11));
+        c.addEntity(new GateXOR(new CircuitPoint(27, 40, c), 0, Entity.Size.MEDIUM, 9));
+        c.addEntity(new GateOR(new CircuitPoint(27, 45, c), 0, Entity.Size.MEDIUM, 7));
+        c.addEntity(new GateOR(new CircuitPoint(27, 50, c), 0, Entity.Size.MEDIUM, 5));
+        c.addEntity(new GateOR(new CircuitPoint(27, 55, c), 0, Entity.Size.MEDIUM, 19));
+        c.addEntity(new GateOR(new CircuitPoint(27, 61, c), 0, Entity.Size.MEDIUM, 21));
+        c.addEntity(new GateXOR(new CircuitPoint(27, 67, c), 0, Entity.Size.MEDIUM, 23));
+        c.addEntity(new GateOR(new CircuitPoint(27, 73, c), 0, Entity.Size.MEDIUM, 27));
+        c.addEntity(new GateOR(new CircuitPoint(27, 79, c), 0, Entity.Size.MEDIUM, 29));
+        c.addEntity(new GateOR(new CircuitPoint(27, 85, c), 0, Entity.Size.MEDIUM, 31));
+        c.addEntity(new OutputBlock(new CircuitPoint(-10, 10, c), 0));
+        c.addEntity(new OutputBlock(new CircuitPoint(-12, 10, c), 0));
+        c.addEntity(new OutputBlock(new CircuitPoint(-14, 10, c), 0));
+        c.addEntity(new OutputBlock(new CircuitPoint(-16, 10, c), 0));
+
+
+
+
+
 
 
 

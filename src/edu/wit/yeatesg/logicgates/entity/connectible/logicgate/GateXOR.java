@@ -14,11 +14,12 @@ import edu.wit.yeatesg.logicgates.entity.connectible.transmission.OutputNode;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
+import static edu.wit.yeatesg.logicgates.entity.connectible.transmission.Dependent.*;
 
 import java.util.ArrayList;
 import java.util.LinkedList;
 
-public class GateOR extends LogicGate {
+public class GateXOR extends LogicGate {
 
     /**
      * ConnectibleEntity constructor template:
@@ -31,27 +32,27 @@ public class GateOR extends LogicGate {
      * @param size
      * @param numInputs
      */
-    public GateOR(CircuitPoint origin, int rotation, Size size, int numInputs, ArrayList<Integer> nots) {
+    public GateXOR(CircuitPoint origin, int rotation, Size size, int numInputs, ArrayList<Integer> nots) {
         super(origin, rotation, size, numInputs, nots);
     }
 
-    public GateOR(CircuitPoint origin, int rotation, Size size, int numInputs) {
+    public GateXOR(CircuitPoint origin, int rotation, Size size, int numInputs) {
         super(origin, rotation, size, numInputs, null);
     }
 
-    public GateOR(CircuitPoint origin, int rotation, Size size) {
+    public GateXOR(CircuitPoint origin, int rotation, Size size) {
         super(origin, rotation, size, getNumBaseInputs(size));
     }
 
-    public GateOR(CircuitPoint origin, int rotation) {
+    public GateXOR(CircuitPoint origin, int rotation) {
         super(origin, rotation);
     }
 
-    public GateOR(CircuitPoint origin) {
+    public GateXOR(CircuitPoint origin) {
         super(origin);
     }
 
-    public static GateOR parse(String s, Circuit c) {
+    public static GateXOR parse(String s, Circuit c) {
         String[] fields = s.split(",");
         CircuitPoint origin = new CircuitPoint(fields[0], fields[1], c);
         int rotation = Integer.parseInt(fields[2]);
@@ -61,7 +62,7 @@ public class GateOR extends LogicGate {
         String[] notsString = fields[5].split(";");
         for (String str : notsString)
             nots.add(Integer.parseInt(str));
-        return new GateOR(origin, rotation, size, numInputs, nots);
+        return new GateXOR(origin, rotation, size, numInputs, nots);
     }
 
     @Override
@@ -84,9 +85,8 @@ public class GateOR extends LogicGate {
     @Override
     public InputWing getRelativeMainInputWing() {
         RelativePointSet rps = getRelativePointSet();
-        return new CurveInputWing(rps.get(8), rps.get(7), rps.get(9));
+        return new CurveInputWing(rps.get(10), rps.get(11), rps.get(12));
     }
-
 
     private double backCurveUpShift = 0.1;
 
@@ -119,7 +119,13 @@ public class GateOR extends LogicGate {
         ps.add(new CircuitPoint(ps.get(1).x, ps.get(1).y - backCurveUpShift, c)); // 8
         ps.add(new CircuitPoint(ps.get(2).x, ps.get(2).y - backCurveUpShift, c)); // 9
 
-        // Curve from 8 -> 7 -> 9 (Main Wing) with inputs
+        // Curve from 8 -> 7 -> 9 back curve with inputs
+
+        ps.add(ps.get(8).x, ps.get(8).y - 1, c); // 10
+        ps.add(ps.get(7).x, ps.get(7).y - 1, c); // 11
+        ps.add(ps.get(9).x, ps.get(9).y - 1, c); // 12
+
+        // Curve from 10 -> 11 -> 12 (XOR Gate)
 
         // 10 is the input origin
         ps.add(new CircuitPoint(0, -5, c));
@@ -138,7 +144,7 @@ public class GateOR extends LogicGate {
 
     @Override
     public Vector getOriginToInputOrigin() {
-        return new Vector(0, -5);
+        return new Vector(0, -6);
     }
 
 
@@ -151,50 +157,60 @@ public class GateOR extends LogicGate {
         BezierCurve curve = new BezierCurve(drawPoints.get(2), drawPoints.get(5), drawPoints.get(0));
         BezierCurve curve2 = new BezierCurve(drawPoints.get(1), drawPoints.get(6), drawPoints.get(0));
 
+        BezierCurve backCurve = new BezierCurve(drawPoints.get(8), drawPoints.get(7), drawPoints.get(9));
+
         curve.draw(g, Color.BLACK, c.getLineWidth());
         curve2.draw(g, Color.BLACK, c.getLineWidth());
+        backCurve.draw(g, Color.BLACK, c.getLineWidth());
 
         drawWings(g, col);
 
         for (ConnectionNode node : connections)
             node.draw(g, col, opacity);
+
     }
 
 
     @Override
-    public void determinePowerStateOf(OutputNode outputNode) {
-        if (outputNode.getPowerStatus() == Dependent.PowerStatus.UNDETERMINED) {
-            LinkedList<InputNode> relevants = getRelevantInputNodesFor(outputNode);
+    public void determinePowerStateOf(OutputNode outNode) {
+        if (outNode.getPowerStatus() == Dependent.PowerStatus.UNDETERMINED) {
+            LinkedList<InputNode> relevants = getRelevantInputNodesFor(outNode);
             if (relevants.size() == 0)
-                outputNode.setPowerStatus(Dependent.PowerStatus.PARTIALLY_DEPENDENT);
-            if (outputNode.getPowerStatus() == Dependent.PowerStatus.UNDETERMINED) {
-                outputNode.setPowerStatus(Dependent.PowerStatus.OFF);
-                for (InputNode n : getRelevantInputNodesFor(outputNode)) {
-                    if (n.getPowerStatus() == Dependent.PowerStatus.ON) {
-                        outputNode.setPowerStatus(Dependent.PowerStatus.ON);
-                        return;
+                outNode.setPowerStatus(Dependent.PowerStatus.PARTIALLY_DEPENDENT);
+            if (outNode.getPowerStatus() == PowerStatus.UNDETERMINED) {
+                int numOn = 0;
+                for (InputNode in : relevants) {
+                    if (in.getPowerStatus() == PowerStatus.ON) {
+                        numOn++;
                     }
                 }
+
+                PowerStatus out = PowerStatus.OFF;
+                if (numOn == 1)
+                    out = PowerStatus.ON;
+                // TODO if it's notted flip 'out' power status
+                outNode.setPowerStatus(out);
             }
+
         }
     }
 
     @Override
     public boolean isSimilar(Entity other) {
-        return other instanceof GateOR
-                && ((GateOR) other).origin.isSimilar(origin)
-                && ((GateOR) other).rotation == rotation
-                && ((GateOR) other).size == size
-                && hasSimilarNots((GateOR) other);
+        return other instanceof GateXOR
+                && ((GateXOR) other).origin.isSimilar(origin)
+                && ((GateXOR) other).rotation == rotation
+                && ((GateXOR) other).size == size
+                && hasSimilarNots((GateXOR) other);
     }
 
     @Override
-    public GateOR clone(Circuit onto) {
-        return new GateOR(origin.clone(onto), rotation, size, numInputs, nots);
+    public GateXOR clone(Circuit onto) {
+        return new GateXOR(origin.clone(onto), rotation, size, numInputs, nots);
     }
 
     @Override
     public String getDisplayName() {
-        return "OR Gate";
+        return "XOR Gate";
     }
 }

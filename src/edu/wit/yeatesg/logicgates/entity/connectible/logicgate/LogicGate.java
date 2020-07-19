@@ -1,8 +1,6 @@
 package edu.wit.yeatesg.logicgates.entity.connectible.logicgate;
 
-import edu.wit.yeatesg.logicgates.def.BoundingBox;
-import edu.wit.yeatesg.logicgates.def.Direction;
-import edu.wit.yeatesg.logicgates.def.Vector;
+import edu.wit.yeatesg.logicgates.def.*;
 import edu.wit.yeatesg.logicgates.entity.*;
 import edu.wit.yeatesg.logicgates.entity.connectible.ConnectibleEntity;
 import edu.wit.yeatesg.logicgates.entity.connectible.ConnectionList;
@@ -82,10 +80,11 @@ public abstract class LogicGate extends ConnectibleEntity implements Rotatable, 
 
     @Override
     public void construct() {
+        mainWing = getMainInputWing();
+        drawPoints = getRelativePointSet().applyToOrigin(origin, rotation);
         interceptPoints = new PointSet();
         this.nots.sort(Comparator.comparingInt(Integer::intValue));
         connections = new ConnectionList(this);
-        drawPoints = getRelativePointSet().applyToOrigin(origin, rotation);
         constructNodesIntPointsAndBoundingBox();
         assignOutputsToInputs();
         // TODO not inputs after
@@ -93,18 +92,74 @@ public abstract class LogicGate extends ConnectibleEntity implements Rotatable, 
 
     private InputWing leftWing;
     private InputWing rightWing;
+    private InputWing mainWing;
 
-    private abstract class InputWing {
+    /** Differnet logic gates have different types of input wings*/
+    public abstract InputWing getInputWing(CircuitPoint start, CircuitPoint control, CircuitPoint end);
 
-        CircuitPoint p1;
-        CircuitPoint p2;
+    public CircuitPoint getTailLocation(InputNode inputNode) {
+        CircuitPoint loc = inputNode.getLocation();
+        if (leftWing != null && leftWing.contains(inputNode.getLocation()))
+            return leftWing.getBezierPointAlong(loc);
+        if (rightWing != null && rightWing.contains(inputNode.getLocation()))
+            return rightWing.getBezierPointAlong(loc);
+        return mainWing.getBezierPointAlong(loc);
+    }
 
-        /** Represents the distance from the input node to the curve at each location*/
-        private Map<CircuitPoint, Double> distToWingMap = new Map<>();
+    // return null if its a line
+    public abstract InputWing getRelativeMainInputWing();
 
-        public InputWing(CircuitPoint start, CircuitPoint end) {
-            p1 = start;
-            p2 = end;
+    public InputWing getMainInputWing() {
+        InputWing relative = getRelativeMainInputWing();
+        return getInputWing(relative.p1, relative.control, relative.p2);
+    }
+
+    protected abstract class InputWing {
+
+        protected CircuitPoint p1;
+        protected CircuitPoint p2;
+
+        protected CircuitPoint control;
+
+        protected CircuitPoint p30;
+
+        public InputWing(CircuitPoint start, CircuitPoint control, CircuitPoint end) {
+            p1 = start.getSimilar();
+            p2 = end.getSimilar();
+            CircuitPoint lefter = p1.y == p2.y ? (p1.x < p2.x ? p1 : p2) : (p1.y < p2.y ? p1 : p2);
+            CircuitPoint righter = lefter == p1 ? p2 : p1;
+            p1 = lefter;
+            p2 = righter;
+            this.control = control;
+            Vector startToEnd = new Vector(p1, p2);
+            double dist = startToEnd.getLength();
+            p30 = p1.getIfModifiedBy(startToEnd.getUnitVector().getMultiplied(dist / 2));
+        }
+
+        public boolean contains(CircuitPoint cp) {
+            ArrayList<CircuitPoint> interceptPoints = new ArrayList<>();
+            LogicGates.lefterToRighterIterator(p1, p2).forEachRemaining(interceptPoints::add);
+            return interceptPoints.contains(cp);
+        }
+
+        public CircuitPoint getMiddle() {
+            return p30.getSimilar();
+        }
+
+        public abstract CircuitPoint getBezierPointAlong(CircuitPoint cp);
+
+        public abstract void draw(GraphicsContext g, Color col);
+    }
+
+    protected class LineInputWing extends InputWing {
+
+        public LineInputWing(CircuitPoint start, CircuitPoint end) {
+            super(start, null, end);
+        }
+
+        @Override
+        public CircuitPoint getBezierPointAlong(CircuitPoint cp) {
+            return cp.clone(); // no implementation
         }
 
         public void draw(GraphicsContext g, Color col) {
@@ -115,11 +170,34 @@ public abstract class LogicGate extends ConnectibleEntity implements Rotatable, 
             PanelDrawPoint p1 = this.p1.toPanelDrawPoint();
             PanelDrawPoint p2 = this.p2.toPanelDrawPoint();
 
-            g.strokeLine(p1.x, p1.y, p2.x, p2.y); // Lefter/Upper tray
+            g.strokeLine(p1.x, p1.y, p2.x, p2.y);
+        }
+    }
+
+    protected class CurveInputWing extends InputWing {
+
+        private BezierCurve curve;
+
+        public CurveInputWing(CircuitPoint start, CircuitPoint controlPoint, CircuitPoint end) {
+            super(start, controlPoint, end);
+            curve = new BezierCurve(start, controlPoint, end);
+        }
+
+        @Override
+        public CircuitPoint getBezierPointAlong(CircuitPoint cp) {
+            if (rotation == 180 || rotation == 270)
+                return curve.getBezierPoint(1 - BezierCurve.getWeightOfPointAlong(p1, p2, cp));
+            return curve.getBezierPoint(BezierCurve.getWeightOfPointAlong(p1, p2, cp));
+        }
+
+        @Override
+        public void draw(GraphicsContext g, Color col) {
+            curve.draw(g, col, getLineWidth());
         }
     }
 
     protected void drawWings(GraphicsContext g, Color col) {
+        mainWing.draw(g, col);
         if (leftWing != null && rightWing != null) {
             leftWing.draw(g, col);
             rightWing.draw(g, col);
@@ -131,13 +209,6 @@ public abstract class LogicGate extends ConnectibleEntity implements Rotatable, 
      * @return
      */
     public abstract RelativePointSet getRelativePointSet();
-
-    /**
-     * Should return the index (in the getRelativePointSet()) of the center input node location.
-     * Used for standard (AND, OR, XOR, XNOR, NAND, NOR, etc) logic gate classes
-     * @return
-     */
-    protected abstract int getInputOriginIndex();
 
     protected int numInputs;
     protected ArrayList<Integer> nots; // the input indicies that are notted
@@ -169,6 +240,10 @@ public abstract class LogicGate extends ConnectibleEntity implements Rotatable, 
         return LogicGate.getNumBaseInputs(size);
     }
 
+    protected abstract double getOuterWingXOffset();
+
+    protected abstract double getOuterWingYOffset();
+
 
     private ArrayList<CircuitPoint> blockWiresHere = new ArrayList<>();
 
@@ -183,7 +258,8 @@ public abstract class LogicGate extends ConnectibleEntity implements Rotatable, 
     }
 
     public void constructNodesIntPointsAndBoundingBox() {
-        CircuitPoint inputOrigin = getRelativePointSet().get(getInputOriginIndex());
+        CircuitPoint inputOrigin = new CircuitPoint(0, 0, c).getIfModifiedBy(getOriginToInputOrigin());
+        System.out.println("IN ORIGIN " + inputOrigin.toParsableString());
         int originOffset = 0;
         int dir = -1;
         if (numInputs % 2 == 0)
@@ -193,6 +269,8 @@ public abstract class LogicGate extends ConnectibleEntity implements Rotatable, 
             CircuitPoint addingInputAt = inputOrigin.getIfModifiedBy(new Vector(originOffset, 0).getMultiplied(dir)).getRotated(origin, rotation);
             if (originOffset == numIterations - 1)
                 blockWiresHere.add(addingInputAt);
+            if (!addingInputAt.isSimilar(addingInputAt.getGridSnapped()))
+                throw new RuntimeException("tu fucked");
             establishInputNode(addingInputAt);
             interceptPoints.add(addingInputAt);
             if (dir == 1)
@@ -219,15 +297,20 @@ public abstract class LogicGate extends ConnectibleEntity implements Rotatable, 
             if (numExtraInputs % 2 != 0)
                 numExtraInputs++; // If numInputs is even, then we need to add another extra input because we skip
                                   // adding the input at origin offset 0 if numInputs is even to preserve symmetry
-            CircuitPoint leftWingRight = inputOrigin.getIfModifiedBy(new Vector(-1*((getNumBaseInputs() - 1.0) / 2), 0));
-            CircuitPoint leftWingLeft = leftWingRight.getIfModifiedBy(new Vector(-1*(numExtraInputs / 2.0 + 0.5), 0));
+            double xOff = getOuterWingXOffset();
+            double yOff = getOuterWingYOffset();
+            CircuitPoint leftWingRight = inputOrigin.getIfModifiedBy(new Vector(-1*((getNumBaseInputs() - 1.0) / 2 + xOff), 0));
+            leftWingRight.y -= yOff;
+            CircuitPoint leftWingLeft = leftWingRight.getIfModifiedBy(new Vector(-1*(numExtraInputs / 2.0 + 0.5) + xOff, 0));
             corner1 = leftWingLeft;
-            leftWing = new InputWing(leftWingLeft.getRotated(origin, rotation), leftWingRight.getRotated(origin, rotation));
+            leftWing = getInputWing(leftWingLeft, null, leftWingRight);
 
-            CircuitPoint rightWingLeft = inputOrigin.getIfModifiedBy(new Vector((getNumBaseInputs() - 1.0) / 2, 0));
-            CircuitPoint rightWingRight = rightWingLeft.getIfModifiedBy(new Vector(numExtraInputs / 2.0 + 0.5, 0));
+            CircuitPoint rightWingLeft = inputOrigin.getIfModifiedBy(new Vector((getNumBaseInputs() - 1.0) / 2 + xOff, 0));
+            rightWingLeft.y -= yOff;
+            CircuitPoint rightWingRight = rightWingLeft.getIfModifiedBy(new Vector(numExtraInputs / 2.0 + 0.5 - xOff, 0));
+
             corner2 = new CircuitPoint(rightWingRight.x, corner2.y, c);
-            rightWing = new InputWing(rightWingRight.getRotated(origin, rotation), rightWingLeft.getRotated(origin, rotation));
+            rightWing = getInputWing(rightWingRight, null, rightWingLeft);
         }
 
         boundingBox = new BoundingBox(corner1.getIfModifiedBy(new Vector(-0.49, 0)).getRotated(origin, rotation),
@@ -235,6 +318,9 @@ public abstract class LogicGate extends ConnectibleEntity implements Rotatable, 
 
         establishOutputNode(origin);
         out = (OutputNode) getNodeAt(origin);
+
+        for (InputNode in : getInputNodes())
+            in.setTailLocation(getTailLocation(in));
 
         connections.sort(rotation == 0 || rotation == 180 ? ConnectionNode.getHorizontalComparator() : ConnectionNode.getVerticalComparator());
     }
@@ -354,5 +440,13 @@ public abstract class LogicGate extends ConnectibleEntity implements Rotatable, 
     }
 
 
+    public void drawInputTails(GraphicsContext g, Color col) {
+        for (InputNode in : getInputNodes())
+            in.drawTail(g, col);
+    }
+
+
+    // Vector from origin to center of inputs
+    public abstract Vector getOriginToInputOrigin();
 
 }

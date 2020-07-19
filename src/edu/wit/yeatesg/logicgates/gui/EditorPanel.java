@@ -661,61 +661,6 @@ public class EditorPanel extends Pane {
         return (int) canvas.getHeight();
     }
 
-    public void testORGate(Circuit c, GraphicsContext g, CircuitPoint origin, int rotation, boolean xor) {
-        g.setStroke(Color.BLACK);
-        g.setLineWidth(c.getLineWidth());
-
-        Rotatable.RelativePointSet ps = new Rotatable.RelativePointSet();
-        ps.add(new CircuitPoint(0, 0, c)); // Out Node / Origin, 0
-        ps.add(new CircuitPoint(2.5, -5, c)); // Top right          1
-        ps.add(new CircuitPoint(-2.5, -5, c)); // Top left          2
-        ps.add(new CircuitPoint(-2.5, 0, c)); // Bot left          3
-        ps.add(new CircuitPoint(2.5, 0, c)); // Bot right         4
-
-        double yDist = ps.get(2).y - ps.get(3).y;
-        double xDist = ps.get(0).x - ps.get(3).x;
-        double xPercent = 0.0;
-        double yPercent = 0.15;
-
-        ps.add(new CircuitPoint(ps.get(0).x - xDist + xDist*xPercent
-                , ps.get(3).y + yDist*yPercent, c));      // BL control point     5
-        ps.add(new CircuitPoint(ps.get(0).x + xDist - xDist*xPercent,
-                ps.get(4).y + yDist*yPercent, c));       // BR control point      6
-
-        // Curve from 2 -> 5 -> 0 (Top left -> BL Control -> Origin)
-        // Curve from 1 -> 6 -> 0 (Top right -> BR Control -> Origin
-
-        double backCurveYPercent = 0.20; // percent dist from inner side of back curve down to origin, for control point
-        ps.add(new CircuitPoint(ps.get(0).x,
-                ps.get(2).y + backCurveYPercent*-1*yDist, c)); // Back curve controller 7
-
-        double backCurveUpShift = 0.1;
-
-        ps.add(new CircuitPoint(ps.get(1).x, ps.get(1).y - backCurveUpShift, c)); // 8
-        ps.add(new CircuitPoint(ps.get(2).x, ps.get(2).y - backCurveUpShift, c)); // 9
-
-        // Curve from 8 -> 7 -> 9 (Back Curve)
-
-        ps.add(ps.get(8).x, ps.get(8).y - 1, c); // 10
-        ps.add(ps.get(7).x, ps.get(7).y - 1, c); // 11
-        ps.add(ps.get(9).x, ps.get(9).y - 1, c); // 12
-
-        // Curve from 10 -> 11 -> 12 (XOR Gate)
-
-        PointSet dps = ps.applyToOrigin(origin, rotation);
-
-        BezierCurve curve = new BezierCurve(dps.get(2), dps.get(5), dps.get(0));
-        BezierCurve curve2 = new BezierCurve(dps.get(1), dps.get(6), dps.get(0));
-
-        BezierCurve backCurve = new BezierCurve(dps.get(8), dps.get(7), dps.get(9));
-        BezierCurve backCurve2 = new BezierCurve(dps.get(10), dps.get(11), dps.get(12));
-
-        curve.draw(g, Color.BLACK, c.getLineWidth());
-        curve2.draw(g, Color.BLACK, c.getLineWidth());
-        backCurve.draw(g, Color.BLACK, c.getLineWidth());
-        if (xor)
-            backCurve2.draw(g, Color.BLACK, c.getLineWidth());
-    }
 
     public void repaint(Circuit calledFrom) {
         if (calledFrom != null && calledFrom.getCircuitName().contains("theoretical"))
@@ -780,9 +725,6 @@ public class EditorPanel extends Pane {
 
                 if (currSelectionBox != null)
                     currSelectionBox.draw(gc);
-
-                testORGate(c, gc, new CircuitPoint(0, -10, c), 0, true);
-                testORGate(c, gc, new CircuitPoint(0, -16, c), 0, false);
 
             c.drawInvalidEntities(gc);
 

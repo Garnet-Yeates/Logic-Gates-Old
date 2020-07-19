@@ -9,9 +9,12 @@ public class BezierCurve {
 
     public CircuitPoint[] points;
 
+    private CurvePolygon shape;
+
     public static final double IT = 2;
 
     public BezierCurve(CurvePolygon shape) {
+        this.shape = shape;
         Circuit c = shape.points[0].getCircuit();
         CurvePolygon.Line longestLine = null;
         for (CurvePolygon.Line l : shape.lines)
@@ -25,7 +28,7 @@ public class BezierCurve {
         double weightInc = 1.0 / (numIterations - 1);
         double currWeight = 0;
         for (int i = 0; i < numIterations; i++) {
-            points[i] = getBezierPoint(shape, currWeight);
+            points[i] = getBezierPoint(currWeight);
             currWeight += weightInc;
         }
     }
@@ -58,7 +61,7 @@ public class BezierCurve {
         }*/
     }
 
-    private static CircuitPoint getBezierPoint(CurvePolygon shape, double weight) {
+    public static CircuitPoint getBezierPoint(CurvePolygon shape, double weight) {
         if (shape.lines.length == 1)
             return shape.lines[0].getPointAtWeight(weight);
         else {
@@ -69,14 +72,17 @@ public class BezierCurve {
         }
     }
 
-    private static double getWeightOfPointAlong(CurvePolygon.Line line, CircuitPoint point) {
-        boolean isHorizontal = line.startPoint.y == line.endPoint.y;
+    public CircuitPoint getBezierPoint(double weight) {
+        return getBezierPoint(shape, weight);
+    }
+
+    public static double getWeightOfPointAlong(CircuitPoint p1, CircuitPoint p2, CircuitPoint w) {
+        boolean isHorizontal = p1.y == p2.y;
         CircuitPoint lefter, righter;
-        lefter = isHorizontal ? (line.startPoint.x < line.endPoint.x ? line.startPoint : line.endPoint) :
-                (line.startPoint.y < line.endPoint.y ? line.startPoint : line.endPoint);
-        righter = lefter == line.startPoint ? line.endPoint : line.startPoint;
+        lefter = isHorizontal ? (p1.x < p2.x ? p1 : p2) : (p1.y < p2.y ? p1 : p2);
+        righter = lefter == p1 ? p2 : p1;
         double dist = isHorizontal ? righter.x - lefter.x : righter.y - lefter.y;
-        double startToPoint = isHorizontal ? point.x - lefter.x : point.y - lefter.y;
-        return dist / startToPoint;
+        double startToPoint = isHorizontal ? w.x - lefter.x : w.y - lefter.y;
+        return startToPoint / dist;
     }
 }
