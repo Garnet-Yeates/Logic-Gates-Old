@@ -1,10 +1,7 @@
 package edu.wit.yeatesg.logicgates.entity.connectible;
 
-import edu.wit.yeatesg.logicgates.def.Circuit;
-import edu.wit.yeatesg.logicgates.def.Direction;
-import edu.wit.yeatesg.logicgates.def.Vector;
+import edu.wit.yeatesg.logicgates.def.*;
 import edu.wit.yeatesg.logicgates.entity.*;
-import edu.wit.yeatesg.logicgates.def.BoundingBox;
 import edu.wit.yeatesg.logicgates.entity.connectible.transmission.ConnectionNode;
 import edu.wit.yeatesg.logicgates.entity.connectible.transmission.InputNode;
 import edu.wit.yeatesg.logicgates.entity.connectible.transmission.OutputNode;
@@ -39,6 +36,7 @@ public class OutputBlock extends ConnectibleEntity implements Rotatable {
         connections = new ConnectionList(this);
         drawPoints = getRelativePointSet().applyToOrigin(origin, rotation);
         getCircuit().pushIntoMapRange(drawPoints);
+        boundingBox = new BoundingBox(drawPoints.get(2), drawPoints.get(4), this);
         interceptPoints = getBoundingBox().getInterceptPoints();
         update();
         establishInputNode(drawPoints.get(0));
@@ -97,9 +95,11 @@ public class OutputBlock extends ConnectibleEntity implements Rotatable {
         return in.getPowerStatus().getColor();
     }
 
+    private BoundingBox boundingBox;
+
     @Override
     public BoundingBox getBoundingBox() {
-        return new BoundingBox(drawPoints.get(2), drawPoints.get(4), this);
+        return boundingBox;
     }
 
     @Override
@@ -129,17 +129,17 @@ public class OutputBlock extends ConnectibleEntity implements Rotatable {
         // Draw Circle Inside
         CircuitPoint centerPoint = pts.get(5);
         g.setFill(col == null ? in.getPowerStatus().getColor() : col);
-        double circleSize = (c.getScale() * 1.3);
+        double circleSize = (c.getScale() * 1.4);
         drawPoint = centerPoint.toPanelDrawPoint();
         g.fillOval(drawPoint.x - circleSize/2.00, drawPoint.y - circleSize/2.00, circleSize, circleSize);
 
         PowerStatus inStatus = in.getPowerStatus();
         String text = inStatus == PowerStatus.OFF ? "0" : (inStatus == PowerStatus.ON ? "1" : "");
         double widthOfThisHereInputBlock = c.getScale()*2; // TODO change for diff size
-        double maxWidth = widthOfThisHereInputBlock*0.75;
+        double maxWidth = widthOfThisHereInputBlock*0.70;
         if (col == null && inStatus == PowerStatus.OFF)
-            strokeCol = Color.rgb(40, 40, 40);
-        InputBlock.drawText(text, getLineWidth()*0.5, c, g, strokeCol, centerPoint.getSimilar(), maxWidth);
+            strokeCol = Color.rgb(0, 0, 0);
+        LogicGates.drawText(text, getLineWidth()*0.5, c, g, strokeCol, centerPoint.getSimilar(), maxWidth);
     }
 
 

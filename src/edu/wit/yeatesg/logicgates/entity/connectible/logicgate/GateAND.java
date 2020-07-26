@@ -3,11 +3,9 @@ package edu.wit.yeatesg.logicgates.entity.connectible.logicgate;
 
 import edu.wit.yeatesg.logicgates.def.BezierCurve;
 import edu.wit.yeatesg.logicgates.def.Circuit;
-import edu.wit.yeatesg.logicgates.def.Direction;
 import edu.wit.yeatesg.logicgates.def.Vector;
 import edu.wit.yeatesg.logicgates.entity.Entity;
 import edu.wit.yeatesg.logicgates.entity.PointSet;
-import edu.wit.yeatesg.logicgates.entity.connectible.ConnectibleEntity;
 import edu.wit.yeatesg.logicgates.entity.connectible.transmission.ConnectionNode;
 import edu.wit.yeatesg.logicgates.entity.connectible.transmission.Dependent;
 import edu.wit.yeatesg.logicgates.entity.connectible.transmission.InputNode;
@@ -34,16 +32,20 @@ public class GateAND extends LogicGate {
      * @param size
      * @param numInputs
      */
-    public GateAND(CircuitPoint origin, int rotation, Size size, int numInputs, ArrayList<Integer> nots) {
-        super(origin, rotation, size, numInputs, nots);
+    public GateAND(CircuitPoint origin, int rotation, Size size, int numInputs, boolean negate, ArrayList<Integer> nots) {
+        super(origin, rotation, size, numInputs, negate, nots);
+    }
+
+    public GateAND(CircuitPoint origin, int rotation, Size size, int numInputs, boolean negate) {
+        super(origin, rotation, size, numInputs, negate);
     }
 
     public GateAND(CircuitPoint origin, int rotation, Size size, int numInputs) {
-        super(origin, rotation, size, numInputs, null);
+        super(origin, rotation, size, numInputs);
     }
 
     public GateAND(CircuitPoint origin, int rotation, Size size) {
-        super(origin, rotation, size, getNumBaseInputs(size));
+        super(origin, rotation, size);
     }
 
     public GateAND(CircuitPoint origin, int rotation) {
@@ -60,11 +62,12 @@ public class GateAND extends LogicGate {
         int rotation = Integer.parseInt(fields[2]);
         Size size = Size.fromString(fields[3]);
         int numInputs = Integer.parseInt(fields[4]);
+        boolean negate = Boolean.parseBoolean(fields[5]);
         ArrayList<Integer> nots = new ArrayList<>();
-        String[] notsString = fields[5].split(";");
+        String[] notsString = fields[6].split(";");
         for (String str : notsString)
             nots.add(Integer.parseInt(str));
-        return new GateAND(origin, rotation, size, numInputs, nots);
+        return new GateAND(origin, rotation, size, numInputs, negate, nots);
     }
 
     @Override
@@ -129,7 +132,7 @@ public class GateAND extends LogicGate {
             if (outputNode.getPowerStatus() == Dependent.PowerStatus.UNDETERMINED) {
                 outputNode.setPowerStatus(Dependent.PowerStatus.ON);
                 for (InputNode n : getRelevantInputNodesFor(outputNode)) {
-                    if (n.getPowerStatus() == Dependent.PowerStatus.OFF) {
+                    if (n.getTruePowerValue() == Dependent.PowerStatus.OFF) {
                         outputNode.setPowerStatus(Dependent.PowerStatus.OFF);
                         return;
                     }
@@ -150,7 +153,7 @@ public class GateAND extends LogicGate {
 
     @Override
     public GateAND clone(Circuit onto) {
-        return new GateAND(origin.clone(onto), rotation, size, numInputs, nots);
+        return new GateAND(origin.clone(onto), rotation, size, numInputs, out.isNegated(), new ArrayList<>(inNots));
     }
 
     @Override

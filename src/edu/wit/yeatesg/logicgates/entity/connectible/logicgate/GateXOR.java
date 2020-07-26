@@ -4,9 +4,7 @@ import edu.wit.yeatesg.logicgates.def.BezierCurve;
 import edu.wit.yeatesg.logicgates.def.Circuit;
 import edu.wit.yeatesg.logicgates.def.Vector;
 import edu.wit.yeatesg.logicgates.entity.Entity;
-import edu.wit.yeatesg.logicgates.entity.PointSet;
 import edu.wit.yeatesg.logicgates.entity.Rotatable;
-import edu.wit.yeatesg.logicgates.entity.connectible.ConnectibleEntity;
 import edu.wit.yeatesg.logicgates.entity.connectible.transmission.ConnectionNode;
 import edu.wit.yeatesg.logicgates.entity.connectible.transmission.Dependent;
 import edu.wit.yeatesg.logicgates.entity.connectible.transmission.InputNode;
@@ -32,16 +30,20 @@ public class GateXOR extends LogicGate {
      * @param size
      * @param numInputs
      */
-    public GateXOR(CircuitPoint origin, int rotation, Size size, int numInputs, ArrayList<Integer> nots) {
-        super(origin, rotation, size, numInputs, nots);
+    public GateXOR(CircuitPoint origin, int rotation, Size size, int numInputs, boolean negate, ArrayList<Integer> nots) {
+        super(origin, rotation, size, numInputs, negate, nots);
+    }
+
+    public GateXOR(CircuitPoint origin, int rotation, Size size, int numInputs, boolean negate) {
+        super(origin, rotation, size, numInputs, negate);
     }
 
     public GateXOR(CircuitPoint origin, int rotation, Size size, int numInputs) {
-        super(origin, rotation, size, numInputs, null);
+        super(origin, rotation, size, numInputs);
     }
 
     public GateXOR(CircuitPoint origin, int rotation, Size size) {
-        super(origin, rotation, size, getNumBaseInputs(size));
+        super(origin, rotation, size);
     }
 
     public GateXOR(CircuitPoint origin, int rotation) {
@@ -51,18 +53,19 @@ public class GateXOR extends LogicGate {
     public GateXOR(CircuitPoint origin) {
         super(origin);
     }
-
+    
     public static GateXOR parse(String s, Circuit c) {
         String[] fields = s.split(",");
         CircuitPoint origin = new CircuitPoint(fields[0], fields[1], c);
         int rotation = Integer.parseInt(fields[2]);
         Size size = Size.fromString(fields[3]);
         int numInputs = Integer.parseInt(fields[4]);
+        boolean negate = Boolean.parseBoolean(fields[5]);
         ArrayList<Integer> nots = new ArrayList<>();
-        String[] notsString = fields[5].split(";");
+        String[] notsString = fields[6].split(";");
         for (String str : notsString)
             nots.add(Integer.parseInt(str));
-        return new GateXOR(origin, rotation, size, numInputs, nots);
+        return new GateXOR(origin, rotation, size, numInputs, negate, nots);
     }
 
     @Override
@@ -72,8 +75,8 @@ public class GateXOR extends LogicGate {
         CircuitPoint lefter = p1.y == p2.y ? (p1.x < p2.x ? p1 : p2) : (p1.y < p2.y ? p1 : p2);
         CircuitPoint righter = lefter == p1 ? p2 : p1;
         Vector startToEnd = new Vector(lefter, righter);
-        double distDown = 0.25;
-        distDown += 0.75 * (startToEnd.getLength() / 6);
+        double distDown = 0.15;
+        distDown += 0.85 * (startToEnd.getLength() / 6);
         distDown = Math.min(1.35, distDown);
         double dist = startToEnd.getLength();
         CircuitPoint middle = lefter.getIfModifiedBy(startToEnd.getUnitVector().getMultiplied(dist / 2));
@@ -180,7 +183,7 @@ public class GateXOR extends LogicGate {
             if (outNode.getPowerStatus() == PowerStatus.UNDETERMINED) {
                 int numOn = 0;
                 for (InputNode in : relevants) {
-                    if (in.getPowerStatus() == PowerStatus.ON) {
+                    if (in.getTruePowerValue() == PowerStatus.ON) {
                         numOn++;
                     }
                 }
@@ -206,7 +209,7 @@ public class GateXOR extends LogicGate {
 
     @Override
     public GateXOR clone(Circuit onto) {
-        return new GateXOR(origin.clone(onto), rotation, size, numInputs, nots);
+        return new GateXOR(origin.clone(onto), rotation, size, numInputs, out.isNegated(), new ArrayList<>(inNots));
     }
 
     @Override

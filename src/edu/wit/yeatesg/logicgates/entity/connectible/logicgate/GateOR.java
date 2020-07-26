@@ -4,9 +4,7 @@ import edu.wit.yeatesg.logicgates.def.BezierCurve;
 import edu.wit.yeatesg.logicgates.def.Circuit;
 import edu.wit.yeatesg.logicgates.def.Vector;
 import edu.wit.yeatesg.logicgates.entity.Entity;
-import edu.wit.yeatesg.logicgates.entity.PointSet;
 import edu.wit.yeatesg.logicgates.entity.Rotatable;
-import edu.wit.yeatesg.logicgates.entity.connectible.ConnectibleEntity;
 import edu.wit.yeatesg.logicgates.entity.connectible.transmission.ConnectionNode;
 import edu.wit.yeatesg.logicgates.entity.connectible.transmission.Dependent;
 import edu.wit.yeatesg.logicgates.entity.connectible.transmission.InputNode;
@@ -20,6 +18,7 @@ import java.util.LinkedList;
 
 public class GateOR extends LogicGate {
 
+
     /**
      * ConnectibleEntity constructor template:
      * set main fields such as rotation, origin, etc based on the params in the constructor
@@ -31,16 +30,20 @@ public class GateOR extends LogicGate {
      * @param size
      * @param numInputs
      */
-    public GateOR(CircuitPoint origin, int rotation, Size size, int numInputs, ArrayList<Integer> nots) {
-        super(origin, rotation, size, numInputs, nots);
+    public GateOR(CircuitPoint origin, int rotation, Size size, int numInputs, boolean negate, ArrayList<Integer> nots) {
+        super(origin, rotation, size, numInputs, negate, nots);
+    }
+
+    public GateOR(CircuitPoint origin, int rotation, Size size, int numInputs, boolean negate) {
+        super(origin, rotation, size, numInputs, negate);
     }
 
     public GateOR(CircuitPoint origin, int rotation, Size size, int numInputs) {
-        super(origin, rotation, size, numInputs, null);
+        super(origin, rotation, size, numInputs);
     }
 
     public GateOR(CircuitPoint origin, int rotation, Size size) {
-        super(origin, rotation, size, getNumBaseInputs(size));
+        super(origin, rotation, size);
     }
 
     public GateOR(CircuitPoint origin, int rotation) {
@@ -57,11 +60,12 @@ public class GateOR extends LogicGate {
         int rotation = Integer.parseInt(fields[2]);
         Size size = Size.fromString(fields[3]);
         int numInputs = Integer.parseInt(fields[4]);
+        boolean negate = Boolean.parseBoolean(fields[5]);
         ArrayList<Integer> nots = new ArrayList<>();
-        String[] notsString = fields[5].split(";");
+        String[] notsString = fields[6].split(";");
         for (String str : notsString)
             nots.add(Integer.parseInt(str));
-        return new GateOR(origin, rotation, size, numInputs, nots);
+        return new GateOR(origin, rotation, size, numInputs, negate, nots);
     }
 
     @Override
@@ -71,8 +75,8 @@ public class GateOR extends LogicGate {
         CircuitPoint lefter = p1.y == p2.y ? (p1.x < p2.x ? p1 : p2) : (p1.y < p2.y ? p1 : p2);
         CircuitPoint righter = lefter == p1 ? p2 : p1;
         Vector startToEnd = new Vector(lefter, righter);
-        double distDown = 0.25;
-        distDown += 0.75 * (startToEnd.getLength() / 6);
+        double distDown = 0.15;
+        distDown += 0.85 * (startToEnd.getLength() / 6);
         distDown = Math.min(1.35, distDown);
         double dist = startToEnd.getLength();
         CircuitPoint middle = lefter.getIfModifiedBy(startToEnd.getUnitVector().getMultiplied(dist / 2));
@@ -170,7 +174,7 @@ public class GateOR extends LogicGate {
             if (outputNode.getPowerStatus() == Dependent.PowerStatus.UNDETERMINED) {
                 outputNode.setPowerStatus(Dependent.PowerStatus.OFF);
                 for (InputNode n : getRelevantInputNodesFor(outputNode)) {
-                    if (n.getPowerStatus() == Dependent.PowerStatus.ON) {
+                    if (n.getTruePowerValue() == Dependent.PowerStatus.ON) {
                         outputNode.setPowerStatus(Dependent.PowerStatus.ON);
                         return;
                     }
@@ -190,7 +194,7 @@ public class GateOR extends LogicGate {
 
     @Override
     public GateOR clone(Circuit onto) {
-        return new GateOR(origin.clone(onto), rotation, size, numInputs, nots);
+        return new GateOR(origin.clone(onto), rotation, size, numInputs, out.isNegated(), new ArrayList<>(inNots));
     }
 
     @Override

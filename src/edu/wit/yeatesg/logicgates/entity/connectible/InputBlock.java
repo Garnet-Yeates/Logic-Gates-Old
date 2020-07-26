@@ -1,11 +1,8 @@
 package edu.wit.yeatesg.logicgates.entity.connectible;
 
 import com.sun.prism.Graphics;
-import edu.wit.yeatesg.logicgates.def.Circuit;
-import edu.wit.yeatesg.logicgates.def.Direction;
-import edu.wit.yeatesg.logicgates.def.Vector;
+import edu.wit.yeatesg.logicgates.def.*;
 import edu.wit.yeatesg.logicgates.entity.*;
-import edu.wit.yeatesg.logicgates.def.BoundingBox;
 import edu.wit.yeatesg.logicgates.entity.connectible.transmission.ConnectionNode;
 import edu.wit.yeatesg.logicgates.entity.connectible.transmission.OutputNode;
 import edu.wit.yeatesg.logicgates.entity.connectible.transmission.Wire;
@@ -105,43 +102,6 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
         return new BoundingBox(drawPoints.get(2), drawPoints.get(4), this);
     }
 
-    public static void drawText(String text, double lineWidth, Circuit c, GraphicsContext g, Color col, CircuitPoint center, double fit) {
-        Color strokeCol = col == null ? Color.BLACK : col;
-        g.setStroke(strokeCol);
-
-        Text toFindSize = new Text(text);
-        double width;
-        double height;
-        System.out.println("FIT " + fit);
-        System.out.println("SCALE" + c.getScale());
-        double fontSize = (fit / (c.getScale()*1.5))*c.getScale() * 2.6;
-        Font f;
-        int numIts = 0;
-        do{
-            numIts++;
-            toFindSize.setFont(f = new Font("Consolas", fontSize -= Math.max(0.5, fontSize*0.1)));
-            toFindSize.setTextAlignment(TextAlignment.LEFT);
-            toFindSize.setLineSpacing(0);
-            toFindSize.applyCss();
-            width = toFindSize.getLayoutBounds().getWidth();
-            height = fontSize*0.65;
-        } while (width > fit || height > fit);
-
-        System.out.println("NUM ITS " + numIts);
-
-        PanelDrawPoint pp = center.toPanelDrawPoint();
-
-        pp.y += height / 2;
-        pp.x -= width / 2;
-
-        g.setFill(strokeCol);
-        g.setLineWidth(lineWidth);
-        g.setFont(f);
-        g.setTextAlign(TextAlignment.LEFT);
-        g.fillText(text, pp.x, pp.y);
-
-    }
-
     @Override
     public void draw(GraphicsContext g, Color col, double opacity) {
         // Draw Border
@@ -154,6 +114,28 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
         Circuit c = getCircuit();
         g.setLineWidth(getLineWidth());
 
+        // Draw Circle Inside
+        CircuitPoint centerPoint = pts.get(5);
+        double circleSize = (c.getScale() * 1.3);
+        circleSize *= 1.2;
+        drawPoint = centerPoint.toPanelDrawPoint();
+
+        g.setFill(col == null ? out.getPowerStatus().getColor() : col);
+        g.fillOval(drawPoint.x - circleSize/2.00, drawPoint.y - circleSize/2.00, circleSize, circleSize);
+
+        // Draw Text 0 / 1
+        PowerStatus outStatus = out.getPowerStatus();
+        String text = outStatus == PowerStatus.OFF ? "0" : (outStatus == PowerStatus.ON ? "1" : "");
+        double widthOfThisHereInputBlock = c.getScale()*2; // TODO change for diff size
+        double maxWidth = widthOfThisHereInputBlock*0.70;
+        Color numCol = strokeCol;
+        if (col == null && outStatus == PowerStatus.OFF)
+            numCol = Color.rgb(0, 0, 0);
+        LogicGates.drawText(text, getLineWidth()*0.5, c, g, numCol, centerPoint.getSimilar(), maxWidth);
+
+        g.setLineWidth(getLineWidth());
+        g.setStroke(strokeCol);
+
         PanelDrawPoint bL = pts.get(1).toPanelDrawPoint();
         PanelDrawPoint tL = pts.get(2).toPanelDrawPoint();
         PanelDrawPoint tR = pts.get(3).toPanelDrawPoint();
@@ -163,27 +145,9 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
         g.strokeLine(tR.x, tR.y, bR.x, bR.y);
         g.strokeLine(bR.x, bR.y, bL.x, bL.y);
 
-        // Draw Connection Thingy
-
-
         ConnectionNode connectNode = getNodeAt(pts.get(0));
         connectNode.draw(g, col, opacity);
-        // Draw Circle Inside
-        CircuitPoint centerPoint = pts.get(5);
-        g.setFill(col == null ? out.getPowerStatus().getColor() : col);
-        double circleSize = (c.getScale() * 1.3);
-        drawPoint = centerPoint.toPanelDrawPoint();
-        g.fillOval(drawPoint.x - circleSize/2.00, drawPoint.y - circleSize/2.00, circleSize, circleSize);
 
-
-        // Draw Text 0 / 1
-        PowerStatus outStatus = out.getPowerStatus();
-        String text = outStatus == PowerStatus.OFF ? "0" : (outStatus == PowerStatus.ON ? "1" : "");
-        double widthOfThisHereInputBlock = c.getScale()*2; // TODO change for diff size
-        double maxWidth = widthOfThisHereInputBlock*0.75;
-        if (col == null && outStatus == PowerStatus.OFF)
-            strokeCol = Color.rgb(40, 40, 40);
-        drawText(text, getLineWidth()*0.5, c, g, strokeCol, centerPoint.getSimilar(), maxWidth);
 
     }
 

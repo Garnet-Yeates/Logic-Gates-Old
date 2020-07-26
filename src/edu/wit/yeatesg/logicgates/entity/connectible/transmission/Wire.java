@@ -41,6 +41,7 @@ public class Wire extends ConnectibleEntity implements Dependent {
         getCircuit().pushIntoMapRange(startLocation, endLocation);
         interceptPoints = new PointSet();
         connections = new ConnectionList(this);
+        boundingBox = new BoundingBox(startLocation, endLocation, this);
         edgeToEdgeIterator().forEachRemaining(intPoint -> interceptPoints.add(intPoint));
         update();
         postInit();
@@ -190,32 +191,35 @@ public class Wire extends ConnectibleEntity implements Dependent {
         PointSet invalidPoints = new PointSet();
         if (interceptPoints.size() > 1)
             return interceptPoints; // If it hits the same entity twice, ALL points are invalid
-        if (e instanceof Wire) {
-            Wire other = (Wire) e;
-            if (other.getDirection() != getDirection()) {
-                for (CircuitPoint interceptPoint : interceptPoints)
-                    if (!(other.isEdgePoint(interceptPoint) || isEdgePoint(interceptPoint)))
-                        invalidPoints.add(interceptPoint);
-            } else {
-                for (CircuitPoint interceptPoint : interceptPoints)
-                    if (!(other.isEdgePoint(interceptPoint) && isEdgePoint(interceptPoint)))
-                        invalidPoints.add(interceptPoint);
-            }
-            return invalidPoints;
-        } else if (e instanceof ConnectibleEntity) {
-            ConnectibleEntity ce = (ConnectibleEntity) e;
-            CircuitPoint point = interceptPoints.get(0);
-           if (e instanceof LogicGate) {
-                Direction blocked = ((LogicGate) e).getWireBlockDirection();
-                for (CircuitPoint cp : ((LogicGate) e).getWireBlockLocations())
-                    if (cp.isSimilar(point) && getDirection() == blocked)
-                        return interceptPoints;
-            }
-            // TODO If it touches a logicgate in the no wires here in certain dir kill urself
-            if (!hasConnectionTo(ce) && !(ce.hasNodeAt(point) && ce.getNumEntitiesConnectedAt(point) == 0))
+        else if (interceptPoints.size() == 1) {
+            CircuitPoint intPoint = interceptPoints.get(0);
+            if (e instanceof Wire) {
+                Wire other = (Wire) e;
+                if (other.getDirection() != getDirection()) {
+                    for (CircuitPoint interceptPoint : interceptPoints)
+                        if (!(other.isEdgePoint(interceptPoint) || isEdgePoint(interceptPoint)))
+                            invalidPoints.add(interceptPoint);
+                } else {
+                    for (CircuitPoint interceptPoint : interceptPoints)
+                        if (!(other.isEdgePoint(interceptPoint) && isEdgePoint(interceptPoint)))
+                            invalidPoints.add(interceptPoint);
+                }
+                return invalidPoints;
+            } else if (e instanceof ConnectibleEntity) {
+                if (!isEdgePoint(intPoint))
+                    return interceptPoints; // If this Wire intercepts a non-wire at a non edge point location, it's invalid
+                ConnectibleEntity ce = (ConnectibleEntity) e;
+                CircuitPoint point = interceptPoints.get(0);
+                if (e instanceof LogicGate) {
+                    Direction blocked = ((LogicGate) e).getWireBlockDirection();
+                    for (CircuitPoint cp : ((LogicGate) e).getWireBlockLocations())
+                        if (cp.isSimilar(point) && getDirection() == blocked)
+                            return interceptPoints;
+                }
+                if (!hasConnectionTo(ce) && !(ce.hasNodeAt(point) && ce.getNumEntitiesConnectedAt(point) == 0))
                     return interceptPoints; // If it hits the entity once, but cant connect, it's invalid
+             }
         }
-        // TODO if i add non connectible entities (like labels and stuff) if i want them to be invalid at some points add it here
         return invalidPoints; // InvalidPoints is empty here
     }
 
@@ -240,10 +244,11 @@ public class Wire extends ConnectibleEntity implements Dependent {
         return super.getInterceptPoints(other);
     }
 
+    private BoundingBox boundingBox;
+
     @Override
     public BoundingBox getBoundingBox() {
-        return new BoundingBox(startLocation, endLocation, this);
-
+        return boundingBox;
     }
 
     public Direction getDirection() {
@@ -347,7 +352,7 @@ public class Wire extends ConnectibleEntity implements Dependent {
     // Transform checks for wires
 
     public boolean canTransform() {
-        return !blockTransform && !blockUpdate && existsInCircuit();
+        return !c.isTransformDisabled() && !blockTransform && !blockUpdate && !isInvalid() && existsInCircuit();
     }
 
     private boolean blockBisect = false;
@@ -379,7 +384,12 @@ public class Wire extends ConnectibleEntity implements Dependent {
             return;
         for (CircuitPoint edgePoint : new CircuitPoint[]{ startLocation, endLocation }) {
             if (other.getPointsExcludingEdgePoints().contains(edgePoint)
-                    && other.getDirection() != getDirection()) {// This means it is bisecting the wire
+                    && other.getDirection() != getDirection()
+                    && !c.isWireBridgeAt(edgePoint)) {// This means it is bisecting the wire
+                System.out.println("BISECT AT " + edgePoint.toParsableString());
+                System.out.println("  BISECTER: " + this.toParsableString());
+                System.out.println("  BISECTED: " + other.toParsableString());
+
                 CircuitPoint bisectPoint = edgePoint.getSimilar();
                 CircuitPoint otherOldStartLoc = other.getStartLocation();
                 blockBisect = true;

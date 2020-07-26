@@ -148,7 +148,6 @@ public class Vector {
         return "< " + x + "," + y + ">";
     }
 
-
     public boolean isSimilar(Vector other) {
         return equals(other);
     }

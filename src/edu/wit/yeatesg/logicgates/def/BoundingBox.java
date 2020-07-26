@@ -145,6 +145,15 @@ public class BoundingBox {
         return interceptors;
     }
 
+    public boolean touches(Entity ent) {
+        CircuitPoint oneIntPoint = ent.getInterceptPoints().get(0);
+        return oneIntPoint.x > p1.x && oneIntPoint.x < p4.x && oneIntPoint.y > p1.y && oneIntPoint.y < p4.y;
+    }
+
+    public boolean simpleTouches(Entity ent) {
+        CircuitPoint oneIntPoint = ent.getInterceptPoints().get(0);
+        return oneIntPoint.x > p1.x && oneIntPoint.x < p4.x || oneIntPoint.y > p1.y && oneIntPoint.y < p4.y;
+    }
     public BoundingBox clone() {
         return new BoundingBox(p1.clone(), p4.clone(), owner);
     }

@@ -31,6 +31,8 @@ import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 
 import java.io.File;
+import java.util.ArrayList;
+import java.util.Arrays;
 
 
 // Rename to LogicGates
@@ -316,38 +318,57 @@ public class MainGUI extends Application {
         editorPanel.repaint(currProject.getCurrentCircuit());
         Circuit c = currProject.getCurrentCircuit();
 
-        c.addEntity(new InputBlock(new CircuitPoint(13, -5, c), 0));
-        c.addEntity(new InputBlock(new CircuitPoint(17, -5, c), 0));
+        ArrayList<Integer> negates = new ArrayList<>();
+        negates.add(0);
+        negates.add(2);
+        negates.add(4);
 
-        c.addEntity(new InputBlock(new CircuitPoint(23, -5, c), 0));
-        c.addEntity(new InputBlock(new CircuitPoint(27, -5, c), 0));
+        
+        
 
-        c.addEntity(new InputBlock(new CircuitPoint(33, -5, c), 0));
-        c.addEntity(new InputBlock(new CircuitPoint(37, -5, c), 0));
+        c.addEntity(new GateAND(new CircuitPoint(0, 05, c), 0, Entity.Size.MEDIUM, 5));
+        c.addEntity(new GateAND(new CircuitPoint(0, 12, c), 0, Entity.Size.MEDIUM, 7));
+        c.addEntity(new GateAND(new CircuitPoint(0, 19, c), 0, Entity.Size.MEDIUM, 9));
+        c.addEntity(new GateAND(new CircuitPoint(0, 26, c), 0, Entity.Size.MEDIUM, 11));
+        c.addEntity(new GateAND(new CircuitPoint(0, 33, c), 0, Entity.Size.MEDIUM, 13));
+        c.addEntity(new GateAND(new CircuitPoint(0, 40, c), 0, Entity.Size.MEDIUM, 15));
+        c.addEntity(new GateAND(new CircuitPoint(0, 47, c), 0, Entity.Size.MEDIUM, 17));
+        c.addEntity(new GateAND(new CircuitPoint(0, 54, c), 0, Entity.Size.MEDIUM, 19));
+        c.addEntity(new GateAND(new CircuitPoint(0, 61, c), 0, Entity.Size.MEDIUM, 21));
+        c.addEntity(new GateAND(new CircuitPoint(0, 68, c), 0, Entity.Size.MEDIUM, 23));
 
-        c.addEntity(new GateAND(new CircuitPoint(5, 5, c), 0));
-        c.addEntity(new GateAND(new CircuitPoint(10, 5, c), 0, Entity.Size.MEDIUM, 3));
-        c.addEntity(new GateAND(new CircuitPoint(15, 5, c), 0, Entity.Size.MEDIUM, 2));
-        c.addEntity(new GateAND(new CircuitPoint(20, 5, c), 0, Entity.Size.MEDIUM, 5));
-        c.addEntity(new GateAND(new CircuitPoint(27, 10, c), 0, Entity.Size.MEDIUM, 7));
-        c.addEntity(new GateAND(new CircuitPoint(27, 15, c), 0, Entity.Size.MEDIUM, 15));
-       c.addEntity(new GateOR(new CircuitPoint(27, 20, c), 0, Entity.Size.MEDIUM, 17));
-        c.addEntity(new GateXOR(new CircuitPoint(27, 25, c), 0, Entity.Size.MEDIUM, 3));
-        c.addEntity(new GateOR(new CircuitPoint(27, 30, c), 0, Entity.Size.MEDIUM, 3));
-        c.addEntity(new GateXOR(new CircuitPoint(27, 35, c), 0, Entity.Size.MEDIUM, 11));
-        c.addEntity(new GateXOR(new CircuitPoint(27, 40, c), 0, Entity.Size.MEDIUM, 9));
-        c.addEntity(new GateOR(new CircuitPoint(27, 45, c), 0, Entity.Size.MEDIUM, 7));
-        c.addEntity(new GateOR(new CircuitPoint(27, 50, c), 0, Entity.Size.MEDIUM, 5));
-        c.addEntity(new GateOR(new CircuitPoint(27, 55, c), 0, Entity.Size.MEDIUM, 19));
-        c.addEntity(new GateOR(new CircuitPoint(27, 61, c), 0, Entity.Size.MEDIUM, 21));
-        c.addEntity(new GateXOR(new CircuitPoint(27, 67, c), 0, Entity.Size.MEDIUM, 23));
-        c.addEntity(new GateOR(new CircuitPoint(27, 73, c), 0, Entity.Size.MEDIUM, 27));
-        c.addEntity(new GateOR(new CircuitPoint(27, 79, c), 0, Entity.Size.MEDIUM, 29));
-        c.addEntity(new GateOR(new CircuitPoint(27, 85, c), 0, Entity.Size.MEDIUM, 31));
-        c.addEntity(new OutputBlock(new CircuitPoint(-10, 10, c), 0));
-        c.addEntity(new OutputBlock(new CircuitPoint(-12, 10, c), 0));
-        c.addEntity(new OutputBlock(new CircuitPoint(-14, 10, c), 0));
-        c.addEntity(new OutputBlock(new CircuitPoint(-16, 10, c), 0));
+        
+        c.addEntity(new GateXOR(new CircuitPoint(17, 05, c), 0, Entity.Size.MEDIUM, 5));
+        c.addEntity(new GateXOR(new CircuitPoint(17, 12, c), 0, Entity.Size.MEDIUM, 7));
+        c.addEntity(new GateXOR(new CircuitPoint(17, 19, c), 0, Entity.Size.MEDIUM, 9));
+        c.addEntity(new GateXOR(new CircuitPoint(17, 26, c), 0, Entity.Size.MEDIUM, 11));
+        c.addEntity(new GateXOR(new CircuitPoint(17, 33, c), 0, Entity.Size.MEDIUM, 13));
+        c.addEntity(new GateXOR(new CircuitPoint(17, 40, c), 0, Entity.Size.MEDIUM, 15));
+        c.addEntity(new GateXOR(new CircuitPoint(17, 47, c), 0, Entity.Size.MEDIUM, 17));
+        c.addEntity(new GateXOR(new CircuitPoint(17, 54, c), 0, Entity.Size.MEDIUM, 19));
+        c.addEntity(new GateXOR(new CircuitPoint(17, 61, c), 0, Entity.Size.MEDIUM, 21));
+        c.addEntity(new GateXOR(new CircuitPoint(17, 68, c), 0, Entity.Size.MEDIUM, 23));
+
+
+        c.addEntity(new GateOR(new CircuitPoint(34, 05, c), 0, Entity.Size.MEDIUM, 5));
+        c.addEntity(new GateOR(new CircuitPoint(34, 12, c), 0, Entity.Size.MEDIUM, 7));
+        c.addEntity(new GateOR(new CircuitPoint(34, 19, c), 0, Entity.Size.MEDIUM, 9));
+        c.addEntity(new GateOR(new CircuitPoint(34, 26, c), 0, Entity.Size.MEDIUM, 11));
+        c.addEntity(new GateOR(new CircuitPoint(34, 33, c), 0, Entity.Size.MEDIUM, 13));
+        c.addEntity(new GateOR(new CircuitPoint(34, 40, c), 0, Entity.Size.MEDIUM, 15));
+        c.addEntity(new GateOR(new CircuitPoint(34, 47, c), 0, Entity.Size.MEDIUM, 17));
+        c.addEntity(new GateOR(new CircuitPoint(34, 54, c), 0, Entity.Size.MEDIUM, 19));
+        c.addEntity(new GateOR(new CircuitPoint(34, 61, c), 0, Entity.Size.MEDIUM, 21));
+        c.addEntity(new GateOR(new CircuitPoint(34, 68, c), 0, Entity.Size.MEDIUM, 23));
+
+
+
+        c.addEntity(new OutputBlock(new CircuitPoint(-2, -5, c), 0));
+        c.addEntity(new InputBlock(new CircuitPoint(2, -5, c), 0));
+
+
+        
+
 
 
 

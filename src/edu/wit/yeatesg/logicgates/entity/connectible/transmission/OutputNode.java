@@ -1,13 +1,12 @@
 package edu.wit.yeatesg.logicgates.entity.connectible.transmission;
 
 import edu.wit.yeatesg.logicgates.entity.connectible.ConnectibleEntity;
-import edu.wit.yeatesg.logicgates.entity.connectible.OutputBlock;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 import edu.wit.yeatesg.logicgates.points.PanelDrawPoint;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
-public class OutputNode extends ConnectionNode implements Dependent {
+public class OutputNode extends ConnectionNode {
 
     public OutputNode(CircuitPoint location, ConnectibleEntity connectingFrom, ConnectibleEntity connectedTo) {
         super(location, connectingFrom, connectedTo);
@@ -15,25 +14,6 @@ public class OutputNode extends ConnectionNode implements Dependent {
 
     public OutputNode(CircuitPoint location, ConnectibleEntity connectingFrom) {
         this(location, connectingFrom, null);
-    }
-
-    private DependencyList receivingFrom = new DependencyList(this);
-
-    @Override
-    public DependencyList dependingOn() {
-        return receivingFrom;
-    }
-
-    private PowerStatus powerStatus = PowerStatus.UNDETERMINED;
-
-    @Override
-    public void setPowerStatus(PowerStatus status) {
-        this.powerStatus = status;
-    }
-
-    @Override
-    public PowerStatus getPowerStatus() {
-        return powerStatus;
     }
 
     public boolean isIndependent() {
@@ -46,9 +26,8 @@ public class OutputNode extends ConnectionNode implements Dependent {
                 Dependent thatDependsOnThis = null;
                 if (ce instanceof Wire)
                     thatDependsOnThis = (Dependent) ce;
-                else if (ce.getConnectionTo(connectingWire) instanceof InputNode) {
-                    thatDependsOnThis = (Dependent) ce.getConnectionTo(connectingWire);
-                }
+                else if (ce.getConnectionTo(connectingWire) instanceof InputNode)
+                    thatDependsOnThis = ce.getConnectionTo(connectingWire);
                 if (thatDependsOnThis == null || thatDependsOnThis.getPowerStatus() != PowerStatus.UNDETERMINED)
                     continue;
                 if (!thatDependsOnThis.dependingOn().contains(this)) {
@@ -71,12 +50,14 @@ public class OutputNode extends ConnectionNode implements Dependent {
 
     @Override
     public void draw(GraphicsContext g, Color col, double opacity) {
-        col = col == null ? getPowerStatus().getColor() : col;
-        col = Color.rgb((int) (255*col.getRed()), (int) (255*col.getGreen()), (int) (255*col.getBlue()), opacity);
+        if (isNegated) {
+            CircuitPoint negCenter = location.getIfModifiedBy(getVectorToParent().getMultiplied(0.5));
+            ConnectionNode.drawNegationCircle(g, col == null ? Color.BLACK : col, negCenter, 1);
+        }
+        col = col == null ? getTruePowerValue().getColor() : col;
         g.setFill(col);
         double circleSize = parent.getCircuit().getScale() * 0.55;
-        if (getLocation().getCircuit().getScale() == 5)
-            circleSize *= 1.15;
+        circleSize *= getLocation().getCircuit().getScale() < 10 ? 1.1 : 1;
         PanelDrawPoint drawPoint = getLocation().toPanelDrawPoint();
         g.fillOval(drawPoint.x - circleSize/2.00, drawPoint.y - circleSize/2.00, circleSize, circleSize);
     }

@@ -121,7 +121,7 @@ public abstract class Entity implements PropertyMutable {
     }
 
     public void spreadUpdate() {
-        if (!blockUpdate && existsInCircuit()) {
+        if (!c.isUpdateDisabled() && !blockUpdate && existsInCircuit()) {
             update();
             for (Entity e : getInterceptingEntities())
                 e.update();
@@ -129,7 +129,7 @@ public abstract class Entity implements PropertyMutable {
     }
 
     public final void update() {
-        if (!blockUpdate && existsInCircuit()) {
+        if (!c.isUpdateDisabled() && !blockUpdate && existsInCircuit()) {
             updateInvalidInterceptPoints();
             if (this instanceof ConnectibleEntity)
                 ((ConnectibleEntity) this).connectCheck();

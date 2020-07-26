@@ -2,6 +2,12 @@ package edu.wit.yeatesg.logicgates.def;
 
 import edu.wit.yeatesg.logicgates.gui.MainGUI;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
+import edu.wit.yeatesg.logicgates.points.PanelDrawPoint;
+import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.paint.Color;
+import javafx.scene.text.Font;
+import javafx.scene.text.Text;
+import javafx.scene.text.TextAlignment;
 
 import java.util.Arrays;
 import java.util.Iterator;
@@ -14,7 +20,7 @@ public class LogicGates {
     public static String doTimeTest(Runnable r) {
         long start = System.currentTimeMillis();
         r.run();
-        return ((System.currentTimeMillis() - start) / 1000.0) + "s";
+        return ((System.currentTimeMillis() - start)) + "ms";
     }
 
     public static Iterator<CircuitPoint> lefterToRighterIterator(CircuitPoint p1, CircuitPoint p2) {
@@ -74,4 +80,40 @@ public class LogicGates {
             }
         }
     }
+
+    public static void drawText(String text, double lineWidth, Circuit c, GraphicsContext g, Color col, CircuitPoint center, double fit) {
+        Color strokeCol = col == null ? Color.BLACK : col;
+        g.setStroke(strokeCol);
+
+        Text toFindSize = new Text(text);
+        double width;
+        double height;
+        double fontSize = (fit / (c.getScale()*1.5))*c.getScale() * 2.6;
+        Font f;
+        int numIts = 0;
+        do{
+            numIts++;
+            toFindSize.setFont((f = new Font("Consolas", fontSize -= Math.max(0.1, fontSize * 0.05))));
+            toFindSize.setTextAlignment(TextAlignment.CENTER);
+            toFindSize.applyCss();
+            width = toFindSize.getLayoutBounds().getWidth();
+            height = fontSize*0.66;
+        } while (width > fit || height > fit);
+
+        PanelDrawPoint pp = center.toPanelDrawPoint();
+
+
+
+        pp.y += height / 2;
+        pp.x -= width / 2;
+
+        g.setFill(strokeCol);
+        g.setLineWidth(lineWidth);
+        g.setFont(f);
+        g.setTextAlign(TextAlignment.LEFT);
+        g.fillText(text, pp.x + 0.45, pp.y);
+
+        pp.x -= width / 2;
+    }
+
 }

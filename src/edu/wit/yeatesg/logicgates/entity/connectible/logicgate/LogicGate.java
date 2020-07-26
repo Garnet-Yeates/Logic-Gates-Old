@@ -11,9 +11,8 @@ import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 
-public abstract class LogicGate extends ConnectibleEntity implements Rotatable, PropertyMutable {
+public abstract class LogicGate extends ConnectibleEntity implements Rotatable, PropertyMutable, InputNegatable, OutputNegatable {
 
     /**
      * Fuck off
@@ -21,26 +20,33 @@ public abstract class LogicGate extends ConnectibleEntity implements Rotatable, 
      * @param rotation
      * @param size
      * @param numInputs
-     * @param nots
+     * @param negatedInputIndices
      */
-    public LogicGate(CircuitPoint origin, int rotation, Size size, int numInputs, ArrayList<Integer> nots) {
+    public LogicGate(CircuitPoint origin, int rotation, Size size, int numInputs, boolean negate, ArrayList<Integer> negatedInputIndices) {
         super(origin.getCircuit());
         this.origin = origin.getSimilar();
         this.rotation = rotation;
         this.size = size;
         this.numInputs = numInputs;
-        if (nots == null)
-            nots = new ArrayList<>();
-        this.nots = new ArrayList<>(nots);
-        if (nots.size() > numInputs)
+        if (negatedInputIndices == null)
+            negatedInputIndices = new ArrayList<>();
+        this.outNots = new ArrayList<>();
+        if (negate)
+            outNots.add(0);
+        this.inNots = new ArrayList<>(negatedInputIndices);
+        if (negatedInputIndices.size() > numInputs)
             throw new RuntimeException("Dumb fuck 1");
         if (numInputs < 2)
             throw new RuntimeException("Dumb fuck 2");
         construct();
     }
+    public LogicGate(CircuitPoint origin, int rotation, Size size, int numInputs, boolean negate) {
+        this(origin, rotation, size, numInputs, negate, null);
+
+    }
 
     public LogicGate(CircuitPoint origin, int rotation, Size size, int numInputs) {
-        this(origin, rotation, size, numInputs, null);
+        this(origin, rotation, size, numInputs, false, null);
     }
 
     public LogicGate(CircuitPoint origin, int rotation, Size size) {
@@ -57,16 +63,20 @@ public abstract class LogicGate extends ConnectibleEntity implements Rotatable, 
 
     @Override
     public String toParsableString() {
-        // [class name] <origin.x>,<origin.y>,<rotation>,<size>,<numInputs>,<nots>
+        // [class name] <origin.x>,<origin.y>,<rotation>,<size>,<numInputs>,<negate>,<nots>
         String notString = "";
-        for (int i = 0; i < nots.size(); i++)
-            notString += nots.get(i) + i == nots.size() - 1 ? "" : ";";
+        for (int i = 0; i < inNots.size(); i++)
+            notString += inNots.get(i) + (i == inNots.size() - 1 ? "" : ";");
+        notString = notString.equals("") ? ";" : notString;
+        System.out.println(notString + "NOT STRING");
+
         return "[" + getClass().getSimpleName() + "]" +
                 origin.x + ","
                 + origin.y + ","
                 + rotation + ","
                 + size + ","
                 + numInputs + ","
+                + out.isNegated() + ","
                 + notString;
     }
 
@@ -83,10 +93,20 @@ public abstract class LogicGate extends ConnectibleEntity implements Rotatable, 
         mainWing = getMainInputWing();
         drawPoints = getRelativePointSet().applyToOrigin(origin, rotation);
         interceptPoints = new PointSet();
-        this.nots.sort(Comparator.comparingInt(Integer::intValue));
+
         connections = new ConnectionList(this);
+        preInputConstruct();
         constructNodesIntPointsAndBoundingBox();
+        postInputConstruct(rotation);
+        preOutputConstruct();
+
+        outputNodes = new ArrayList<>();
+        establishOutputNode(origin);
+        out = (OutputNode) getNodeAt(origin);
+        outputNodes.add(out);
+        postOutputConstruct(rotation);
         assignOutputsToInputs();
+
         // TODO not inputs after
     }
 
@@ -211,13 +231,24 @@ public abstract class LogicGate extends ConnectibleEntity implements Rotatable, 
     public abstract RelativePointSet getRelativePointSet();
 
     protected int numInputs;
-    protected ArrayList<Integer> nots; // the input indicies that are notted
+    private ArrayList<InputNode> inputNodes;
+    protected ArrayList<Integer> inNots; // the input indicies that are notted
+    protected ArrayList<Integer> oldInNots = new ArrayList<>();
+
+    private ArrayList<OutputNode> outputNodes;
+    protected ArrayList<Integer> outNots; // the input indicies that are notted
+    protected ArrayList<Integer> oldOutNots = new ArrayList<>();
 
     protected boolean hasSimilarNots(LogicGate other) {
-        if (nots.size() != other.nots.size())
+        if (inNots.size() != other.inNots.size())
             return false;
-        for (int i = 0; i < nots.size(); i++)
-            if ((!other.nots.get(i).equals(nots.get(i))))
+        for (int i = 0; i < inNots.size(); i++)
+            if ((!other.inNots.get(i).equals(inNots.get(i))))
+                return false;
+        if (outNots.size() != other.outNots.size())
+            return false;
+        for (int i = 0; i < outNots.size(); i++)
+            if ((!other.outNots.get(i).equals(outNots.get(i))))
                 return false;
         return true;
     }
@@ -258,8 +289,8 @@ public abstract class LogicGate extends ConnectibleEntity implements Rotatable, 
     }
 
     public void constructNodesIntPointsAndBoundingBox() {
+        inputNodes = new ArrayList<>();
         CircuitPoint inputOrigin = new CircuitPoint(0, 0, c).getIfModifiedBy(getOriginToInputOrigin());
-        System.out.println("IN ORIGIN " + inputOrigin.toParsableString());
         int originOffset = 0;
         int dir = -1;
         if (numInputs % 2 == 0)
@@ -272,6 +303,7 @@ public abstract class LogicGate extends ConnectibleEntity implements Rotatable, 
             if (!addingInputAt.isSimilar(addingInputAt.getGridSnapped()))
                 throw new RuntimeException("tu fucked");
             establishInputNode(addingInputAt);
+            inputNodes.add((InputNode) getNodeAt(addingInputAt));
             interceptPoints.add(addingInputAt);
             if (dir == 1)
                 originOffset++;
@@ -316,14 +348,11 @@ public abstract class LogicGate extends ConnectibleEntity implements Rotatable, 
         boundingBox = new BoundingBox(corner1.getIfModifiedBy(new Vector(-0.49, 0)).getRotated(origin, rotation),
                 corner2.getIfModifiedBy(new Vector(0.49, 0)).getRotated(origin, rotation), this);
 
-        establishOutputNode(origin);
-        out = (OutputNode) getNodeAt(origin);
-
         for (InputNode in : getInputNodes())
             in.setTailLocation(getTailLocation(in));
 
-        connections.sort(rotation == 0 || rotation == 180 ? ConnectionNode.getHorizontalComparator() : ConnectionNode.getVerticalComparator());
     }
+
 
     @Override
     protected void assignOutputsToInputs() {
@@ -448,5 +477,82 @@ public abstract class LogicGate extends ConnectibleEntity implements Rotatable, 
 
     // Vector from origin to center of inputs
     public abstract Vector getOriginToInputOrigin();
+
+    /** Should be a direct reference to the input nodes in the Entity */
+    @Override
+    public ArrayList<InputNode> getInputList() {
+        return inputNodes;
+    }
+
+    /** Should be a direct reference */
+    @Override
+    public ArrayList<Integer> getNegatedInputIndices() {
+        return inNots;
+    }
+
+    /** Should be a direct reference */
+    @Override
+    public ArrayList<Integer> getOldNegatedInputIndices() {
+        return oldInNots;
+    }
+
+    @Override
+    public Vector getNegateVectorFor(InputNode inNode) {
+        return getOriginToInputOrigin().getUnitVector().getRotated(rotation);
+    }
+
+    @Override
+    public void addInterceptPointForNegate(CircuitPoint location) {
+        if (!interceptPoints.contains(location))
+            interceptPoints.add(location);
+    }
+
+    @Override
+    public ArrayList<OutputNode> getOutputList() {
+        return outputNodes;
+    }
+
+    /** Should be a direct reference */
+    @Override
+    public ArrayList<Integer> getNegatedOutputIndices() {
+        return outNots;
+    }
+
+    /** Should be a direct reference */
+    @Override
+    public ArrayList<Integer> getOldNegatedOutputIndices() {
+        return oldOutNots;
+    }
+
+    @Override
+    public Vector getNegateVectorFor(OutputNode outNode) {
+        return getOriginToInputOrigin().getUnitVector().getRotated(rotation).getMultiplied(-1);
+    }
+
+    private boolean canInputNegateMoveWires = false;
+
+    @Override
+    public void setCanInputNegateMoveWires(boolean canMoveWires) {
+        this.canInputNegateMoveWires = canMoveWires;
+    }
+
+    @Override
+    public boolean getCanInputNegateMoveWires() {
+        return canInputNegateMoveWires;
+    }
+
+    private boolean canOutputNegateMoveWires = false;
+
+    @Override
+    public void setCanOutputNegateMoveWires(boolean canMoveWires) {
+        this.canOutputNegateMoveWires = canMoveWires;
+    }
+
+    @Override
+    public boolean getCanOutputNegateMoveWires() {
+        return canOutputNegateMoveWires;
+    }
+
+
 
 }

@@ -4,6 +4,8 @@ import edu.wit.yeatesg.logicgates.def.*;
 import edu.wit.yeatesg.logicgates.def.Vector;
 import edu.wit.yeatesg.logicgates.entity.*;
 import edu.wit.yeatesg.logicgates.entity.connectible.ConnectibleEntity;
+import edu.wit.yeatesg.logicgates.entity.connectible.logicgate.InputNegatable;
+import edu.wit.yeatesg.logicgates.entity.connectible.logicgate.OutputNegatable;
 import edu.wit.yeatesg.logicgates.entity.connectible.transmission.Wire;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 import edu.wit.yeatesg.logicgates.points.PanelDrawPoint;
@@ -16,9 +18,9 @@ import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
-import javafx.scene.shape.CubicCurve;
 
-import java.awt.geom.CubicCurve2D;
+import static edu.wit.yeatesg.logicgates.def.Circuit.Selection.*;
+
 import java.util.*;
 
 import static edu.wit.yeatesg.logicgates.entity.connectible.transmission.Wire.*;
@@ -53,7 +55,8 @@ public class EditorPanel extends Pane {
     }
 
     public BoundingBox getScreenBoundaries() {
-        return new BoundingBox(new PanelDrawPoint(0, 0, c()), new PanelDrawPoint(canvasWidth(), canvasHeight(), c()), null);
+        return new BoundingBox(new PanelDrawPoint(-50, -50, c()).toCircuitPoint(),
+                new PanelDrawPoint(canvasWidth() + 50, canvasHeight() + 50, c()).toCircuitPoint(), null);
     }
 
     public void modifyOffset(Vector off) {
@@ -63,10 +66,6 @@ public class EditorPanel extends Pane {
     CircuitPoint LL = null;
     CircuitPoint RR = null;
 
-
-    public void fixSelection() {
-        c().reRe();
-    }
 
     public void onKeyPressed(KeyEvent e) {
         Circuit c = c();
@@ -155,29 +154,61 @@ public class EditorPanel extends Pane {
                 currentPullPoint = null;
                 this.new PullPoint(circuitPointAtMouse(true));
             }
-            c.recalculateTransmissions();
             repaint(c);
         }
         if (code == P) {
             onPoke();
             repaint(c);
         }
+        if (code == D && e.isControlDown())
+            duplicateSelection();
+        if (code == N) {
+            CircuitPoint gridsnapAtMouse = circuitPointAtMouse(true);
+            Vector negateDir = c.negate(gridsnapAtMouse);
+            if (negateDir != null) { // We know we successfully negated something
+                c.new NegateOperation(gridsnapAtMouse, negateDir, true);
+                c.appendCurrentStateChanges("Negate Input Node At " + gridsnapAtMouse.toParsableString());
+            }
+            // negaete
+        }
         e.consume();
-    //    repaint(c());
-        c.recalculateTransmissions();
+        repaint(c());
+        if (code != SPACE)
+            c.recalculateTransmissions();
         currSelection.updateConnectionView();
-        fixSelection(); // Also repaints
     }
+
 
     public void userMoveSelection(Vector vec, String dir) {
         Circuit c = c();
         Circuit.Selection currSelection = c.currentSelectionReference();
-        c.new SelectionMoveOperation(currSelection, vec, true).operate();
+        c.new SelectionMoveOperation(vec, true).operate();
         // Move Operations are different; they don't call circuit.clrarnontrans
         c.appendCurrentStateChanges("Move " + currSelection.size() + " Entit"
                 + (currSelection.size() == 1 ? "y" : "ies") + " " + dir);
     }
 
+    public void duplicateSelection() {
+        Circuit c = c(); // deselect, add, select
+        Circuit.Selection s = c.currentSelectionReference();
+        ExactEntityList<Entity> deepClone = s.deepClone();
+        s.deselectAllAndTrack();
+        c.disableTransforms();
+        c.disableUpdate();
+        for (Entity e : deepClone) {
+            e.add();
+            e.move(new Vector(1, 1));
+            c.new EntityAddOperation(e, true);
+        }
+        for (Entity e : deepClone)
+            c.new SelectOperation(e, true).operate();
+        c.enableUpdate();
+        c.enableTransforms();
+        for (Entity e : deepClone)
+            e.spreadUpdate();
+        c.appendCurrentStateChanges("Undo Duplicate Selection");
+
+    }
     public void onKeyReleased(KeyEvent e) {
         if (e.getCode() == KeyCode.SPACE)
             holdingSpace = false;
@@ -185,9 +216,7 @@ public class EditorPanel extends Pane {
             shift = false;
         Circuit c = c();
         Circuit.Selection currSelection = c.currentSelectionReference();
-        c.recalculateTransmissions();
         currSelection.updateConnectionView();
-        fixSelection();
     }
 
     public void onMouseMoved(MouseEvent e) {
@@ -231,7 +260,6 @@ public class EditorPanel extends Pane {
     }
 
     public void onMousePressed(MouseEvent e) {
-        fixSelection(); // Also repaints
         Circuit c = c();
         Circuit.Selection currSelection = c.currentSelectionReference();
         canUserShiftState = false;
@@ -292,9 +320,9 @@ public class EditorPanel extends Pane {
             rightPressPointGrid = null;
         }
         c().recalculateTransmissions();
+        repaint();
         updateConnectionView();
         gridSnapJustChanged = false;
-        fixSelection(); // Also repaints
     }
 
     public void repaint() {
@@ -623,7 +651,6 @@ public class EditorPanel extends Pane {
                     ((Pokable) e).onPoke();
             }
         }
-        c().recalculateTransmissions();
     }
 
     public void onGridSnapChangeWhileDragging() {
@@ -717,7 +744,12 @@ public class EditorPanel extends Pane {
                 drawOrder.addAll(drawSecond);
 
                 for (Entity e : drawOrder) {
-                    e.draw(gc);
+                    if (e instanceof Wire) {
+                        if (getScreenBoundaries().simpleTouches(e))
+                            e.draw(gc);
+                    } else if (getScreenBoundaries().touches(e))
+                            e.draw(gc);
+
                 }
 
                 if (currentPullPoint != null)

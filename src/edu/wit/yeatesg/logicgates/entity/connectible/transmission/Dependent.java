@@ -176,7 +176,7 @@ public interface Dependent
         ON(Color.rgb(55, 219, 0, 1)),
 
         /** Used to display the 'false', '0', 'off', etc power status */
-        OFF(Color.rgb(31, 118, 0, 1)),
+        OFF(Color.rgb(31, 108, 0, 1)),
 
         /** Used to show that this Dependent instance has a dependency, but not a super dependency */
         PARTIALLY_DEPENDENT(Color.rgb(53, 200, 226, 1)),
@@ -221,7 +221,7 @@ public interface Dependent
             if (this instanceof OutputNode)
                 ((OutputNode) this).parent.determinePowerStateOf((OutputNode) this);
             else if (hasSuperDependencies())
-                setPowerStatus(dependingOn().get(0).getPowerStatus());
+                setPowerStatus(((OutputNode) dependingOn().get(0)).getTruePowerValue());
             else if (hasDependencies())
                 setPowerStatus(PowerStatus.PARTIALLY_DEPENDENT);
             else

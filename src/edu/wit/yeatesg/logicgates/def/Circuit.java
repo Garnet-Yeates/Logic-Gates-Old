@@ -2,8 +2,10 @@ package edu.wit.yeatesg.logicgates.def;
 
 import edu.wit.yeatesg.logicgates.entity.*;
 import edu.wit.yeatesg.logicgates.entity.connectible.*;
-import edu.wit.yeatesg.logicgates.entity.connectible.transmission.Dependent;
-import edu.wit.yeatesg.logicgates.entity.connectible.transmission.Wire;
+import edu.wit.yeatesg.logicgates.entity.connectible.logicgate.InputNegatable;
+import edu.wit.yeatesg.logicgates.entity.connectible.logicgate.LogicGate;
+import edu.wit.yeatesg.logicgates.entity.connectible.logicgate.OutputNegatable;
+import edu.wit.yeatesg.logicgates.entity.connectible.transmission.*;
 import edu.wit.yeatesg.logicgates.gui.EditorPanel;
 import edu.wit.yeatesg.logicgates.gui.MainGUI;
 import edu.wit.yeatesg.logicgates.gui.Project;
@@ -236,6 +238,34 @@ public class Circuit implements PropertyMutable {
 
     public InterceptMap getInterceptMap() {
         return interceptMap;
+    }
+
+    private boolean updateDisabled;
+
+    public void disableUpdate() {
+        updateDisabled = true;
+    }
+
+    public void enableUpdate() {
+        updateDisabled = false;
+    }
+
+    public boolean isUpdateDisabled() {
+        return updateDisabled;
+    }
+
+    private boolean transformDisabled;
+
+    public void disableTransforms() {
+        transformDisabled = true;
+    }
+
+    public void enableTransforms() {
+        transformDisabled = false;
+    }
+
+    public boolean isTransformDisabled() {
+        return transformDisabled;
     }
 
     /**
@@ -667,8 +697,11 @@ public class Circuit implements PropertyMutable {
             super.add(e);
         }
 
-        public Selection deepClone() {
-            return new Selection(super.deepClone());
+        public ExactEntityList<Entity> deepClone() {
+            ExactEntityList<Entity> deepClone = new ExactEntityList<>();
+            for (Entity e : this)
+                deepClone.add(e.getSimilarEntity());
+            return deepClone;
         }
     }
 
@@ -918,8 +951,6 @@ public class Circuit implements PropertyMutable {
     }
 
     public boolean isWireBridgeAt(CircuitPoint location) {
-        for (Wire w : location.getInterceptingEntities().thatExtend(Wire.class))
-            System.out.println(w.toParsableString());
         boolean foundHorizontalOne = false;
         for (Wire w : location.getInterceptingEntities().getWiresGoingInSameDirection(Direction.HORIZONTAL)) {
             if (!w.isEdgePoint(location)) {
@@ -1100,35 +1131,99 @@ public class Circuit implements PropertyMutable {
             for (Entity e : ops)
                 e.deselect();
         }
+    }
+    
+    public Vector negate(CircuitPoint negating) {
+        for (ConnectibleEntity entity : negating.getInterceptingEntities().thatExtend(ConnectibleEntity.class)) {
+            if (entity instanceof InputNegatable) {
+                ConnectionNode node;
+                if (entity.hasNodeAt(negating) && (node = entity.getNodeAt(negating)) instanceof InputNode) {
+                    InputNode in = (InputNode) node;
+                    if (!((InputNegatable) entity).negateInput(negating))
+                        throw new RuntimeException();
+                    return ((InputNegatable) entity).getNegateVectorFor(in).getMultiplied(in.isNegated() ? -1 : 1);
+                }
+            }
+            if (entity instanceof OutputNegatable) {
+                ConnectionNode node;
+                if (entity.hasNodeAt(negating) && (node = entity.getNodeAt(negating)) instanceof OutputNode) {
+                    OutputNode out = (OutputNode) node;
+                    if (!((OutputNegatable) entity).negateOutput(negating))
+                        throw new RuntimeException();
+                    return ((OutputNegatable) entity).getNegateVectorFor(out).getMultiplied(out.isNegated() ? -1 : 1);
+                }
+            }
+        }
+        return null;
+    }
+
+    public class NegateOperation extends StateChangeOperation {
+
+        public CircuitPoint negatingNodeAt;
+        public Vector negationVector;
+
+        public NegateOperation(CircuitPoint negatingNodeAt, Vector negationVector, boolean track) {
+            super(track);
+            this.negatingNodeAt = negatingNodeAt.getSimilar();
+            this.negationVector = negationVector.clone();
+        }
+
+        @Override
+        public NegateOperation getOpposite() {
+            return new NegateOperation(negatingNodeAt.getIfModifiedBy(negationVector), negationVector.getMultiplied(-1), false);
+        }
+
+        @Override
+        public void operate() {
+            if (negate(negatingNodeAt) == null)
+                throw new RuntimeException("Negate Failed");
+        }
 
     }
+
 
 
     // Must be selected
     public class SelectionMoveOperation extends StateChangeOperation {
 
-        private Selection moving;
         private Vector movement;
 
-        public SelectionMoveOperation(Selection selection, Vector movement, boolean track) {
+        public SelectionMoveOperation(Vector movement, boolean track) {
             super(track);
-            moving = selection.deepClone();
             this.movement = movement.clone();
         }
 
         @Override
         public SelectionMoveOperation getOpposite() {
-            Selection deepClone = moving.deepClone();
+            ExactEntityList<Entity> deepClone = currSelection.deepClone();
             for (Entity e : deepClone) {
                 e.disableUpdate();
                 e.move(movement);
             }
-            return new SelectionMoveOperation(deepClone, movement.getMultiplied(-1), false);
+            return new SelectionMoveOperation(movement.getMultiplied(-1), false);
         }
 
         @Override
         public void operate() {
-            OperandList<Entity> megaOps = new OperandList<>();
+            System.out.println("STAR STAR STAR");
+            Selection shallow = currSelection.clone();
+            for (Entity e : shallow) {
+                e.disableUpdate();
+                if (e instanceof Wire)
+                    ((Wire) e).disableTransformable();
+            }
+            for (Entity e : shallow)
+                e.move(movement);
+            System.out.println("END END END");
+            for (Entity e : shallow) {
+                e.enableUpdate();
+                if (e instanceof Wire)
+                    ((Wire) e).enableTransformable();
+            }
+            for (Entity e : shallow)
+                e.spreadUpdate();
+
+           /* OperandList<Entity> megaOps = new OperandList<>();
             for (Entity e : moving)
                 megaOps.addAll(getOperands(e, SELECTED));
             megaOps.forEach(Entity::disableUpdate);
@@ -1138,7 +1233,7 @@ public class Circuit implements PropertyMutable {
             clearNonTransformables();
             for (Entity e : megaOps)
                 if (!(e instanceof Wire))
-                    e.update(); // Wires were already updated with clearNonTransformables().*/
+                    e.spreadUpdate(); // Wires were already updated with clearNonTransformables().*/
         }
     }
 
@@ -1391,19 +1486,22 @@ public class Circuit implements PropertyMutable {
 
 
     public void recalculateTransmissions() {
-        Dependent.resetDependencies(this);
-        Dependent.resetPowerStatus(this, true); // Reset power statuses and illogicals as well
-        Dependent.calculateDependencies(this); // Calculate dependencies, may cause illogicies
-        Dependent.calculateSuperDependencies(this);
+        System.out.println("Recalculate Transmissions Took " + LogicGates.doTimeTest(() -> {
+            Dependent.resetDependencies(Circuit.this);
+            Dependent.resetPowerStatus(Circuit.this, true); // Reset power statuses and illogicals as well
+            Dependent.calculateDependencies(Circuit.this); // Calculate dependencies, may cause illogicies
+            Dependent.calculateSuperDependencies(Circuit.this);
 
-        Dependent.illogicalCheck(this); // Determine illogicals based on calculated dependencies
+            Dependent.illogicalCheck(Circuit.this); // Determine illogicals based on calculated dependencies
 
-        Dependent.resetDependencies(this);
-        Dependent.resetPowerStatus(this, false); // Reset power statuses, but not for illogicals
-        Dependent.calculateDependencies(this); // Re-calculate dependencies, ignoring illogicals
-        Dependent.calculateSuperDependencies(this);
+            Dependent.resetDependencies(Circuit.this);
+            Dependent.resetPowerStatus(Circuit.this, false); // Reset power statuses, but not for illogicals
+            Dependent.calculateDependencies(Circuit.this); // Re-calculate dependencies, ignoring illogicals
+            Dependent.calculateSuperDependencies(Circuit.this);
 
-        Dependent.determinePowerStatuses(this);
+            Dependent.determinePowerStatuses(Circuit.this);
+        }));
+       
     }
 
     public void recalculatePowerStatuses() {
