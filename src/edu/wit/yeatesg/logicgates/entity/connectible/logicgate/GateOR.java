@@ -6,7 +6,7 @@ import edu.wit.yeatesg.logicgates.def.Vector;
 import edu.wit.yeatesg.logicgates.entity.Entity;
 import edu.wit.yeatesg.logicgates.entity.Rotatable;
 import edu.wit.yeatesg.logicgates.entity.connectible.transmission.ConnectionNode;
-import edu.wit.yeatesg.logicgates.entity.connectible.transmission.Dependent;
+import edu.wit.yeatesg.logicgates.entity.connectible.transmission.Powerable;
 import edu.wit.yeatesg.logicgates.entity.connectible.transmission.InputNode;
 import edu.wit.yeatesg.logicgates.entity.connectible.transmission.OutputNode;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
@@ -167,15 +167,15 @@ public class GateOR extends LogicGate {
 
     @Override
     public void determinePowerStateOf(OutputNode outputNode) {
-        if (outputNode.getPowerStatus() == Dependent.PowerStatus.UNDETERMINED) {
+        if (outputNode.getPowerStatus() == Powerable.PowerStatus.UNDETERMINED) {
             LinkedList<InputNode> relevants = getRelevantInputNodesFor(outputNode);
             if (relevants.size() == 0)
-                outputNode.setPowerStatus(Dependent.PowerStatus.PARTIALLY_DEPENDENT);
-            if (outputNode.getPowerStatus() == Dependent.PowerStatus.UNDETERMINED) {
-                outputNode.setPowerStatus(Dependent.PowerStatus.OFF);
+                outputNode.setPowerStatus(Powerable.PowerStatus.PARTIALLY_DEPENDENT);
+            if (outputNode.getPowerStatus() == Powerable.PowerStatus.UNDETERMINED) {
+                outputNode.setPowerStatus(Powerable.PowerStatus.OFF);
                 for (InputNode n : getRelevantInputNodesFor(outputNode)) {
-                    if (n.getTruePowerValue() == Dependent.PowerStatus.ON) {
-                        outputNode.setPowerStatus(Dependent.PowerStatus.ON);
+                    if (n.getTruePowerValue() == Powerable.PowerStatus.ON) {
+                        outputNode.setPowerStatus(Powerable.PowerStatus.ON);
                         return;
                     }
                 }

@@ -4,8 +4,6 @@ import edu.wit.yeatesg.logicgates.def.*;
 import edu.wit.yeatesg.logicgates.def.Vector;
 import edu.wit.yeatesg.logicgates.entity.*;
 import edu.wit.yeatesg.logicgates.entity.connectible.ConnectibleEntity;
-import edu.wit.yeatesg.logicgates.entity.connectible.logicgate.InputNegatable;
-import edu.wit.yeatesg.logicgates.entity.connectible.logicgate.OutputNegatable;
 import edu.wit.yeatesg.logicgates.entity.connectible.transmission.Wire;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 import edu.wit.yeatesg.logicgates.points.PanelDrawPoint;
@@ -18,8 +16,6 @@ import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
-
-import static edu.wit.yeatesg.logicgates.def.Circuit.Selection.*;
 
 import java.util.*;
 
@@ -55,8 +51,8 @@ public class EditorPanel extends Pane {
     }
 
     public BoundingBox getScreenBoundaries() {
-        return new BoundingBox(new PanelDrawPoint(-50, -50, c()).toCircuitPoint(),
-                new PanelDrawPoint(canvasWidth() + 50, canvasHeight() + 50, c()).toCircuitPoint(), null);
+        return new BoundingBox(new PanelDrawPoint(0, 0, c()).toCircuitPoint(),
+                new PanelDrawPoint(canvasWidth(), canvasHeight(), c()).toCircuitPoint(), null).getExpandedBy(17);
     }
 
     public void modifyOffset(Vector off) {
@@ -89,6 +85,9 @@ public class EditorPanel extends Pane {
                 currentPullPoint.dropAndRestart();
         if (code == N) {
             System.out.println("NUM ENTITIES: " + c().getNumEntities());
+        }
+        if (code == F) {
+            c.bridgeWires(circuitPointAtMouse(true));
         }
         if (e.isControlDown() && e.getCode() == Z) {
             if (e.isShiftDown())
@@ -195,18 +194,26 @@ public class EditorPanel extends Pane {
         s.deselectAllAndTrack();
         c.disableTransforms();
         c.disableUpdate();
+        c.appendCurrentStateChanges("Undo DESELECT");
         for (Entity e : deepClone) {
             e.add();
             e.move(new Vector(1, 1));
             c.new EntityAddOperation(e, true);
         }
-        for (Entity e : deepClone)
-            c.new SelectOperation(e, true).operate();
+        c.appendCurrentStateChanges("Undo ADD");
+
+        for (Entity e : deepClone) {
+            e.updateInvalidInterceptPoints();
+            e.select(); // dont select with the operation, as it will cut wires and can break bridges
+            c.new SelectOperation(e, true);
+        }
+        c.appendCurrentStateChanges("Undo SELECT");
+
         c.enableUpdate();
         c.enableTransforms();
         for (Entity e : deepClone)
-            e.spreadUpdate();
-        c.appendCurrentStateChanges("Undo Duplicate Selection");
+            e.update();
+  //      c.appendCurrentStateChanges("Undo Duplicate Selection");
 
     }
     public void onKeyReleased(KeyEvent e) {

@@ -23,9 +23,9 @@ public class OutputNode extends ConnectionNode {
     private void calculateDependedBy(Wire connectingWire) {
         if (connectingWire.getFullConnections().size() > 1) {
             for (ConnectibleEntity ce : connectingWire.getConnectedEntities()) {
-                Dependent thatDependsOnThis = null;
+                Powerable thatDependsOnThis = null;
                 if (ce instanceof Wire)
-                    thatDependsOnThis = (Dependent) ce;
+                    thatDependsOnThis = (Powerable) ce;
                 else if (ce.getConnectionTo(connectingWire) instanceof InputNode)
                     thatDependsOnThis = ce.getConnectionTo(connectingWire);
                 if (thatDependsOnThis == null || thatDependsOnThis.getPowerStatus() != PowerStatus.UNDETERMINED)

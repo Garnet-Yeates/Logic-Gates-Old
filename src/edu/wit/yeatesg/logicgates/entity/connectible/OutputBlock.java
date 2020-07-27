@@ -8,16 +8,10 @@ import edu.wit.yeatesg.logicgates.entity.connectible.transmission.OutputNode;
 import edu.wit.yeatesg.logicgates.entity.connectible.transmission.Wire;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 import edu.wit.yeatesg.logicgates.points.PanelDrawPoint;
-import javafx.beans.value.ObservableValue;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
-import javafx.scene.text.Font;
-import javafx.scene.text.Text;
-import javafx.scene.text.TextAlignment;
 
-import java.util.Arrays;
-
-import static edu.wit.yeatesg.logicgates.entity.connectible.transmission.Dependent.*;
+import static edu.wit.yeatesg.logicgates.entity.connectible.transmission.Powerable.*;
 
 public class OutputBlock extends ConnectibleEntity implements Rotatable {
 

@@ -1,6 +1,5 @@
 package edu.wit.yeatesg.logicgates.entity.connectible;
 
-import com.sun.prism.Graphics;
 import edu.wit.yeatesg.logicgates.def.*;
 import edu.wit.yeatesg.logicgates.entity.*;
 import edu.wit.yeatesg.logicgates.entity.connectible.transmission.ConnectionNode;
@@ -8,17 +7,10 @@ import edu.wit.yeatesg.logicgates.entity.connectible.transmission.OutputNode;
 import edu.wit.yeatesg.logicgates.entity.connectible.transmission.Wire;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 import edu.wit.yeatesg.logicgates.points.PanelDrawPoint;
-import javafx.beans.value.ObservableValue;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
-import javafx.scene.text.Font;
-import javafx.scene.text.Text;
-import javafx.scene.text.TextAlignment;
 
-import java.awt.*;
-import java.util.Arrays;
-
-import static edu.wit.yeatesg.logicgates.entity.connectible.transmission.Dependent.*;
+import static edu.wit.yeatesg.logicgates.entity.connectible.transmission.Powerable.*;
 
 public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable {
 

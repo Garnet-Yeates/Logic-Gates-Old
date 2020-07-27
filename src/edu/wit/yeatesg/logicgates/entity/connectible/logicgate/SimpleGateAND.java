@@ -18,7 +18,7 @@ import edu.wit.yeatesg.logicgates.points.PanelDrawPoint;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
-import static edu.wit.yeatesg.logicgates.entity.connectible.transmission.Dependent.*;
+import static edu.wit.yeatesg.logicgates.entity.connectible.transmission.Powerable.*;
 
 import java.util.LinkedList;
 

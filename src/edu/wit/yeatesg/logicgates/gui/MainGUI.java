@@ -362,7 +362,6 @@ public class MainGUI extends Application {
         c.addEntity(new GateOR(new CircuitPoint(34, 68, c), 0, Entity.Size.MEDIUM, 23));
 
 
-
         c.addEntity(new OutputBlock(new CircuitPoint(-2, -5, c), 0));
         c.addEntity(new InputBlock(new CircuitPoint(2, -5, c), 0));
 

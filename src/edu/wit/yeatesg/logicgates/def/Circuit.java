@@ -2,9 +2,8 @@ package edu.wit.yeatesg.logicgates.def;
 
 import edu.wit.yeatesg.logicgates.entity.*;
 import edu.wit.yeatesg.logicgates.entity.connectible.*;
-import edu.wit.yeatesg.logicgates.entity.connectible.logicgate.InputNegatable;
-import edu.wit.yeatesg.logicgates.entity.connectible.logicgate.LogicGate;
-import edu.wit.yeatesg.logicgates.entity.connectible.logicgate.OutputNegatable;
+import edu.wit.yeatesg.logicgates.entity.connectible.transmission.InputNegatable;
+import edu.wit.yeatesg.logicgates.entity.connectible.transmission.OutputNegatable;
 import edu.wit.yeatesg.logicgates.entity.connectible.transmission.*;
 import edu.wit.yeatesg.logicgates.gui.EditorPanel;
 import edu.wit.yeatesg.logicgates.gui.MainGUI;
@@ -93,9 +92,9 @@ public class Circuit implements PropertyMutable {
         @Override
         public boolean removeExact(E e) {
             if (!e.existsInCircuit())
-                throw new RuntimeException("existsInCircuit set to false for this entity");
-            if (!containsExact(e))
-                throw new RuntimeException("Discrepancy between existsInCircuit field and circuit.contains(this) for " + e);
+                return false;
+            if (get(indexOfExact(e)) != e)
+                throw new RuntimeException("Index Discrepency");
             if (super.removeExact(e))
                 onRemove(e);
             return false;
@@ -575,7 +574,7 @@ public class Circuit implements PropertyMutable {
          */
         public boolean select(Entity entity) {
             boolean added = false;
-            if (!containsExact(entity)) {
+            if (!entity.isSelected()) {
                 added = super.add(entity);
                 entity.setSelectionIndex(size() - 1);
                 entity.onSelect();
@@ -611,9 +610,12 @@ public class Circuit implements PropertyMutable {
 
         public boolean deselect(Entity e) {
             boolean removed = removeExact(e);
-            e.onDeselect();
-            updateConnectionView();
-            return removed;
+            if (removed) {
+                e.onDeselect();
+                updateConnectionView();
+                return true;
+            }
+            return false;
         }
 
         public boolean deselectAndTrackOperation(Entity e) {
@@ -941,10 +943,31 @@ public class Circuit implements PropertyMutable {
     }
 
     public void bridgeWires(CircuitPoint p) {
-        EntityList<Wire> recreating = p.getInterceptingEntities()
-                .getWiresGoingInOppositeDirection(Direction.VERTICAL);
+        System.out.println("BRIDGE AT " + p);
+        bridgeWires(p, Direction.VERTICAL);
+        bridgeWires(p, Direction.HORIZONTAL);
+    }
+
+    private void bridgeWires(CircuitPoint p, Direction dir) {
+        EntityList<Wire> recreating = new EntityList<>();
+        for (Entity e : p.getInterceptingEntities())
+            if (e instanceof Wire && ((Wire) e).getDirection() == dir && ((Wire) e).isEdgePoint(p))
+                recreating.add((Wire) e);
+        ExactEntityList<Wire> wasSelected = new ExactEntityList<>();
+        for (Wire w : recreating.clone())
+            if (w.isSelected())
+                wasSelected.add(w);
+        disableUpdate();
+        disableTransforms();
         recreating.forEach(Wire::remove);
         recreating.forEach(Wire::disableBisect);
+        recreating.forEach(wire -> {
+            if (wasSelected.containsExact(wire))
+                wire.select();
+        });
+        enableUpdate();
+        enableTransforms();
+        p.getInterceptingEntities().forEach(Entity::update);
         recreating.forEach(Wire::add);
         recreating.forEach(Wire::enableBisect);
         recreating.forEach(Wire::update);
@@ -969,6 +992,8 @@ public class Circuit implements PropertyMutable {
     private static final SelectiveFocus SELECTED = SelectiveFocus.SELECTED;
     private static final SelectiveFocus NON_SELECTED = SelectiveFocus.NON_SELECTED;
 
+    private ArrayList<CircuitPoint> splitLocations = new ArrayList<>();
+
     public OperandList<Entity> getOperands(Entity mainOperand, SelectiveFocus focus) {
         OperandList<Entity> operands = new OperandList<>();
         if (!(mainOperand instanceof Wire)) {
@@ -992,6 +1017,12 @@ public class Circuit implements PropertyMutable {
         return operands;
     }
 
+    public void bridgeSplitWires() {
+        for (CircuitPoint cp : splitLocations)
+            bridgeWires(cp);
+        splitLocations.clear();
+    }
+
     /**
      * Attempts to use Wires on the circuit to 'build' a potentially larger Wire. For example, if you use
      * an AddOperation to add a Wire with length 12, and it gets cut in two spots by 2 perpendicular wires after
@@ -1007,6 +1038,7 @@ public class Circuit implements PropertyMutable {
         for (Wire w : building.getInterceptingEntities().getWiresGoingInSameDirection(building))
             w.disableTransformable();
         for (CircuitPoint p : new CircuitPoint[] { building.getStartLocation(), building.getEndLocation()}) {
+            splitLocations.add(p);
             o: for (Wire w : p.getInterceptingEntities().getWiresGoingInSameDirection(building)) {
                 if (!w.isEdgePoint(p)) {
                     w.split(p, true);
@@ -1043,7 +1075,7 @@ public class Circuit implements PropertyMutable {
 
     // Look for Wire w with left edgePoint at whereAt, add it to currPiecesClone, return first nonNull occurrence
     // of a recursive call on the right edge point of w.
-    public OperandList<Wire> getNextPiece(CircuitPoint whereAt,
+    private OperandList<Wire> getNextPiece(CircuitPoint whereAt,
                                               Wire building,
                                               OperandList<Wire> currPieces,
                                               SelectiveFocus focus) {
@@ -1107,6 +1139,7 @@ public class Circuit implements PropertyMutable {
                 }
             }
             Circuit.this.clearNonTransformables();
+            bridgeSplitWires();
         }
     }
 
@@ -1130,6 +1163,7 @@ public class Circuit implements PropertyMutable {
             OperandList<Entity> ops = getOperands(deselecting, SELECTED);
             for (Entity e : ops)
                 e.deselect();
+            bridgeSplitWires();
         }
     }
     
@@ -1215,6 +1249,8 @@ public class Circuit implements PropertyMutable {
             for (Entity e : shallow)
                 e.move(movement);
             System.out.println("END END END");
+            for (Entity e : shallow)
+                e.updateInvalidInterceptPoints();
             for (Entity e : shallow) {
                 e.enableUpdate();
                 if (e instanceof Wire)
@@ -1280,6 +1316,7 @@ public class Circuit implements PropertyMutable {
                 }
             }
             Circuit.this.clearNonTransformables();
+            bridgeSplitWires();
         }
 
         @Override
@@ -1487,26 +1524,26 @@ public class Circuit implements PropertyMutable {
 
     public void recalculateTransmissions() {
         System.out.println("Recalculate Transmissions Took " + LogicGates.doTimeTest(() -> {
-            Dependent.resetDependencies(Circuit.this);
-            Dependent.resetPowerStatus(Circuit.this, true); // Reset power statuses and illogicals as well
-            Dependent.calculateDependencies(Circuit.this); // Calculate dependencies, may cause illogicies
-            Dependent.calculateSuperDependencies(Circuit.this);
+            Powerable.resetDependencies(Circuit.this);
+            Powerable.resetPowerStatus(Circuit.this, true); // Reset power statuses and illogicals as well
+            Powerable.calculateDependencies(Circuit.this); // Calculate dependencies, may cause illogicies
+            Powerable.calculateSuperDependencies(Circuit.this);
 
-            Dependent.illogicalCheck(Circuit.this); // Determine illogicals based on calculated dependencies
+            Powerable.illogicalCheck(Circuit.this); // Determine illogicals based on calculated dependencies
 
-            Dependent.resetDependencies(Circuit.this);
-            Dependent.resetPowerStatus(Circuit.this, false); // Reset power statuses, but not for illogicals
-            Dependent.calculateDependencies(Circuit.this); // Re-calculate dependencies, ignoring illogicals
-            Dependent.calculateSuperDependencies(Circuit.this);
+            Powerable.resetDependencies(Circuit.this);
+            Powerable.resetPowerStatus(Circuit.this, false); // Reset power statuses, but not for illogicals
+            Powerable.calculateDependencies(Circuit.this); // Re-calculate dependencies, ignoring illogicals
+            Powerable.calculateSuperDependencies(Circuit.this);
 
-            Dependent.determinePowerStatuses(Circuit.this);
+            Powerable.determinePowerStatuses(Circuit.this);
         }));
        
     }
 
     public void recalculatePowerStatuses() {
-        Dependent.resetPowerStatus(this, false);
-        Dependent.determinePowerStatuses(this);
+        Powerable.resetPowerStatus(this, false);
+        Powerable.determinePowerStatuses(this);
     }
 
 

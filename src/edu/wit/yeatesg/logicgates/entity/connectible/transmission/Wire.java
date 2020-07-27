@@ -14,7 +14,7 @@ import javafx.scene.paint.Color;
 
 import java.util.*;
 
-public class Wire extends ConnectibleEntity implements Dependent {
+public class Wire extends ConnectibleEntity implements Powerable {
 
     protected CircuitPoint startLocation;
     protected CircuitPoint endLocation;
@@ -50,6 +50,11 @@ public class Wire extends ConnectibleEntity implements Dependent {
     @Override
     public Wire clone(Circuit onto) {
         return new Wire(startLocation.clone(onto), endLocation.clone(onto));
+    }
+
+    @Override
+    public Wire getSimilarEntity() {
+        return (Wire) super.getSimilarEntity();
     }
 
     public void set(CircuitPoint edgePoint, CircuitPoint to) {
@@ -389,7 +394,6 @@ public class Wire extends ConnectibleEntity implements Dependent {
                 System.out.println("BISECT AT " + edgePoint.toParsableString());
                 System.out.println("  BISECTER: " + this.toParsableString());
                 System.out.println("  BISECTED: " + other.toParsableString());
-
                 CircuitPoint bisectPoint = edgePoint.getSimilar();
                 CircuitPoint otherOldStartLoc = other.getStartLocation();
                 blockBisect = true;

@@ -6,13 +6,13 @@ import edu.wit.yeatesg.logicgates.def.Vector;
 import edu.wit.yeatesg.logicgates.entity.Entity;
 import edu.wit.yeatesg.logicgates.entity.Rotatable;
 import edu.wit.yeatesg.logicgates.entity.connectible.transmission.ConnectionNode;
-import edu.wit.yeatesg.logicgates.entity.connectible.transmission.Dependent;
+import edu.wit.yeatesg.logicgates.entity.connectible.transmission.Powerable;
 import edu.wit.yeatesg.logicgates.entity.connectible.transmission.InputNode;
 import edu.wit.yeatesg.logicgates.entity.connectible.transmission.OutputNode;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
-import static edu.wit.yeatesg.logicgates.entity.connectible.transmission.Dependent.*;
+import static edu.wit.yeatesg.logicgates.entity.connectible.transmission.Powerable.*;
 
 import java.util.ArrayList;
 import java.util.LinkedList;
@@ -176,10 +176,10 @@ public class GateXOR extends LogicGate {
 
     @Override
     public void determinePowerStateOf(OutputNode outNode) {
-        if (outNode.getPowerStatus() == Dependent.PowerStatus.UNDETERMINED) {
+        if (outNode.getPowerStatus() == Powerable.PowerStatus.UNDETERMINED) {
             LinkedList<InputNode> relevants = getRelevantInputNodesFor(outNode);
             if (relevants.size() == 0)
-                outNode.setPowerStatus(Dependent.PowerStatus.PARTIALLY_DEPENDENT);
+                outNode.setPowerStatus(Powerable.PowerStatus.PARTIALLY_DEPENDENT);
             if (outNode.getPowerStatus() == PowerStatus.UNDETERMINED) {
                 int numOn = 0;
                 for (InputNode in : relevants) {

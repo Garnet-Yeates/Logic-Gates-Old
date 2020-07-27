@@ -13,7 +13,7 @@ import java.util.LinkedList;
 // be uncommon for huge circuits, it is going to have to do 2000*(30 to 40) iterations each refreshtransmissions call
 // which is gonna get really hefty. I should just do it for input nodes and output nodes, then give all the connected
 // wires a reference to
-public interface Dependent
+public interface Powerable
 {
     /**
      * A Dependent's DependencyList is the list of all of the other Dependents that this Dependent's power
@@ -46,11 +46,11 @@ public interface Dependent
         return dependingOn().getSuperDependencies().size() > 0;
     }
 
-    class DependencyList extends LinkedList<Dependent> {
+    class DependencyList extends LinkedList<Powerable> {
 
-        private Dependent theDependent;
+        private Powerable theDependent;
 
-        public DependencyList(Dependent representing) {
+        public DependencyList(Powerable representing) {
             theDependent = representing;
         }
 
@@ -63,7 +63,7 @@ public interface Dependent
         }
 
         @Override
-        public boolean add(Dependent dependingOn) {
+        public boolean add(Powerable dependingOn) {
             if (theDependent instanceof InputNode && !(dependingOn instanceof OutputNode))
                 throw new RuntimeException("Invalid Dependency");
             if (theDependent instanceof OutputNode && !(dependingOn instanceof InputNode))
@@ -76,7 +76,7 @@ public interface Dependent
         }
 
         @Override
-        public boolean addAll(Collection<? extends Dependent> collection) {
+        public boolean addAll(Collection<? extends Powerable> collection) {
             collection.forEach(dep -> {
                 if (!contains(dep))
                     add(dep);
@@ -100,9 +100,9 @@ public interface Dependent
         // Dependent depend on dependents. Input nodes depend on output nodes which depend on input nodes etc.
         // A dependent is considered a super dependent if it is an OutputNode and has no dependency. The dependency
         // of OutputNodes are pre determined
-        private void calculateSuperDependencies(SuperDependencyList addingTo, LinkedList<Dependent> cantRepeat) {
+        private void calculateSuperDependencies(SuperDependencyList addingTo, LinkedList<Powerable> cantRepeat) {
             cantRepeat.add(theDependent);
-            for (Dependent dep : this) {
+            for (Powerable dep : this) {
                 if (cantRepeat.contains(dep)) {
                     addingTo.isCircular = true;
                     return;
@@ -151,7 +151,7 @@ public interface Dependent
     void setPowerStatus(PowerStatus status);
 
     /**
-     * Obtains the {@link PowerStatus} of this {@link Dependent}. Classes that implement this interface should have
+     * Obtains the {@link PowerStatus} of this {@link Powerable}. Classes that implement this interface should have
      * a field representing the PowerStatus. This method, along with {@link #setPowerStatus(PowerStatus)} should
      * be the getter and setters for said field so that this interface can make modifications to that object's
      * power status.
@@ -230,7 +230,7 @@ public interface Dependent
     }
 
     default void assureDependentsPowerStatusDetermined() {
-        for (Dependent d : dependingOn())
+        for (Powerable d : dependingOn())
             if (d.getPowerStatus() == PowerStatus.UNDETERMINED)
                 d.determinePowerStatus();
     }
@@ -240,16 +240,16 @@ public interface Dependent
             setPowerStatus(PowerStatus.ILLOGICAL_SELF_DEPEND);
         else if ((this instanceof InputNode || this instanceof Wire) && getNumDependencies() > 1) {
             setPowerStatus(PowerStatus.ILLOGICAL_MULTI_DEPEND);
-            for (Dependent outputNode : dependingOn())
+            for (Powerable outputNode : dependingOn())
                 outputNode.setPowerStatus(PowerStatus.ILLOGICAL_MULTI_DEPEND);
         }
     }
 
-    static LinkedList<Dependent> getDependents(Circuit c) {
-        LinkedList<Dependent> dependents = new LinkedList<>();
+    static LinkedList<Powerable> getDependents(Circuit c) {
+        LinkedList<Powerable> dependents = new LinkedList<>();
         for (ConnectibleEntity ce : c.getAllEntitiesOfType(ConnectibleEntity.class)) {
-            if (ce instanceof Dependent)
-                dependents.add((Dependent) ce);
+            if (ce instanceof Powerable)
+                dependents.add((Powerable) ce);
             dependents.addAll(ce.getInputNodes());
             dependents.addAll(ce.getOutputNodes());
         }
@@ -257,13 +257,13 @@ public interface Dependent
     }
 
     static void resetDependencies(Circuit c) {
-        for (Dependent d : getDependents(c)) {
+        for (Powerable d : getDependents(c)) {
             d.clearDependencies();
         }
     }
 
     static void resetPowerStatus(Circuit c, boolean resetIllogicals) {
-        for (Dependent d : getDependents(c))
+        for (Powerable d : getDependents(c))
             if (resetIllogicals
                     || (d.getPowerStatus() != PowerStatus.ILLOGICAL_SELF_DEPEND
                         && d.getPowerStatus() != PowerStatus.ILLOGICAL_MULTI_DEPEND))
@@ -276,7 +276,7 @@ public interface Dependent
     }
 
     static void determinePowerStatuses(Circuit c) {
-        for (Dependent d : getDependents(c))
+        for (Powerable d : getDependents(c))
             d.determinePowerStatus();
     }
 
@@ -285,12 +285,12 @@ public interface Dependent
      * @param c
      */
     static void calculateSuperDependencies(Circuit c) {
-        for (Dependent d : getDependents(c))
+        for (Powerable d : getDependents(c))
             d.dependingOn().calculateSuperDependencies();
     }
 
     static void illogicalCheck(Circuit c) {
-        for (Dependent d : getDependents(c))
+        for (Powerable d : getDependents(c))
             d.illogicalCheck();
     }
 

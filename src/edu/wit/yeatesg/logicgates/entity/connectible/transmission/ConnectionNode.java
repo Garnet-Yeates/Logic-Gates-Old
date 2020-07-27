@@ -11,7 +11,7 @@ import javafx.scene.paint.Color;
 
 import java.util.Comparator;
 
-public class ConnectionNode implements Dependent {
+public class ConnectionNode implements Powerable {
 
    protected CircuitPoint location;
    protected ConnectibleEntity connectedTo;

@@ -6,7 +6,6 @@ import edu.wit.yeatesg.logicgates.entity.connectible.transmission.*;
 import edu.wit.yeatesg.logicgates.points.CircuitPoint;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.LinkedList;
 
 public abstract class ConnectibleEntity extends Entity {
@@ -200,7 +199,7 @@ public abstract class ConnectibleEntity extends Entity {
 
     public LinkedList<InputNode> getRelevantInputNodesFor(OutputNode out) {
         LinkedList<InputNode> relevants = new LinkedList<>();
-        for (Dependent inputNode : out.dependingOn())
+        for (Powerable inputNode : out.dependingOn())
             if (inputNode.hasSuperDependencies())
                 relevants.add((InputNode) inputNode);
         return relevants;

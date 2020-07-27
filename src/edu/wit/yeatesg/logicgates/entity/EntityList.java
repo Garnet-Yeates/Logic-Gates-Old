@@ -141,7 +141,6 @@ public class EntityList<E extends Entity> extends ArrayList<E> {
 
 
     @Override
-    @SuppressWarnings("unchecked")
     public EntityList<E> clone() {
         return new EntityList<>(this);
     }

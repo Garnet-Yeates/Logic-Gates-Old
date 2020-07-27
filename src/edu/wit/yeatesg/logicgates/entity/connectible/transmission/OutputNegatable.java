@@ -1,4 +1,4 @@
-package edu.wit.yeatesg.logicgates.entity.connectible.logicgate;
+package edu.wit.yeatesg.logicgates.entity.connectible.transmission;
 
 import edu.wit.yeatesg.logicgates.def.Vector;
 import edu.wit.yeatesg.logicgates.entity.Entity;
