@@ -1,16 +1,15 @@
 package edu.wit.yeatesg.logicgates.gui;
 
-import edu.wit.yeatesg.logicgates.entity.Entity;
-import edu.wit.yeatesg.logicgates.entity.connectible.OutputBlock;
-import edu.wit.yeatesg.logicgates.entity.connectible.logicgate.GateAND;
-import edu.wit.yeatesg.logicgates.entity.connectible.logicgate.GateOR;
-import edu.wit.yeatesg.logicgates.entity.connectible.logicgate.GateXOR;
-import edu.wit.yeatesg.logicgates.entity.connectible.logicgate.SimpleGateAND;
-import edu.wit.yeatesg.logicgates.entity.PropertyMutable;
-import edu.wit.yeatesg.logicgates.entity.Property;
-import edu.wit.yeatesg.logicgates.def.Circuit;
-import edu.wit.yeatesg.logicgates.entity.connectible.InputBlock;
-import edu.wit.yeatesg.logicgates.points.CircuitPoint;
+import edu.wit.yeatesg.logicgates.circuit.entity.Entity;
+import edu.wit.yeatesg.logicgates.circuit.entity.connectible.peripheral.OutputBlock;
+import edu.wit.yeatesg.logicgates.circuit.entity.connectible.logicgate.GateAND;
+import edu.wit.yeatesg.logicgates.circuit.entity.connectible.logicgate.GateOR;
+import edu.wit.yeatesg.logicgates.circuit.entity.connectible.logicgate.GateXOR;
+import edu.wit.yeatesg.logicgates.circuit.entity.PropertyMutable;
+import edu.wit.yeatesg.logicgates.circuit.entity.Property;
+import edu.wit.yeatesg.logicgates.circuit.Circuit;
+import edu.wit.yeatesg.logicgates.circuit.entity.connectible.peripheral.InputBlock;
+import edu.wit.yeatesg.logicgates.datatypes.CircuitPoint;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
@@ -32,7 +31,6 @@ import javafx.stage.Stage;
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.Arrays;
 
 
 // Rename to LogicGates
@@ -243,13 +241,20 @@ public class MainGUI extends Application {
         treeView.setMinHeight(150); // The listener below makes it so the treeView is always as big as it can get
         stage.heightProperty().addListener((observableValue, number, t1) -> treeView.setPrefHeight(Integer.MAX_VALUE));
         leftOfDivider.getChildren().add(treeView);
-        TreeItem<String> treeRoot = new TreeItem<>("Root");
-        TreeItem<String> item1 = new TreeItem<>("Item1");
-        item1.getChildren().add(new TreeItem<>("ItemA"));
-        item1.getChildren().add(new TreeItem<>("ItemB"));
-        item1.getChildren().add(new TreeItem<>("ItemC"));
-        TreeItem<String> item2 = new TreeItem<>("Item2");
-        TreeItem<String> item3 = new TreeItem<>("Item3");
+        TreeItem<String> treeRoot = new TreeItem<>("untitled");
+        TreeItem<String> item1 = new TreeItem<>("Circuits");
+        item1.getChildren().add(new TreeItem<>("CircuitA"));
+        item1.getChildren().add(new TreeItem<>("CircuitB"));
+        item1.getChildren().add(new TreeItem<>("CircuitC"));
+        TreeItem<String> item2 = new TreeItem<>("Logic Gates");
+        item2.getChildren().add(new TreeItem<>("AND Gate"));
+        item2.getChildren().add(new TreeItem<>("OR Gate"));
+        item2.getChildren().add(new TreeItem<>("XOR Gate"));
+        item2.getChildren().add(new TreeItem<>("NAND Gate"));
+        item2.getChildren().add(new TreeItem<>("NOR Gate"));
+        item2.getChildren().add(new TreeItem<>("XNOR Gate"));
+
+        TreeItem<String> item3 = new TreeItem<>("Wiring");
         treeRoot.getChildren().add(item1);
         treeRoot.getChildren().add(item2);
         treeRoot.getChildren().add(item3);

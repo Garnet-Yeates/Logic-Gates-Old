@@ -1,7 +1,7 @@
 package edu.wit.yeatesg.logicgates.gui;
 
-import edu.wit.yeatesg.logicgates.def.Circuit;
-import edu.wit.yeatesg.logicgates.entity.Entity;
+import edu.wit.yeatesg.logicgates.circuit.Circuit;
+import edu.wit.yeatesg.logicgates.circuit.entity.Entity;
 
 import javax.xml.stream.XMLEventReader;
 import javax.xml.stream.XMLInputFactory;

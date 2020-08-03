@@ -1,12 +1,12 @@
 package edu.wit.yeatesg.logicgates.gui;
 
-import edu.wit.yeatesg.logicgates.def.*;
-import edu.wit.yeatesg.logicgates.def.Vector;
-import edu.wit.yeatesg.logicgates.entity.*;
-import edu.wit.yeatesg.logicgates.entity.connectible.ConnectibleEntity;
-import edu.wit.yeatesg.logicgates.entity.connectible.transmission.Wire;
-import edu.wit.yeatesg.logicgates.points.CircuitPoint;
-import edu.wit.yeatesg.logicgates.points.PanelDrawPoint;
+import edu.wit.yeatesg.logicgates.circuit.Circuit;
+import edu.wit.yeatesg.logicgates.circuit.entity.connectible.peripheral.InputBlock;
+import edu.wit.yeatesg.logicgates.datatypes.*;
+import edu.wit.yeatesg.logicgates.circuit.entity.*;
+import edu.wit.yeatesg.logicgates.circuit.entity.connectible.ConnectibleEntity;
+import edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission.Wire;
+import edu.wit.yeatesg.logicgates.datatypes.Vector;
 import javafx.application.Platform;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
@@ -16,11 +16,14 @@ import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
+import javax.swing.Timer;
 
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.util.*;
 
-import static edu.wit.yeatesg.logicgates.entity.connectible.transmission.Wire.*;
-import static edu.wit.yeatesg.logicgates.def.Circuit.*;
+import static edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission.Wire.*;
+import static edu.wit.yeatesg.logicgates.circuit.Circuit.*;
 
 import static javafx.scene.input.KeyCode.*;
 
@@ -62,6 +65,15 @@ public class EditorPanel extends Pane {
     CircuitPoint LL = null;
     CircuitPoint RR = null;
 
+    public boolean debugInv = false;
+
+    public Entity lastFuckedUpOperand;
+    private int fuckedDrawState = -1;
+
+    private Timer blinkTimer = new Timer(500, (e -> { fuckedDrawState *= -1; repaint(); }));
+    {
+        blinkTimer.start();
+    }
 
     public void onKeyPressed(KeyEvent e) {
         Circuit c = c();
@@ -73,9 +85,10 @@ public class EditorPanel extends Pane {
                 System.out.println(" " + en.toParsableString());
         }
         if (code == OPEN_BRACKET)
-            LL = circuitPointAtMouse(true);
+            autoPokeTimer.setDelay(autoPokeTimer.getDelay() + 50);
         if (code == CLOSE_BRACKET)
-            RR = circuitPointAtMouse(true);
+            if (autoPokeTimer.getDelay() >= 100)
+                autoPokeTimer.setDelay(autoPokeTimer.getDelay() - 50);
         if (code == BACK_SLASH);
           //  c.getOperands(new Wire(LL, RR));
         if (code == DELETE)
@@ -139,7 +152,9 @@ public class EditorPanel extends Pane {
             repaint(c);
         }
         if (code == ESCAPE) {
-            if (currSelection.size() > 0) {
+            if (placingAtCursor != null)
+                placingAtCursor.cancel();
+            else if (currSelection.size() > 0) {
                 if (movingSelection)
                     cancelMovingSelection();
                 else {
@@ -180,42 +195,24 @@ public class EditorPanel extends Pane {
 
     public void userMoveSelection(Vector vec, String dir) {
         Circuit c = c();
-        Circuit.Selection currSelection = c.currentSelectionReference();
-        c.new SelectionMoveOperation(vec, true).operate();
-        // Move Operations are different; they don't call circuit.clrarnontrans
-        c.appendCurrentStateChanges("Move " + currSelection.size() + " Entit"
-                + (currSelection.size() == 1 ? "y" : "ies") + " " + dir);
+        BoundingBox oldLocationBox = new BoundingBox(c.currSelection);
+        BoundingBox newLocationBox = new BoundingBox(oldLocationBox.p1.getIfModifiedBy(vec),
+                oldLocationBox.p4.getIfModifiedBy(vec), null);
+        if (newLocationBox.isInMapRange()) {
+            Circuit.Selection currSelection = c.currentSelectionReference();
+            c.new SelectionMoveOperation(vec, true).operate();
+            // Move Operations are different; they don't call circuit.clrarnontrans
+            c.appendCurrentStateChanges("Move " + currSelection.size() + " Entit"
+                    + (currSelection.size() == 1 ? "y" : "ies") + " " + dir);
+        }
     }
 
     public void duplicateSelection() {
-        Circuit c = c(); // deselect, add, select
-        Circuit.Selection s = c.currentSelectionReference();
-        ExactEntityList<Entity> deepClone = s.deepClone();
-        s.deselectAllAndTrack();
-        c.disableTransforms();
-        c.disableUpdate();
-        c.appendCurrentStateChanges("Undo DESELECT");
-        for (Entity e : deepClone) {
-            e.add();
-            e.move(new Vector(1, 1));
-            c.new EntityAddOperation(e, true);
-        }
-        c.appendCurrentStateChanges("Undo ADD");
-
-        for (Entity e : deepClone) {
-            e.updateInvalidInterceptPoints();
-            e.select(); // dont select with the operation, as it will cut wires and can break bridges
-            c.new SelectOperation(e, true);
-        }
-        c.appendCurrentStateChanges("Undo SELECT");
-
-        c.enableUpdate();
-        c.enableTransforms();
-        for (Entity e : deepClone)
-            e.update();
-  //      c.appendCurrentStateChanges("Undo Duplicate Selection");
-
+        this.new PlaceableEntityList(c().currSelection);
+        placingAtCursor.placePreview(circuitPointAtMouse(true));
+        c().appendCurrentStateChanges("Duplicate Selection");
     }
+
     public void onKeyReleased(KeyEvent e) {
         if (e.getCode() == KeyCode.SPACE)
             holdingSpace = false;
@@ -227,13 +224,17 @@ public class EditorPanel extends Pane {
     }
 
     public void onMouseMoved(MouseEvent e) {
-        CircuitPoint gridSnapAtMouse = circuitPointAtMouse(true);
-        this.new PullPoint(gridSnapAtMouse);
+  //      CircuitPoint gridSnapAtMouse = circuitPointAtMouse(true);
+  //      this.new PullPoint(gridSnapAtMouse);
         if (!canvas.isFocused())
             canvas.requestFocus();
         if (holdingSpace)
             modifyOffset(new Vector(mouseX, mouseY, e.getX(), e.getY()));
         updateMousePos(e);
+        CircuitPoint gridSnapAtMouse = circuitPointAtMouse(true);
+        this.new PullPoint(gridSnapAtMouse);
+        if (gridSnapJustChanged && placingAtCursor != null)
+            placingAtCursor.onGridSnapChange();
         repaint(c());
     }
 
@@ -281,17 +282,26 @@ public class EditorPanel extends Pane {
             System.out.println("  " + ent);
         }
 
+
+
+
         if (e.getButton() == MouseButton.MIDDLE) {
             // Middle Click Processing
+            if (placingAtCursor != null)
+                placingAtCursor.cancel();
             draggedViaMiddlePress = false; // Reset this field
             middlePressPointGrid = circuitPointAtMouse(true);
         } else if (e.getButton() == MouseButton.PRIMARY) {
             // Normal Left Click Processing
             pressPointGrid = circuitPointAtMouse(true);
+            if (placingAtCursor != null)
+                placingAtCursor.place(circuitPointAtMouse(true));
             pressedOnSelectedEntity = currSelection.intercepts(panelDrawPointAtMouse());
             determineSelecting();
             repaint(c());
         } else if (e.getButton() == MouseButton.SECONDARY) {
+            if (placingAtCursor != null)
+                placingAtCursor.cancel();
             rightPressPointGrid = circuitPointAtMouse(true);
             if (currentPullPoint != null)
                 currentPullPoint.dropAndRestart();
@@ -344,7 +354,6 @@ public class EditorPanel extends Pane {
         if (middleDown() || holdingSpace) {
             draggedViaMiddlePress = true;
             modifyOffset(new Vector(mouseX, mouseY, e.getX(), e.getY()));
-            repaint(c());
         }
         updateMousePos(e);
         if (leftDown()) {
@@ -360,6 +369,120 @@ public class EditorPanel extends Pane {
         return currProject.getCurrentCircuit();
     }
 
+    private Timer pasteFailedTimer = new Timer(400, new PasteFailedListener());
+
+    private class PasteFailedListener implements ActionListener {
+        @Override
+        public void actionPerformed(ActionEvent e) {
+            if (placingAtCursor != null)
+                placingAtCursor.placeFailedBox = null;
+            pasteFailedTimer.stop();
+        }
+    }
+
+    public PlaceableEntityList placingAtCursor;
+
+    public class PlaceableEntityList {
+
+        /** Should be similar entities not on Circuit */
+        private EntityList<? extends Entity> entities;
+
+        private BoundingBox box;
+
+        public PlaceableEntityList(EntityList<? extends Entity> entities) {
+            this.entities = entities.deepClone();
+            box = new BoundingBox(this.entities);
+            EditorPanel.this.placingAtCursor = this;
+        }
+
+        public void onGridSnapChange() {
+            if (isPreviewingPlace())
+                onGridSnapChangeWhilePreviewPlace();
+        }
+
+        public void draw(GraphicsContext g) {
+            if (placePreview != null)
+                drawPlacePreview(g);
+            if (placeFailedBox != null)
+                placeFailedBox.drawBorder(g, Color.RED);
+        }
+
+        private EntityList<? extends Entity> placePreview;
+        public BoundingBox placePreviewBox = null;
+
+        public void placePreview(CircuitPoint location) {
+            place(location.getGridSnapped(), true);
+            placePreviewBox = new BoundingBox(placePreview);
+            System.out.println("PASTE PREVIEW BOX: " + placePreviewBox);
+        }
+
+        public void drawPlacePreview(GraphicsContext g) {
+            for (Entity e : placePreview)
+                e.draw(g, Color.GRAY, 1);
+            for (Entity e : placePreview)
+                for (CircuitPoint invalidPoint : e.getInvalidInterceptPoints()) {
+                    c().drawInvalidGridPoint(g, invalidPoint);
+                    c().drawInvalidGridPoint(g, invalidPoint); // Double draw, so you can see it easier
+                }
+            if (!placePreviewBox.isInMapRange() && placeFailedBox == null)
+                placePreviewBox.drawBorder(g, Color.RED);
+        }
+
+        public void onGridSnapChangeWhilePreviewPlace() {
+            CircuitPoint gridSnapAtMouse = circuitPointAtMouse(true);
+            Vector movementVec = new Vector(placePreviewBox.p1, gridSnapAtMouse);
+            placePreviewBox = new BoundingBox(placePreviewBox.p1.getIfModifiedBy(movementVec)
+                    , placePreviewBox.p4.getIfModifiedBy(movementVec), null);
+            placePreview.forEach(entity -> entity.move(movementVec));
+            for (Entity e : placePreview)
+                e.updateInvalidInterceptPoints();
+        }
+
+        public boolean isPreviewingPlace() {
+            return placePreview != null;
+        }
+
+        public void cancel() {
+            EditorPanel.this.placingAtCursor = null; // Throw out this reference
+        }
+
+        public boolean place(CircuitPoint location) {
+            return place(location, false);
+        }
+
+        private BoundingBox placeFailedBox = null;
+
+        public boolean place(CircuitPoint location, boolean preview) {
+            Circuit c = location.getCircuit();
+            // Since we want paste to go between Circuits we will clone it onto the one supplied in params
+            EntityList<? extends Entity> clone = entities.deepCloneOnto(c);
+            BoundingBox originalBox = box.clone(c);
+            Vector vectorToLoc = new Vector(originalBox.p1, location);
+            BoundingBox newBox = new BoundingBox(
+                    originalBox.p1.getIfModifiedBy(vectorToLoc)
+                    , originalBox.p4.getIfModifiedBy(vectorToLoc)
+                    , null);
+            for (Entity e : clone)
+                e.move(vectorToLoc);
+            if (preview)
+                 placePreview = clone;
+            else {
+                if (!newBox.isInMapRange()) {
+                    placeFailedBox = newBox;
+                    pasteFailedTimer.start();
+                    return false;
+                }
+                c.currentSelectionReference().deselectAllAndTrack();
+                for (Entity e : clone)
+                    c.new EntityAddOperation(e, true).operate();
+                for (Entity e : clone)
+                    c.new SelectOperation(e, true).operate();
+                cancel(); // We are done with this CursorEntityList now
+            }
+            return true;
+        }
+
+    }
 
     private void drawGridPoints(GraphicsContext g) {
         int w = canvasWidth(), h = canvasHeight();
@@ -468,35 +591,37 @@ public class EditorPanel extends Pane {
         selectionBoxStartPoint = null;
         selectedSomethingLastPress = false;
         CircuitPoint atMouse = circuitPointAtMouse(false);
-        ArrayList<Entity> deselected = new ArrayList<>();
+        CircuitPoint gridSnapped = atMouse.getGridSnapped();
+        ArrayList<Entity> deselecting = new ArrayList<>();
         EntityList<Entity> selected = new EntityList<>();
 
         if (currentPullPoint != null) {
-            deselected.addAll(currSelection);
+            deselecting.addAll(currSelection);
             currSelection.deselectAllAndTrack();
         } else {
             // Condition where they have a current selection, but clicked out of the selection without holding shift
             if (!currSelection.isEmpty() && !currSelection.intercepts(atMouse) && !shift) {
-                deselected.addAll(currSelection);
+                deselecting.addAll(currSelection);
                 currSelection.deselectAllAndTrack();
             }
             if (!currSelection.isEmpty() && currSelection.intercepts(atMouse)) {
                 if (shift) {
                     boolean canDeselect = true;
-                    for (Entity e : c().getAllEntities()) {
+                    for (Entity e : atMouse.getInterceptingEntities()) {
                         if (e.getBoundingBox() != null
                                 && e.getBoundingBox().intercepts(atMouse)
-                                && !currSelection.containsSimilar(e)) {
+                                && !currSelection.containsExact(e)) {
                             canDeselect = false; // Don't deselect if something isn't selected at where they shift clicked
                         }
                     }
                     for (Entity e : currSelection.clone()) {
                         if (canDeselect && e.getBoundingBox().intercepts(atMouse)) {
-                            deselected.add(e);
+                            deselecting.add(e);
+                            break; // If there were no de-selected entities at cursor, then we can deselect one by one (hence break)
                         }
                     }
                 }
-                currSelection.deselectMultipleAndTrackStateOperation(deselected);
+                currSelection.deselectMultipleAndTrackStateOperation(deselecting);
             }
 
             if (currSelection.isEmpty() || shift) {
@@ -504,8 +629,12 @@ public class EditorPanel extends Pane {
                 for (Entity e : atMouse.getInterceptingEntities()) {
                     if (e.getBoundingBox() != null
                             && e.getBoundingBox().intercepts(atMouse)
-                            && !deselected.contains(e))
+                            && !deselecting.contains(e)
+                            && !e.isSelected()) {
                         potentialClickSelection.add(e);
+                        if (shift) // When shift clicking, only one can be selected at a time
+                            break;
+                    }
                 }
                 if (potentialClickSelection.size() > 0) {
                     selected.addAll(currSelection.selectMultipleAndTrackOperation(potentialClickSelection));
@@ -518,7 +647,7 @@ public class EditorPanel extends Pane {
         determineMovingSelection(atMouse.getGridSnapped());
 
         String undoMsg;
-        int numDes = deselected.size();
+        int numDes = deselecting.size();
         int numSel = selected.size();
         String desMsg = "Deselect " + numDes + " entit" + (numDes > 1 ? "ies" : "y");
         String selMsg = "Select " + numSel + " entit" + (numSel > 1 ? "ies" : "y");
@@ -634,7 +763,6 @@ public class EditorPanel extends Pane {
         currSelectionBox = null;
     }
 
-
     private void determineSelectingMouseRelease() {
         Circuit c = c();
         Circuit.Selection currSelection = c.currentSelectionReference();
@@ -651,14 +779,6 @@ public class EditorPanel extends Pane {
             cancelMovingSelection(); // Reset fields such as movingSelectionStartPoint etc
     }
 
-    public void onPoke() {
-        for (Entity e : c().getAllEntities()) {
-            if (e instanceof Pokable) {
-                if (e.getBoundingBox().intercepts(panelDrawPointAtMouse()))
-                    ((Pokable) e).onPoke();
-            }
-        }
-    }
 
     public void onGridSnapChangeWhileDragging() {
         if (currentPullPoint != null) {
@@ -733,7 +853,6 @@ public class EditorPanel extends Pane {
             //      gc.strokeRect(0, 0, canvasWidth(), canvasHeight());
 
 
-
             drawGridPoints(gc);
 
                 EntityList<Entity> drawOrder = new EntityList<>();
@@ -787,14 +906,106 @@ public class EditorPanel extends Pane {
                     }
                 }
             }
+
+            if (placingAtCursor != null)
+                placingAtCursor.draw(gc);
+
+
+            if (fuckedDrawState == 1 && lastFuckedUpOperand != null)
+                lastFuckedUpOperand.draw(gc, Color.PINK, 0.75);
+
         });
     }
 
 
-    // Mouse press: initialize pull point. it is only calculate on mouse press
-    // Mouse release,, nullify pull point. therefore, inner class
 
-    // Called on mouse press, or in special cases when you right click while pulling wire
+
+
+
+    private ArrayList<AutoInputPoker> autoPokers;
+
+    public void onPoke() {
+        boolean manuallyPokedAnything = false;
+        for (Entity e : c().getAllEntities()) {
+            if (e instanceof Pokable) {
+                if (e.getBoundingBox().intercepts(panelDrawPointAtMouse())) {
+                    ((Pokable) e).onPoke();
+                    manuallyPokedAnything = true;
+                }
+            }
+        }
+        if (!manuallyPokedAnything) {
+            autoPokers.forEach(AutoInputPoker::resetToZeroState);
+            ArrayList<InputBlock> autoPoking = new ArrayList<>();
+            for (Entity e : c().currentSelectionReference())
+                if (e instanceof InputBlock)
+                    autoPoking.add((InputBlock) e);
+            if (!autoPoking.isEmpty())
+                this.new AutoInputPoker(autoPoking);
+        } else {
+            autoPokers.clear();
+        }
+    }
+
+    private Timer autoPokeTimer = new Timer(750, (e -> {
+        Platform.runLater(() -> {
+            autoPokers.forEach(AutoInputPoker::nextState);
+            autoPokers.forEach(AutoInputPoker::setPowerStatuses);
+            c().recalculatePowerStatuses();
+            repaint();
+        });
+    }));
+
+    // Init Auto poke stuff
+    {
+        autoPokers = new ArrayList<>();
+        autoPokeTimer.start();
+    }
+
+    private class AutoInputPoker {
+
+        private InputBlock[] poking;
+
+        private String[] states;
+        private int stateIndex;
+
+        public AutoInputPoker(InputBlock... poking) {
+            this.poking = poking;
+            int numStates = (int) Math.pow(2, poking.length);
+            states = new String[numStates];
+            for (int i = 0; i < numStates; i++) {
+                StringBuilder binaryString = new StringBuilder(Integer.toBinaryString(i));
+                while (binaryString.length() < poking.length) // add leading zeros
+                    binaryString.insert(0, "0");
+                states[i] = binaryString.toString();
+            }
+            autoPokers.add(this);
+        }
+
+        public AutoInputPoker(ArrayList<InputBlock> poking) {
+            this(poking.toArray(InputBlock[]::new));
+        }
+
+        public void resetToZeroState() {
+            stateIndex = 0;
+        }
+
+        public void nextState() {
+            stateIndex = (stateIndex + 1) % (states.length);
+        }
+
+        public void setPowerStatuses() {
+            String stateString = states[stateIndex];
+            System.out.println("CURR STATE STRING: " + stateString);
+            for (int i = 0; i < stateString.length(); i++) {
+                InputBlock poking = this.poking[i];
+                poking.setPowerStatus(stateString.charAt(i) == '1');
+            }
+        }
+
+    }
+
+
 
     private PullPoint currentPullPoint;
 
@@ -937,6 +1148,7 @@ public class EditorPanel extends Pane {
                     // TODO replace with c.deleteWithStateOperation
                } else {
                    c.removeSimilarEntityAndTrackOperation(new Wire(start.clone(), end.clone()));
+                   System.out.println("SHORT");
                    undoMsg = "Shorten Wire";
                }
             } else {
@@ -972,8 +1184,8 @@ public class EditorPanel extends Pane {
                     if (theos == null && pullDir != null) // If we couldn't do it in their preferred dir, try the other
                         theos = generator.genWirePathLenient(start, end, pullDir.getPerpendicular(), 8);
                     if (theos != null && !theos.isEmpty()) {
-                        for (Wire t : theos) // 'new Wire' automatically adds it to the theoretical circuit
-                            c.addEntityAndTrackOperation(new Wire(t.getStartLocation(), t.getEndLocation()));
+                        for (Wire t : theos)
+                            c.new EntityAddOperation(t, true).operate();
                         undoMsg = theos.size() == 1 ? "Create Wire" : "Create " + theos.size() + " Wires";
                     }
 
