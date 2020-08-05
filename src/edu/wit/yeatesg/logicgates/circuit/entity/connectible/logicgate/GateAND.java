@@ -162,6 +162,11 @@ public class GateAND extends LogicGate {
     }
 
     @Override
+    public String getPropertyTableHeader() {
+        return "Properties For: Gate " + (!out.isNegated() ? "AND" : "NAND");
+    }
+
+    @Override
     public void draw(GraphicsContext g, Color col, double opacity) {
         drawInputTails(g, col);
         Color strokeCol = col == null ? Color.BLACK : col;

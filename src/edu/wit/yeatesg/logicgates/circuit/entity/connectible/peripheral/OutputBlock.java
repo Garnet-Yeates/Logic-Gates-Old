@@ -11,6 +11,7 @@ import edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission.Output
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission.Wire;
 import edu.wit.yeatesg.logicgates.datatypes.*;
 import edu.wit.yeatesg.logicgates.datatypes.PanelDrawPoint;
+import javafx.beans.value.ObservableValue;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
@@ -32,7 +33,6 @@ public class OutputBlock extends ConnectibleEntity implements Rotatable {
     public void construct() {
         connections = new ConnectionList(this);
         drawPoints = getRelativePointSet().applyToOrigin(origin, rotation);
-        getCircuit().pushIntoMapRange(drawPoints);
         boundingBox = new BoundingBox(drawPoints.get(2), drawPoints.get(4), this);
         interceptPoints = getBoundingBox().getInterceptPoints();
         update();
@@ -203,40 +203,47 @@ public class OutputBlock extends ConnectibleEntity implements Rotatable {
         reconstruct();
     }
 
+
     @Override
     public String getPropertyTableHeader() {
         return "Properties For: " + getDisplayName();
     }
 
-
-    // TODO implement
     @Override
     public PropertyList getPropertyList() {
-        PropertyList list = new PropertyList();
+        PropertyList list = new PropertyList(this, c);
         list.add(new Property("Facing", Direction.cardinalFromRotation(rotation), "NORTH", "SOUTH", "EAST", "WEST"));
-        list.add(new Property("Label", "", ""));
         return list;
     }
 
     @Override
+    public void onPropertyChangeViaTable(String propertyName, String old, String newVal) {
+        if (isTemplateEntity()) {
+            onPropertyChange(propertyName, old, newVal);
+        } else {
+            c.new PropertyChangeOperation(this, propertyName, newVal, true).operate();
+        }
+    }
+
+    @Override
     public void onPropertyChange(String propertyName, String old, String newVal) {
-        if (propertyName.equalsIgnoreCase("rotation")) {
-            rotation = Integer.parseInt(newVal);
+        if (propertyName.equalsIgnoreCase("facing")) {
+            rotation = Direction.rotationFromCardinal(newVal);
             reconstruct();
         }
     }
 
     @Override
     public String getPropertyValue(String propertyName) {
-        if (propertyName.equalsIgnoreCase("rotation"))
-            return rotation + "";
+        if (propertyName.equalsIgnoreCase("facing"))
+            return Direction.cardinalFromRotation(rotation);
         return null;
     }
 
 
     @Override
     public boolean hasProperty(String propertyName) {
-        return propertyName.equalsIgnoreCase("rotation");
+        return propertyName.equalsIgnoreCase("facing");
     }
 
 

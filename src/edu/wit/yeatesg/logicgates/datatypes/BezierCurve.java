@@ -10,6 +10,16 @@ public class BezierCurve {
 
     private CurvePolygon shape;
 
+    /*
+      int numIterations = 15;
+        if (c.getScale() < 12)
+            numIterations = (int) c.getScale();
+        if (c.getScale() < 8)
+            numIterations += 2;
+     */
+
+    public static final int BASE_SIZE = 5; // i
+
     public BezierCurve(CurvePolygon shape) {
         this.shape = shape;
         Circuit c = shape.points[0].getCircuit();
@@ -18,15 +28,18 @@ public class BezierCurve {
             if (longestLine == null || l.getLength() > longestLine.getLength())
                 longestLine = l;
         assert longestLine != null;
-        double panelDistance = longestLine.getLength()*c.getScale();
 
-        int numIterations = 15;
-        if (c.getScale() < 12)
-            numIterations = (int) c.getScale();
-        if (c.getScale() < 8)
-            numIterations += 2;
+        double circuitDistance = longestLine.getLength();
 
-            points = new CircuitPoint[numIterations];
+        int numIterations = 16;
+        if (c.getScale() == 12)
+            numIterations = 14;
+        if (c.getScale() == 10)
+            numIterations = 12;
+        if (c.getScale() < 10)
+            numIterations = 8;
+
+        points = new CircuitPoint[numIterations];
         double weightInc = 1.0 / (numIterations - 1);
         double currWeight = 0;
         for (int i = 0; i < numIterations; i++) {

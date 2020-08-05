@@ -7,8 +7,8 @@ import edu.wit.yeatesg.logicgates.datatypes.*;
 import edu.wit.yeatesg.logicgates.circuit.entity.*;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.*;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.logicgate.LogicGate;
-import edu.wit.yeatesg.logicgates.circuit.entity.connectible.logicgate.SimpleGateAND;
 import edu.wit.yeatesg.logicgates.datatypes.Vector;
+import javafx.beans.value.ObservableValue;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
@@ -38,7 +38,6 @@ public class Wire extends ConnectibleEntity implements Powerable {
 
     @Override
     public void construct() {
-        getCircuit().pushIntoMapRange(startLocation, endLocation);
         interceptPoints = new CircuitPointList();
         connections = new ConnectionList(this);
         boundingBox = new BoundingBox(startLocation, endLocation, this);
@@ -287,11 +286,6 @@ public class Wire extends ConnectibleEntity implements Powerable {
             OutputBlock block = (OutputBlock) e;
             connections.add(new ConnectionNode(atLocation, this, e));
             block.getNodeAt(atLocation).connectedTo = this;
-        }
-        else if (e instanceof SimpleGateAND) {
-            SimpleGateAND gate = (SimpleGateAND) e;
-            connections.add(new ConnectionNode(atLocation, this, e));
-            gate.getNodeAt(atLocation).connectedTo = this;
         }
         else if (e instanceof LogicGate) {
             LogicGate gate = (LogicGate) e;
@@ -578,7 +572,7 @@ public class Wire extends ConnectibleEntity implements Powerable {
         return "Wire{" +
                 "start=" + startLocation +
                 ", end=" + endLocation +
-                ", eid=" + id + "}";
+                ", eid=" + eID + "}";
     }
 
     public static CircuitPoint getPointInLineWith(CircuitPoint start, CircuitPoint end, Direction prefDir) {
@@ -628,12 +622,17 @@ public class Wire extends ConnectibleEntity implements Powerable {
 
     @Override
     public String getPropertyTableHeader() {
-        return null;
+        return "Properties For: Wire";
     }
 
     @Override
     public PropertyList getPropertyList() {
-        return null;
+        return new PropertyList(this, c);
+    }
+
+    @Override
+    public void onPropertyChangeViaTable(String propertyName, String old, String newVal) {
+
     }
 
     @Override

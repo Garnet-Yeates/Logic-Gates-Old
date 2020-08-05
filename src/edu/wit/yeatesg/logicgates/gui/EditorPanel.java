@@ -174,6 +174,9 @@ public class EditorPanel extends Pane {
             onPoke();
             repaint(c);
         }
+        if (code == G) {
+            toggleDrawGridPoints();
+        }
         if (code == D && e.isControlDown())
             duplicateSelection();
         if (code == N) {
@@ -192,7 +195,6 @@ public class EditorPanel extends Pane {
         currSelection.updateConnectionView();
     }
 
-
     public void userMoveSelection(Vector vec, String dir) {
         Circuit c = c();
         BoundingBox oldLocationBox = new BoundingBox(c.currSelection);
@@ -210,7 +212,6 @@ public class EditorPanel extends Pane {
     public void duplicateSelection() {
         this.new PlaceableEntityList(c().currSelection);
         placingAtCursor.placePreview(circuitPointAtMouse(true));
-        c().appendCurrentStateChanges("Duplicate Selection");
     }
 
     public void onKeyReleased(KeyEvent e) {
@@ -282,9 +283,6 @@ public class EditorPanel extends Pane {
             System.out.println("  " + ent);
         }
 
-
-
-
         if (e.getButton() == MouseButton.MIDDLE) {
             // Middle Click Processing
             if (placingAtCursor != null)
@@ -294,10 +292,11 @@ public class EditorPanel extends Pane {
         } else if (e.getButton() == MouseButton.PRIMARY) {
             // Normal Left Click Processing
             pressPointGrid = circuitPointAtMouse(true);
+            pressedOnSelectedEntity = currSelection.intercepts(panelDrawPointAtMouse());
             if (placingAtCursor != null)
                 placingAtCursor.place(circuitPointAtMouse(true));
-            pressedOnSelectedEntity = currSelection.intercepts(panelDrawPointAtMouse());
-            determineSelecting();
+            else
+                determineSelecting();
             repaint(c());
         } else if (e.getButton() == MouseButton.SECONDARY) {
             if (placingAtCursor != null)
@@ -390,9 +389,11 @@ public class EditorPanel extends Pane {
         private BoundingBox box;
 
         public PlaceableEntityList(EntityList<? extends Entity> entities) {
-            this.entities = entities.deepClone();
-            box = new BoundingBox(this.entities);
-            EditorPanel.this.placingAtCursor = this;
+            if (entities != null && entities.size() > 0) {
+                this.entities = entities.deepClone();
+                box = new BoundingBox(this.entities);
+                EditorPanel.this.placingAtCursor = this;
+            }
         }
 
         public void onGridSnapChange() {
@@ -477,11 +478,18 @@ public class EditorPanel extends Pane {
                     c.new EntityAddOperation(e, true).operate();
                 for (Entity e : clone)
                     c.new SelectOperation(e, true).operate();
+                c.appendCurrentStateChanges("Add " + entities.size() + " entities at " + location.toParsableString());
                 cancel(); // We are done with this CursorEntityList now
             }
             return true;
         }
 
+    }
+
+    private boolean drawGridPoints = true;
+
+    private void toggleDrawGridPoints() {
+        drawGridPoints = !drawGridPoints;
     }
 
     private void drawGridPoints(GraphicsContext g) {
@@ -725,6 +733,10 @@ public class EditorPanel extends Pane {
     private void onGridSnapChangeWhileDraggingSelection() {
         movingSelection = true;
         CircuitPoint gridSnapAtMouse = circuitPointAtMouse(true);
+        Vector movementVector = new Vector(lastSelectionMovePoint, gridSnapAtMouse);
+        BoundingBox selectionBoundingBox = new BoundingBox(movingSelectionPreviewEntities);
+        if (!selectionBoundingBox.getIfModifiedBy(movementVector).isInMapRange())
+            return;
         for (Entity e : movingSelectionPreviewEntities)
             e.move(new Vector(lastSelectionMovePoint, gridSnapAtMouse));
         for (Entity e : movingSelectionPreviewEntities)
@@ -766,13 +778,11 @@ public class EditorPanel extends Pane {
     private void determineSelectingMouseRelease() {
         Circuit c = c();
         Circuit.Selection currSelection = c.currentSelectionReference();
-        System.out.println("mouse releese selecting " + currSelection.size());
         if (pressPointGrid.equals(releasePointGrid) && (currSelection.isEmpty() || shift) && !gridSnapChangedSinceLastPress) {
             if (!pressedOnSelectedEntity && !selectedSomethingLastPress) {
                 determineSelecting();
             }
         }
-        System.out.println(currSelection.isEmpty());
         if (movingSelection)
             onStopMovingSelection();
         else
@@ -853,36 +863,37 @@ public class EditorPanel extends Pane {
             //      gc.strokeRect(0, 0, canvasWidth(), canvasHeight());
 
 
-            drawGridPoints(gc);
+            if (drawGridPoints)
+                drawGridPoints(gc);
 
-                EntityList<Entity> drawOrder = new EntityList<>();
-                EntityList<Entity> drawFirst = new EntityList<>();
-                EntityList<Entity> drawSecond = new EntityList<>();
-                for (Entity e : c.getAllEntities()) {
-                    if (!currConnectionView.contains(e) && !e.isSelected()) {
-                        if (e instanceof Wire)
-                            drawFirst.add(e);
-                        else
-                            drawSecond.add(e);
-                    }
+            EntityList<Entity> drawOrder = new EntityList<>();
+            EntityList<Entity> drawFirst = new EntityList<>();
+            EntityList<Entity> drawSecond = new EntityList<>();
+            for (Entity e : c.getAllEntities()) {
+                if (!currConnectionView.contains(e) && !e.isSelected()) {
+                    if (e instanceof Wire)
+                        drawFirst.add(e);
+                    else
+                        drawSecond.add(e);
                 }
-                drawOrder.addAll(drawFirst);
-                drawOrder.addAll(drawSecond);
+            }
+            drawOrder.addAll(drawFirst);
+            drawOrder.addAll(drawSecond);
 
-                for (Entity e : drawOrder) {
-                    if (e instanceof Wire) {
-                        if (getScreenBoundaries().simpleTouches(e))
-                            e.draw(gc);
-                    } else if (getScreenBoundaries().touches(e))
-                            e.draw(gc);
+            for (Entity e : drawOrder) {
+                if (e instanceof Wire) {
+                    if (getScreenBoundaries().simpleTouches(e))
+                        e.draw(gc);
+                } else if (getScreenBoundaries().touches(e))
+                        e.draw(gc);
 
-                }
+            }
 
-                if (currentPullPoint != null)
-                    currentPullPoint.drawPullPoint(gc);
+            if (currentPullPoint != null)
+                currentPullPoint.drawPullPoint(gc);
 
-                if (currSelectionBox != null)
-                    currSelectionBox.draw(gc);
+            if (currSelectionBox != null)
+                currSelectionBox.draw(gc);
 
             c.drawInvalidEntities(gc);
 

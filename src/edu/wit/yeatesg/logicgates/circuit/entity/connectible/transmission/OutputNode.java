@@ -28,12 +28,13 @@ public class OutputNode extends ConnectionNode {
                     thatDependsOnThis = (Powerable) ce;
                 else if (ce.getConnectionTo(connectingWire) instanceof InputNode)
                     thatDependsOnThis = ce.getConnectionTo(connectingWire);
-                if (thatDependsOnThis == null || thatDependsOnThis.getPowerStatus() != PowerStatus.UNDETERMINED)
+                if (thatDependsOnThis == null)
                     continue;
                 if (!thatDependsOnThis.dependingOn().contains(this)) {
                     thatDependsOnThis.dependingOn().add(this);
                     if (thatDependsOnThis instanceof Wire)
                         calculateDependedBy((Wire) thatDependsOnThis);
+                    // TODO dependingOnMe.add(thatDependsOnThis)
                 }
             }
         }
@@ -44,6 +45,7 @@ public class OutputNode extends ConnectionNode {
         if (connectedTo instanceof Wire && getPowerStatus() == PowerStatus.UNDETERMINED) {
             Wire w = (Wire) connectedTo;
             w.dependingOn().add(this);
+            // TODO dependingOnMe.add(thatDependsOnThis)
             calculateDependedBy(w);
         }
     }

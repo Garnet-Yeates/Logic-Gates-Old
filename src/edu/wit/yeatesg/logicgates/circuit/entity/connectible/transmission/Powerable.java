@@ -180,10 +180,11 @@ public interface Powerable
 
         /** Used to show that this Dependent instance has a dependency, but not a super dependency */
         PARTIALLY_DEPENDENT(Color.rgb(53, 200, 226, 1)),
+   //     PARTIALLY_DEPENDENT(Color.rgb(187, 21, 35)),
 
         /** Used to show that this Dependent instance has no partial or super dependencies */
         NO_DEPENDENT(Color.rgb(0, 67, 169, 1)),
-
+        //NO_DEPENDENT(Color.rgb(187, 21, 35)),
         /**
          * Used to show that this Dependent instance is illogical; it either has multiple dependencies when it
          * should not (such as for Wires or InputNodes), or that it depends on itself in some way (meaning that
@@ -216,8 +217,8 @@ public interface Powerable
     }
 
     default void determinePowerStatus() {
-        assureDependentsPowerStatusDetermined();
         if (getPowerStatus() == PowerStatus.UNDETERMINED) {
+            assureDependentsPowerStatusDetermined();
             if (this instanceof OutputNode)
                 ((OutputNode) this).parent.determinePowerStateOf((OutputNode) this);
             else if (hasSuperDependencies())
@@ -262,12 +263,11 @@ public interface Powerable
         }
     }
 
-    static void resetPowerStatus(Circuit c, boolean resetIllogicals) {
+    static void resetPowerstatuses(Circuit c, boolean resetIllogicals) {
         for (Powerable d : getDependents(c))
-            if (resetIllogicals
-                    || (d.getPowerStatus() != PowerStatus.ILLOGICAL_SELF_DEPEND
-                        && d.getPowerStatus() != PowerStatus.ILLOGICAL_MULTI_DEPEND))
-                d.setPowerStatus(PowerStatus.UNDETERMINED);
+            if (resetIllogicals || (d.getPowerStatus() != PowerStatus.ILLOGICAL_MULTI_DEPEND
+                    && d.getPowerStatus() != PowerStatus.ILLOGICAL_SELF_DEPEND))
+            d.setPowerStatus(PowerStatus.UNDETERMINED);
     }
 
     static void calculateDependencies(Circuit c) {

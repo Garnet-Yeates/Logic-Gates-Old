@@ -1,12 +1,14 @@
 package edu.wit.yeatesg.logicgates.circuit.entity.connectible.logicgate;
 
 import edu.wit.yeatesg.logicgates.LogicGates;
+import edu.wit.yeatesg.logicgates.circuit.Circuit;
 import edu.wit.yeatesg.logicgates.circuit.entity.*;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.ConnectibleEntity;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.ConnectionList;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission.*;
 import edu.wit.yeatesg.logicgates.datatypes.*;
 import edu.wit.yeatesg.logicgates.datatypes.PanelDrawPoint;
+import javafx.beans.value.ObservableValue;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
@@ -35,10 +37,6 @@ public abstract class LogicGate extends ConnectibleEntity implements Rotatable, 
         if (negate)
             outNots.add(0);
         this.inNots = new ArrayList<>(negatedInputIndices);
-        if (negatedInputIndices.size() > numInputs)
-            throw new RuntimeException("Dumb fuck 1");
-        if (numInputs < 2)
-            throw new RuntimeException("Dumb fuck 2");
         construct();
     }
 
@@ -100,7 +98,23 @@ public abstract class LogicGate extends ConnectibleEntity implements Rotatable, 
 
     @Override
     public void construct() {
+        if (inNots.size() > numInputs)
+            throw new RuntimeException("Dumb fuck 1");
+        for (int notIndex : inNots) {
+            if (notIndex < 0 || notIndex >= numInputs)
+                throw new RuntimeException("Dumb fuck 2");
+        }
+        for (int notIndex : outNots) {
+            if (notIndex != 0)
+                throw new RuntimeException("Dumb fuck 3");
+        }
+        if (numInputs < 2)
+            throw new RuntimeException("Dumb fuck 4");
+
+        leftWing = null;
+        rightWing = null;
         blockWiresHere.clear();
+
         mainWing = getMainInputWing();
         drawPoints = getRelativePointSet().applyToOrigin(origin, rotation);
         interceptPoints = new CircuitPointList();
@@ -403,35 +417,52 @@ public abstract class LogicGate extends ConnectibleEntity implements Rotatable, 
     }
 
 
-    @Override
-    public String getPropertyTableHeader() {
-        return "null";
-    }
+    public static final String[] possibleNumInputs = { "2", "3", "4", "5", "6", "7", "8", "9", "10",
+            "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28",
+            "29", "30", "31", "32"};
 
     @Override
     public PropertyList getPropertyList() {
-        return new PropertyList();
+        PropertyList propList = new PropertyList(this, c);
+        propList.add(new Property("Facing", Direction.cardinalFromRotation(rotation), "NORTH", "SOUTH", "EAST", "WEST"));
+        propList.add(new Property("Num Inputs", numInputs + "", possibleNumInputs));
+        return propList;
+    }
+
+    @Override
+    public void onPropertyChangeViaTable(String propName, String old, String newVal) {
+        if (isTemplateEntity())
+            onPropertyChange(propName, old, newVal);
+        else
+            c.new PropertyChangeOperation(this, propName, newVal, true).operate();
     }
 
     @Override
     public void onPropertyChange(String propertyName, String old, String newVal) {
-        if (propertyName.equalsIgnoreCase("rotation")) {
-            rotation = Integer.parseInt(newVal);
+        if (propertyName.equalsIgnoreCase("facing")) {
+            rotation = Direction.rotationFromCardinal(newVal);
+            reconstruct();
+        }
+        if (propertyName.equalsIgnoreCase("num inputs")) {
+            numInputs = Integer.parseInt(newVal);
             reconstruct();
         }
     }
 
     @Override
     public String getPropertyValue(String propertyName) {
-        if (propertyName.equalsIgnoreCase("rotation"))
-            return rotation + "";
+        if (propertyName.equalsIgnoreCase("facing"))
+            return Direction.cardinalFromRotation(rotation);
+        if (propertyName.equalsIgnoreCase("num inputs"))
+            return numInputs + "";
         return null;
     }
 
 
     @Override
     public boolean hasProperty(String propertyName) {
-        return propertyName.equalsIgnoreCase("rotation");
+        return propertyName.equalsIgnoreCase("facing")
+                || propertyName.equalsIgnoreCase("num inputs");
     }
 
     @Override

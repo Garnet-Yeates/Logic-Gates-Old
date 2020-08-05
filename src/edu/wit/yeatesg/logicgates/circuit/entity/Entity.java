@@ -5,7 +5,6 @@ import edu.wit.yeatesg.logicgates.circuit.entity.connectible.peripheral.OutputBl
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.logicgate.GateAND;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.logicgate.GateOR;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.logicgate.GateXOR;
-import edu.wit.yeatesg.logicgates.circuit.entity.connectible.logicgate.SimpleGateAND;
 import edu.wit.yeatesg.logicgates.datatypes.BoundingBox;
 import edu.wit.yeatesg.logicgates.datatypes.Vector;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.ConnectibleEntity;
@@ -21,28 +20,10 @@ import java.util.LinkedList;
 
 public abstract class Entity implements PropertyMutable {
 
-    private static int idAssign;
-    protected int id;
+    private static int eIDAssign;
+    protected int eID;
 
     protected final Circuit c;
-
-    public enum Size {
-        SMALL, MEDIUM, LARGE;
-
-        public static Size fromString(String s) {
-            switch (s.toUpperCase()) {
-                case "SMALL":
-                    return SMALL;
-                case "MEDIUM":
-                    return MEDIUM;
-                case "LARGE":
-                    return LARGE;
-                default:
-                    return null;
-            }
-        }
-
-    }
 
     /**
      * Entity constructor template:
@@ -51,132 +32,22 @@ public abstract class Entity implements PropertyMutable {
      * @param c
      */
     public Entity(Circuit c) {
-        id = idAssign++;
+        eID = eIDAssign++;
         this.c = c;
     }
 
     public int getEntityID() {
-        return id;
-    }
-
-    /**
-     * I am going to make it so Entities are more mutable. Previously I was thinking about making it so that
-     * entities PointSet's are constant (besides wires) and cannot be changed. This means that if an entity was to
-     * be rotated, I would have to construct a whole new entity and each respective undo/redo operation would use
-     * EntityDeleteOperation and EntityAddOperation to change the entities. That is fucking stupid. I am going to add
-     * PropertyChangeOperation which is going to take an Entity and 2 Strings and it will look for an entity that is
-     * similar to the specified one and will call onPropertyChange(String property, String newValue) with the supplied
-     * strings. Each entity already has an abstract method that they must override called onPropertyChange already.
-     * What the onPropertyChange method should do is associate strings with fields in the entities, use the inputted
-     * string to mutate that field, then call construct() to reconstruct the object based on the fields
-     *
-     * The construct method should construct the entities vital fields such as interceptPoints, drawPoints,
-     * non-volatile node locations. These changes should be directly based on the values of certain fields
-     * (such as origin, rotation, size) fields. This setup will make it so that at any point in the program I can
-     * change the value of an Entities field, then reconstruct it so that it adjusts to the changes. Even simpler, I
-     * will simply be able to call onPropertyChange(String property, String newValue) to mutate entities whenever I want
-     */
-    public abstract void construct();
-
-    /**
-     * This should be called if the entity already exists in the circuit and has registered InterceptPoints in the
-     * Circuit's InterceptMap
-     *
-     * PointSet should NOT be fiddled with by the time this is called. This method should be doing the PointSet fiddling
-     */
-    public final void reconstruct() {
-        if (!existsInCircuit()) {
-            construct(); // Soft error
-            return;
-        }
-        boolean wasSelected = isSelected();
-        remove();
-        if (wasSelected)
-            select();
-        construct();
-        add();
-    }
-
-    /**
-     * This method is called when an Entity is added to the circuit. It is also called in the
-     * {@link #reconstruct()} method because reconstruct() removes, constructs, then adds this
-     * Entity.
-     */
-    public void onAddToCircuit() {
-        addInterceptEntries();
-        spreadUpdate();
-    }
-
-    public final void add() {
-        c.addEntity(this);
-    }
-
-    protected boolean blockUpdate = false;
-
-    public void disableUpdate() {
-        blockUpdate = true;
-    }
-
-    public void enableUpdate() {
-        blockUpdate = false;
-    }
-
-    public void spreadUpdate() {
-        if (!c.isUpdateDisabled() && !blockUpdate && existsInCircuit()) {
-            update();
-            for (Entity e : getInterceptingEntities())
-                e.update();
-        }
-    }
-
-    public final void update() {
-        if (!c.isUpdateDisabled() && !blockUpdate && existsInCircuit()) {
-            updateInvalidInterceptPoints();
-            if (this instanceof ConnectibleEntity)
-                ((ConnectibleEntity) this).connectCheck();
-        }
-    }
-
-    /**
-     * Should only really be called in {@link #onAddToCircuit()}
-     */
-    public void addInterceptEntries() {
-        getCircuit().getInterceptMap().addInterceptPointsFor(this);
-    }
-
-    /**
-     * Should only really be called when {@link #remove()} is called
-     */
-    public void removeInterceptEntries() {
-        getCircuit().getInterceptMap().removeInterceptPointsFor(this);
+        return eID;
     }
 
 
-    // General attributes
+    /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+     * EQUALITY/SIMILARITY CHECKING AS WELL AS CLONING
+     * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-
-    public void removeEntity() {
-        c.removeExact(this);
+    public final boolean equalsExact(Entity other) {
+        return other == this;
     }
-
-    public void removeWithTrackedStateOperation() {
-        c.removeSimilarEntityAndTrackOperation(this);
-    }
-
-    private int circuitIndex = -1;
-
-    public int getCircuitIndex() {
-        return circuitIndex;
-    }
-
-    public void setCircuitIndex(int index) {
-        circuitIndex = index;
-    }
-
-    public boolean existsInCircuit() {
-        return circuitIndex > -1;
-    }
-
 
     /**
      * This method is not overridable because we want our equality checks to be the same as the similarity check
@@ -210,65 +81,160 @@ public abstract class Entity implements PropertyMutable {
         return getCloned(c);
     }
 
-    public static Entity parseEntity(Circuit c, boolean isPreview, String s) {
-        int closeBrackIndex = s.indexOf(']');
-        String enityType = s.substring(1, closeBrackIndex);
-        s = s.substring(closeBrackIndex + 1, s.length());
-        String[] fields = s.split(",");
-        if (enityType.equalsIgnoreCase("Wire")) {
-            if (fields.length != 4)
-                throw new RuntimeException("Invalid Wire String");
-            double x1 = Double.parseDouble(fields[0]);
-            double y1 = Double.parseDouble(fields[1]);
-            double x2 = Double.parseDouble(fields[2]);
-            double y2 = Double.parseDouble(fields[3]);
-            return new Wire(new CircuitPoint(x1, y1, c), new CircuitPoint(x2, y2, c));
-        } else if (enityType.equalsIgnoreCase("SimpleGateAND"))
-            return new SimpleGateAND(new CircuitPoint(fields[0], fields[1], c), Integer.parseInt(fields[2]));
-        else if (enityType.equalsIgnoreCase("GateAND"))
-            return GateAND.parse(s, c);
-        else if (enityType.equalsIgnoreCase("GateOR"))
-            return GateOR.parse(s, c);
-        else if (enityType.equalsIgnoreCase("GateXOR"))
-            return GateXOR.parse(s, c);
-        else if (enityType.equalsIgnoreCase("InputBlock"))
-            return new InputBlock(new CircuitPoint(fields[0], fields[1], c), Integer.parseInt(fields[2]));
-        else if (enityType.equalsIgnoreCase("OutputBlock"))
-            return new OutputBlock(new CircuitPoint(fields[0], fields[1], c), Integer.parseInt(fields[2]));
-        return null;
-    }
 
-    public abstract String getDisplayName();
-
-    public Circuit getCircuit() {
-        return c;
-    }
+    /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+     * CONSTRUCTING AND RECONSTRUCTING (THE BASIS ON HOW MY ENTITIES WORK)
+     * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
     /**
-     * Different entities will have different implementations for when they move by a vector. This is because some
-     * entities act differently upon being moved, such as Wires (because they only have intercept points, no draw
-     * points and no oriegin), so different fields need to be updated.
-     * @param v the Vector that this Entity is being moved by
+     * The construct method should construct the entities vital fields such as interceptPoints, drawPoints,
+     * non-volatile node locations. These changes should be directly based on the values of certain fields
+     * (such as origin, rotation, size) fields. This setup will make it so that at any point in the program I can
+     * change the value of an Entity's field, then reconstruct it so that it adjusts to the changes.
      */
-    public abstract void move(Vector v); // SHOULD ONLY BE CALLED BY moveBy (meaning ONLY move operations)
-
+    public abstract void construct();
 
     /**
-     * Removes this Entity from its Circuit
+     * If a given Entity exists in the Circuit, you can change whatever field value you want in the reference to the
+     * Entity (such as origin, rotation for certain entities etc), then call this reconstruct method on the Entity
+     * and it will remove it, construct its vital fields based on the new attributes you gave it, then add it back
+     * to the Circuit. If the Entity does not exist in the circuit, use construct().
+     */
+    public final void reconstruct() {
+        if (!existsInCircuit()) {
+            construct(); // Soft error
+            return;
+        }
+        boolean wasSelected = isSelected();
+        remove();
+        construct();
+        if (wasSelected)
+            select();
+        add();
+    }
+
+
+    /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+     * EXISTENCE IN THE CIRCUIT PART 1: CIRCUIT INDEX, ADDING, REMOVING, ETC
+     * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+    private int circuitIndex = -1;
+
+    public boolean existsInCircuit() {
+        return circuitIndex > -1;
+    }
+
+    public int getCircuitIndex() {
+        return circuitIndex;
+    }
+
+    public void setCircuitIndex(int index) {
+        circuitIndex = index;
+    }
+
+    /**
+     * This method is called when an Entity is added to the circuit. It is also called in the
+     * {@link #reconstruct()} method because reconstruct() removes, constructs, then adds this
+     * Entity.
+     */
+    public void onAddToCircuit() {
+        addInterceptEntries();
+        spreadUpdate();
+    }
+
+    /**
+     * Calls {@link #c}.addEntity(this) which adds this Entity to the Circuit's CircuitEntityList, assigning this
+     * Entity its {@link #circuitIndex} as well as calling {@link #onAddToCircuit()}. Many other things happen such
+     * as InterceptMap entries being added, this Entity being updated, and also updating nearby entities. See
+     * {@link Circuit#addEntity(Entity)} and more specifically see
+     * {@link edu.wit.yeatesg.logicgates.circuit.Circuit.CircuitEntityList#addEntity(Entity)} to see everything that
+     * happens
+     */
+    public final void add() {
+        c.addEntity(this);
+    }
+
+    /**
+     * Calls {@link #c}.removeExact(this) which removes this Entity from the Circuit's CircuitEntityList, removes
+     * its InterceptMap entries, updates Entities that it used to intercept and calls {@link #onRemove()} so that
+     * the circuitIndex of this Entity is set back to -1. Other things also happen, to see everything that happens
+     * refer to {@link Circuit#removeExact(Entity)} and more specifically, look at
+     * {@link edu.wit.yeatesg.logicgates.circuit.Circuit.CircuitEntityList#onRemove(Entity)} (Entity)}.
+     * Entity its {@link #circuitIndex} as well as calling {@link #onAddToCircuit()}
      */
     public final void remove() {
         c.removeExact(this); // onRemove is called if it is removed
     }
 
-   public void onRemove() {
+    public void onRemove() {
         circuitIndex = -1;
-   }
+    }
 
-    // General Intercepting
+    public void addInterceptEntries() {
+        getCircuit().getInterceptMap().addInterceptPointsFor(this);
+    }
 
+    public void removeInterceptEntries() {
+        getCircuit().getInterceptMap().removeInterceptPointsFor(this);
+    }
+
+    public void removeEntity() {
+        c.removeExact(this);
+    }
+
+    public void removeWithTrackedStateOperation() {
+        c.removeSimilarEntityAndTrackOperation(this);
+    }
+
+
+    /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+     * EXISTENCE IN THE CIRCUIT PART 2: UPDATING (ENTITIES MAY UPDATE ENTITIES THAT THEY INTERCEPT)
+     * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+    protected boolean blockUpdate = false;
+
+    public void disableUpdate() {
+        blockUpdate = true;
+    }
+
+    public void enableUpdate() {
+        blockUpdate = false;
+    }
+
+    public void spreadUpdate() {
+        if (!c.isUpdateDisabled() && !blockUpdate && existsInCircuit()) {
+            update();
+            for (Entity e : getInterceptingEntities())
+                e.update();
+        }
+    }
+
+    public final void update() {
+        if (!c.isUpdateDisabled() && !blockUpdate && existsInCircuit()) {
+            updateInvalidInterceptPoints();
+            if (this instanceof ConnectibleEntity)
+                ((ConnectibleEntity) this).connectCheck();
+        }
+    }
+
+
+    /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+     * EXISTENCE IN THE CIRCUIT PART 3: INTERCEPTING (GOES HAND IN HAND WITH UPDATING)
+     * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+    /** When this entity is added to the Circuit, a reference to this Entity is added to the InterceptionList that
+     *  the {@link edu.wit.yeatesg.logicgates.circuit.Circuit.InterceptMap}
+     *  at each [x][y] that shows up in this interceptPoints list */
+    protected CircuitPointList interceptPoints;
+
+    /** Generally adheres to the intercept points of this Entity, but this isn't always true. It is more used to show
+     *  the bounds of the entity when it is selected
+     */
     public abstract BoundingBox getBoundingBox();
 
-    protected CircuitPointList interceptPoints;
+    public EntityList<Entity> getInterceptingEntities() {
+        return getCircuit().getInterceptMap().getEntitiesThatIntercept(this);
+    }
 
     /**
      * Obtains a deep clone of this Entity's intercept points
@@ -278,16 +244,12 @@ public abstract class Entity implements PropertyMutable {
         return interceptPoints.deepClone();
     }
 
-    public boolean intercepts(Entity e, CircuitPoint at) {
-        return this.getInterceptPoints().contains(at) && e.getInterceptPoints().contains(at);
-    }
-
     public final CircuitPointList getInterceptPoints(Entity other) {
         return getInterceptPoints().intersection(other.getInterceptPoints());
     }
 
-    public EntityList<Entity> getInterceptingEntities() {
-        return getCircuit().getInterceptMap().getEntitiesThatIntercept(this);
+    public boolean intercepts(Entity e, CircuitPoint at) {
+        return this.getInterceptPoints().contains(at) && e.getInterceptPoints().contains(at);
     }
 
     public boolean intercepts(Entity other) {
@@ -321,46 +283,9 @@ public abstract class Entity implements PropertyMutable {
     }
 
 
-    // Circuit Selection
-
-    private int selectionIndex = -1;
-
-    public void setSelectionIndex(int index) {
-        selectionIndex = index;
-    }
-
-    public int getSelectionIndex() {
-        return selectionIndex;
-    }
-
-    public boolean isSelected()  {
-        return selectionIndex > -1;
-    }
-
-    public void select() {
-        getCircuit().select(this);
-    }
-
-    public void onSelect() {
-        selectionIndex = getCircuit().currentSelectionReference().size() - 1;
-    }
-
-
-    public void deselect() {
-        getCircuit().deselect(this);
-    }
-
-
-    public void onDeselect() {
-        selectionIndex = -1;
-        update();
-    }
-
-
-
-    /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
-     *  INVALID ENTITY STUFF. INVALID ENTITIES CANNOT CONNECT AND ARE DISPLAYED WITH RED CIRCLES ON INVALID POINTS
-     * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+    /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+     * EXISTENCE IN THE CIRCUIT PART 4: INVALID INTERCEPTING (INVALIDLY INTERCEPTING ENTITIES CANNOT CONNECT / FUNCTION
+     * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
     private int invalidEntityIndex = -1;
 
@@ -420,6 +345,106 @@ public abstract class Entity implements PropertyMutable {
     public CircuitPointList getInvalidInterceptPoints() {
         return invalidInterceptPoints;
     }
+
+
+    /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+     * EXISTENCE IN THE CIRCUIT PART 5: SELECTING AND DESELECTING
+     * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+    private int selectionIndex = -1;
+
+    public void setSelectionIndex(int index) {
+        selectionIndex = index;
+    }
+
+    public int getSelectionIndex() {
+        return selectionIndex;
+    }
+
+    public boolean isSelected()  {
+        return selectionIndex > -1;
+    }
+
+    public void select() {
+        getCircuit().select(this);
+    }
+
+    public void onSelect() {
+        selectionIndex = getCircuit().currentSelectionReference().size() - 1;
+    }
+
+    public void deselect() {
+        getCircuit().deselect(this);
+    }
+
+    public void onDeselect() {
+        selectionIndex = -1;
+        update();
+    }
+
+
+    /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+     * TEMPLATE ENTITY STUFF (PRINCIPAL ENTITIES THAT ARE CLONED WHEN THE USER ADDS THEM VIA THE LEFT SIDE TREE VIEW)
+     * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+    private boolean isTemplateEntity;
+
+    public boolean isTemplateEntity() {
+        return isTemplateEntity;
+    }
+
+    public void flagAsTemplateEntity() {
+        isTemplateEntity = true;
+    }
+
+
+    /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+     * OTHER, IM TOO LAZY TO FINISH ORGANIZING. WHAT DID THE DOCTOR SAY TO THE OTHER DOCTOR? THIS ORGAN BOOK IS VERY ORGAN-IZED
+     * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+
+    public static Entity parseEntity(Circuit c, boolean isPreview, String s) {
+        int closeBrackIndex = s.indexOf(']');
+        String enityType = s.substring(1, closeBrackIndex);
+        s = s.substring(closeBrackIndex + 1, s.length());
+        String[] fields = s.split(",");
+        if (enityType.equalsIgnoreCase("Wire")) {
+            if (fields.length != 4)
+                throw new RuntimeException("Invalid Wire String");
+            double x1 = Double.parseDouble(fields[0]);
+            double y1 = Double.parseDouble(fields[1]);
+            double x2 = Double.parseDouble(fields[2]);
+            double y2 = Double.parseDouble(fields[3]);
+            return new Wire(new CircuitPoint(x1, y1, c), new CircuitPoint(x2, y2, c));
+        }
+        else if (enityType.equalsIgnoreCase("GateAND"))
+            return GateAND.parse(s, c);
+        else if (enityType.equalsIgnoreCase("GateOR"))
+            return GateOR.parse(s, c);
+        else if (enityType.equalsIgnoreCase("GateXOR"))
+            return GateXOR.parse(s, c);
+        else if (enityType.equalsIgnoreCase("InputBlock"))
+            return new InputBlock(new CircuitPoint(fields[0], fields[1], c), Integer.parseInt(fields[2]));
+        else if (enityType.equalsIgnoreCase("OutputBlock"))
+            return new OutputBlock(new CircuitPoint(fields[0], fields[1], c), Integer.parseInt(fields[2]));
+        return null;
+    }
+
+    public abstract String getDisplayName();
+
+    public Circuit getCircuit() {
+        return c;
+    }
+
+    /**
+     * Different entities will have different implementations for when they move by a vector. This is because some
+     * entities act differently upon being moved, such as Wires (because they only have intercept points, no draw
+     * points and no oriegin), so different fields need to be updated.
+     * @param v the Vector that this Entity is being moved by
+     */
+    public abstract void move(Vector v); // SHOULD ONLY BE CALLED BY moveBy (meaning ONLY move operations)
+
+
 
     // Specialized Intercepting, for auto-generating Wires
 
@@ -498,5 +523,23 @@ public abstract class Entity implements PropertyMutable {
 
     public void duplicate() {
         getCloned(c);
+    }
+
+    public enum Size {
+        SMALL, MEDIUM, LARGE;
+
+        public static Size fromString(String s) {
+            switch (s.toUpperCase()) {
+                case "SMALL":
+                    return SMALL;
+                case "MEDIUM":
+                    return MEDIUM;
+                case "LARGE":
+                    return LARGE;
+                default:
+                    return null;
+            }
+        }
+
     }
 }

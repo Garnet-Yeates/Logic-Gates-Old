@@ -108,6 +108,10 @@ public class BoundingBox {
 
     }
 
+    public BoundingBox getIfModifiedBy(Vector v) {
+        return new BoundingBox(p1.getIfModifiedBy(v), p4.getIfModifiedBy(v), null);
+    }
+
     public BoundingBox(PanelDrawPoint corner1, PanelDrawPoint corner2, Entity owner) {
         this(corner1.toCircuitPoint(), corner2.toCircuitPoint(), owner);
     }

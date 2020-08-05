@@ -204,7 +204,8 @@ public abstract class ConnectibleEntity extends Entity {
     public LinkedList<InputNode> getRelevantInputNodesFor(OutputNode out) {
         LinkedList<InputNode> relevants = new LinkedList<>();
         for (Powerable inputNode : out.dependingOn())
-            if (inputNode.hasSuperDependencies())
+            if (inputNode.getPowerStatus() == Powerable.PowerStatus.ON
+                    || inputNode.getPowerStatus() == Powerable.PowerStatus.OFF)
                 relevants.add((InputNode) inputNode);
         return relevants;
     }

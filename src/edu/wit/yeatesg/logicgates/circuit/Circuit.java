@@ -1,5 +1,6 @@
 package edu.wit.yeatesg.logicgates.circuit;
 
+import edu.wit.yeatesg.logicgates.LogicGates;
 import edu.wit.yeatesg.logicgates.datatypes.*;
 import edu.wit.yeatesg.logicgates.circuit.entity.*;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.*;
@@ -10,6 +11,7 @@ import edu.wit.yeatesg.logicgates.datatypes.Vector;
 import edu.wit.yeatesg.logicgates.gui.EditorPanel;
 import edu.wit.yeatesg.logicgates.gui.MainGUI;
 import edu.wit.yeatesg.logicgates.gui.Project;
+import javafx.beans.value.ObservableValue;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.MenuItem;
 import javafx.scene.paint.Color;
@@ -43,10 +45,12 @@ public class Circuit implements PropertyMutable {
 
     private CircuitEntityList<Entity> allEntities = new CircuitEntityList<>();
 
-    private class CircuitEntityList<E extends Entity> extends ExactEntityList<E> {
+    public class CircuitEntityList<E extends Entity> extends ExactEntityList<E> {
 
         @Override
         public boolean add(E entity) {
+            if (entity.isTemplateEntity())
+                throw new RuntimeException("Should not add default entities to Circuit");
    //         System.out.println("[+1][" + allEntities.size() + "]" + "ADD "  + entity + entity.getEntityID());
             if (entity.existsInCircuit())
                 throw new RuntimeException("Entity already exists in Circuit");
@@ -91,7 +95,7 @@ public class Circuit implements PropertyMutable {
             if (e instanceof ConnectibleEntity)
                 ((ConnectibleEntity) e).disconnectAll();
             EntityList<Entity> usedToIntercept = e.getInterceptingEntities();
-            interceptMap.removeInterceptPointsFor(e);
+            e.removeInterceptEntries();
             invalidEntities.removeExact(e); // Just in case it was invalid when it was deleted
             e.onRemove(); // Sets inCircuit field to false, but is encapsulated so I don't do it here
             for (Entity usedTo : usedToIntercept) {
@@ -347,19 +351,6 @@ public class Circuit implements PropertyMutable {
                 removeInterceptPoint(intPoint, e);
         }
 
-        public void pushIntoRange(CircuitPointList points) {
-            for (CircuitPoint p : points) {
-                while(p.x > InterceptMap.CP_MAX)
-                    points.addVectorToAllPoints(new Vector(-1, 0));
-                while(p.x < InterceptMap.CP_MIN)
-                    points.addVectorToAllPoints(new Vector(1, 0));
-                while(p.y > InterceptMap.CP_MAX)
-                    points.addVectorToAllPoints(new Vector(0, -1));
-                while(p.y < InterceptMap.CP_MIN)
-                    points.addVectorToAllPoints(new Vector(0, 1));
-            }
-        }
-
         public boolean isInRange(CircuitPoint p) {
             return p.x >= CP_MIN && p.x <= CP_MAX
                     && p.y >= CP_MIN && p.y <= CP_MAX;
@@ -387,13 +378,6 @@ public class Circuit implements PropertyMutable {
         return InterceptMap.CP_MAX;
     }
 
-    public void pushIntoMapRange(CircuitPointList points) {
-        interceptMap.pushIntoRange(points);
-    }
-
-    public void pushIntoMapRange(CircuitPoint... points) {
-        pushIntoMapRange(new CircuitPointList(points));
-    }
 
     public boolean isInMapRange(CircuitPoint p) {
         return interceptMap.isInRange(p);
@@ -597,9 +581,25 @@ public class Circuit implements PropertyMutable {
                 added = super.add(entity);
                 entity.onSelect();
                 entity.update();
-                updateConnectionView();
+                onSelectionUpdate();
             }
             return added;
+        }
+
+        public void onSelectionUpdate() {
+            updateConnectionView();
+            if (isEmpty())
+                project.getGUI().setPropertyTable(Circuit.this);
+            else {
+                PropertyList list = null;
+                for (Entity e : this)
+                    if (list == null)
+                        list = e.getPropertyList();
+                    else
+                        list.addParent(e);
+                project.getGUI().setPropertyTable(list);
+            }
+            // TODO update prop table
         }
 
         public boolean selectAndTrackStateOperation(Entity e) {
@@ -635,7 +635,7 @@ public class Circuit implements PropertyMutable {
             boolean removed = removeExact(e);
             if (removed) {
                 e.onDeselect();
-                updateConnectionView();
+                onSelectionUpdate();
                 return true;
             }
             return false;
@@ -1452,9 +1452,9 @@ public class Circuit implements PropertyMutable {
      * */
     private int scale = 15;
 
-    private static final int SCALE_MAX = 70;
-    private static final int SCALE_MIN = 6;
-    private static final int SCALE_INC = 2;
+    public static final int SCALE_MAX = 70;
+    public static final int SCALE_MIN = 6;
+    public static final int SCALE_INC = 2;
 
     /**
      * Returns the number that you have to multiply a {@link CircuitPoint} by to get its {@link PanelDrawPoint}
@@ -1554,26 +1554,19 @@ public class Circuit implements PropertyMutable {
 
 
     public void recalculateTransmissions() {
-       // System.out.println("Recalculate Transmissions Took " + LogicGates.doTimeTest(() -> {
+        System.out.println("Recalculate Transmissions Took " + LogicGates.doTimeTest(() -> {
             Powerable.resetDependencies(Circuit.this);
-            Powerable.resetPowerStatus(Circuit.this, true); // Reset power statuses and illogicals as well
+            Powerable.resetPowerstatuses(Circuit.this, true); // Reset power statuses and illogicals as well
             Powerable.calculateDependencies(Circuit.this); // Calculate dependencies, may cause illogicies
             Powerable.calculateSuperDependencies(Circuit.this);
-
             Powerable.illogicalCheck(Circuit.this); // Determine illogicals based on calculated dependencies
-
-            Powerable.resetDependencies(Circuit.this);
-            Powerable.resetPowerStatus(Circuit.this, false); // Reset power statuses, but not for illogicals
-            Powerable.calculateDependencies(Circuit.this); // Re-calculate dependencies, ignoring illogicals
-            Powerable.calculateSuperDependencies(Circuit.this);
-
             Powerable.determinePowerStatuses(Circuit.this);
-     //   }));
+        }));
        
     }
 
     public void recalculatePowerStatuses() {
-        Powerable.resetPowerStatus(this, false);
+        Powerable.resetPowerstatuses(this, false);
         Powerable.determinePowerStatuses(this);
     }
 
@@ -1587,13 +1580,18 @@ public class Circuit implements PropertyMutable {
 
     @Override
     public PropertyList getPropertyList() {
-        PropertyList propList = new PropertyList(this);
+        PropertyList propList = new PropertyList(this, this);
         propList.add(new Property("Circuit Name", "", ""));
         return propList;
     }
 
     @Override
     public void onPropertyChange(String propertyName, String old, String newVal) {
+
+    }
+
+    @Override
+    public void onPropertyChangeViaTable(String propertyName, String old, String newVal) {
 
     }
 

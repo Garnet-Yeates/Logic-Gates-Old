@@ -24,6 +24,7 @@ public interface Rotatable {
     }
 
     class RelativePointSet extends CircuitPointList {
+
         public CircuitPointList applyToOrigin(CircuitPoint origin, int rotation) {
             ArrayList<Vector> relationshipToOriginSet = new ArrayList<>();
             CircuitPoint relativeOrigin = this.get(0);

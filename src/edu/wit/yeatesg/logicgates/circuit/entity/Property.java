@@ -6,10 +6,13 @@ import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
 
+import java.util.Objects;
+
 public class Property {
+
+    private String propertyName;
     private Label propertyLabel;
     private Node propertyValue;
-    private String propertyName;
 
     public Property(String propertyName, String initialValue, String... possibleValues) {
         this.propertyName = propertyName;
@@ -37,8 +40,20 @@ public class Property {
             ((ComboBox<String>) propertyValue).valueProperty().addListener(listener);
         } else if (propertyValue instanceof TextField) {
             ((TextField) propertyValue).textProperty().addListener(listener);
-
         }
+    }
+
+    public boolean hasComboBoxValue() {
+        return propertyValue instanceof ComboBox;
+    }
+
+    public boolean hasTextFieldValue() {
+        return propertyValue instanceof TextField;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        return o instanceof Property && ((Property) o).propertyName.equalsIgnoreCase(propertyName);
     }
 
     public Label getPropertyLabel() {

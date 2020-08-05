@@ -70,7 +70,7 @@ public class GateOR extends LogicGate {
 
     @Override
     public void setDefaults() {
-        backCurveUpShift = 0.1;
+        backCurveUpShift = 0.08;
     }
 
     @Override
@@ -80,9 +80,9 @@ public class GateOR extends LogicGate {
         CircuitPoint lefter = p1.y == p2.y ? (p1.x < p2.x ? p1 : p2) : (p1.y < p2.y ? p1 : p2);
         CircuitPoint righter = lefter == p1 ? p2 : p1;
         Vector startToEnd = new Vector(lefter, righter);
-        double distDown = 0.15;
-        distDown += 0.85 * (startToEnd.getLength() / 6);
-        distDown = Math.min(1.35, distDown);
+        final double maxDistDown = 3;
+        int inputProgress = numInputs % 2 == 0 ? numInputs : numInputs - 1;
+        double distDown = ( (inputProgress - getNumBaseInputs()) / (32.0 - getNumBaseInputs()) ) * maxDistDown;
         double dist = startToEnd.getLength();
         CircuitPoint middle = lefter.getIfModifiedBy(startToEnd.getUnitVector().getMultiplied(dist / 2));
         return new CurveInputWing(lefter.getRotated(origin, rotation),
@@ -205,4 +205,11 @@ public class GateOR extends LogicGate {
     public String getDisplayName() {
         return "OR Gate";
     }
+
+
+    @Override
+    public String getPropertyTableHeader() {
+        return "Properties For: Gate " + (!out.isNegated() ? "OR" : "NOR");
+    }
+
 }

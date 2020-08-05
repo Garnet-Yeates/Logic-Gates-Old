@@ -24,6 +24,7 @@ public enum Direction {
     }
 
     public static int rotationFromCardinal(String cardinal) {
+        cardinal = cardinal.toUpperCase();
         switch (cardinal) {
             case "WEST":
                 return 90;

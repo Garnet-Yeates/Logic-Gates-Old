@@ -1,6 +1,7 @@
 package edu.wit.yeatesg.logicgates.gui;
 
 import edu.wit.yeatesg.logicgates.circuit.entity.Entity;
+import edu.wit.yeatesg.logicgates.circuit.entity.PropertyList;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.peripheral.OutputBlock;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.logicgate.GateAND;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.logicgate.GateOR;
@@ -21,6 +22,8 @@ import javafx.scene.control.Label;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuBar;
 import javafx.scene.control.MenuItem;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
@@ -242,21 +245,49 @@ public class MainGUI extends Application {
         stage.heightProperty().addListener((observableValue, number, t1) -> treeView.setPrefHeight(Integer.MAX_VALUE));
         leftOfDivider.getChildren().add(treeView);
         TreeItem<String> treeRoot = new TreeItem<>("untitled");
-        TreeItem<String> item1 = new TreeItem<>("Circuits");
-        item1.getChildren().add(new TreeItem<>("CircuitA"));
-        item1.getChildren().add(new TreeItem<>("CircuitB"));
-        item1.getChildren().add(new TreeItem<>("CircuitC"));
-        TreeItem<String> item2 = new TreeItem<>("Logic Gates");
-        item2.getChildren().add(new TreeItem<>("AND Gate"));
-        item2.getChildren().add(new TreeItem<>("OR Gate"));
-        item2.getChildren().add(new TreeItem<>("XOR Gate"));
-        item2.getChildren().add(new TreeItem<>("NAND Gate"));
-        item2.getChildren().add(new TreeItem<>("NOR Gate"));
-        item2.getChildren().add(new TreeItem<>("XNOR Gate"));
+        treeRoot.setExpanded(true);
+
+        TreeItem<String> circuitsItem = new TreeItem<>("Circuits");
+        circuitsItem.setExpanded(true);
+        circuitsItem.getChildren().add(new TreeItem<>("CircuitA"));
+        circuitsItem.getChildren().add(new TreeItem<>("CircuitB"));
+        circuitsItem.getChildren().add(new TreeItem<>("CircuitC"));
+
+        TreeItem<String> objectsItem = new TreeItem<>("Objects");
+        objectsItem.setExpanded(true);
+
+        TreeItem<String> logicGatesItem = new TreeItem<>("Logic Gates");
+
+        TreeItem<String> andItem = new TreeItem<>("AND Gate");
+        andItem.setGraphic(new ImageView(new Image("/assets/Logic Gate Icons/ANDIcon.png")));
+        logicGatesItem.getChildren().add(andItem);
+
+        TreeItem<String> nandItem = new TreeItem<>("NAND Gate");
+        nandItem.setGraphic(new ImageView(new Image("/assets/Logic Gate Icons/NANDIcon.png")));
+        logicGatesItem.getChildren().add(nandItem);
+
+        TreeItem<String> orItem = new TreeItem<>("OR Gate");
+        orItem.setGraphic(new ImageView(new Image("/assets/Logic Gate Icons/ORIcon.png")));
+        logicGatesItem.getChildren().add(orItem);
+
+        TreeItem<String> norItem = new TreeItem<>("NOR Gate");
+        norItem.setGraphic(new ImageView(new Image("/assets/Logic Gate Icons/NORIcon.png")));
+        logicGatesItem.getChildren().add(norItem);
+
+        TreeItem<String> xorItem = new TreeItem<>("XOR Gate");
+        xorItem.setGraphic(new ImageView(new Image("/assets/Logic Gate Icons/XORIcon.png")));
+        logicGatesItem.getChildren().add(xorItem);
+
+        TreeItem<String> xnorItem = new TreeItem<>("XNOR Gate");
+        xnorItem.setGraphic(new ImageView(new Image("/assets/Logic Gate Icons/XNORIcon.png")));
+        logicGatesItem.getChildren().add(xnorItem);
+        logicGatesItem.setExpanded(true);
+
+        objectsItem.getChildren().add(logicGatesItem);
 
         TreeItem<String> item3 = new TreeItem<>("Wiring");
-        treeRoot.getChildren().add(item1);
-        treeRoot.getChildren().add(item2);
+        treeRoot.getChildren().add(circuitsItem);
+        treeRoot.getChildren().add(objectsItem);
         treeRoot.getChildren().add(item3);
         treeView.setRoot(treeRoot);
 
@@ -353,6 +384,10 @@ public class MainGUI extends Application {
         c.addEntity(new GateXOR(new CircuitPoint(17, 54, c), 0, Entity.Size.MEDIUM, 19));
         c.addEntity(new GateXOR(new CircuitPoint(17, 61, c), 0, Entity.Size.MEDIUM, 21));
         c.addEntity(new GateXOR(new CircuitPoint(17, 68, c), 0, Entity.Size.MEDIUM, 23));
+        c.addEntity(new GateXOR(new CircuitPoint(17, 75, c), 0, Entity.Size.MEDIUM, 25));
+        c.addEntity(new GateXOR(new CircuitPoint(17, 82, c), 0, Entity.Size.MEDIUM, 27));
+        c.addEntity(new GateXOR(new CircuitPoint(17, 89, c), 0, Entity.Size.MEDIUM, 29));
+        c.addEntity(new GateXOR(new CircuitPoint(17, 96, c), 0, Entity.Size.MEDIUM, 31));
 
 
         c.addEntity(new GateOR(new CircuitPoint(34, 05, c), 0, Entity.Size.MEDIUM, 5));
@@ -365,6 +400,7 @@ public class MainGUI extends Application {
         c.addEntity(new GateOR(new CircuitPoint(34, 54, c), 0, Entity.Size.MEDIUM, 19));
         c.addEntity(new GateOR(new CircuitPoint(34, 61, c), 0, Entity.Size.MEDIUM, 21));
         c.addEntity(new GateOR(new CircuitPoint(34, 68, c), 0, Entity.Size.MEDIUM, 23));
+        c.addEntity(new GateOR(new CircuitPoint(34, 75, c), 0, Entity.Size.MEDIUM, 33));
 
 
         c.addEntity(new OutputBlock(new CircuitPoint(-2, -5, c), 0));
@@ -422,4 +458,14 @@ public class MainGUI extends Application {
         propertiesGoHere.setCenter(table);
         propertiesGoHere.setMinHeight(TABLE_HEIGHT);
     }
+
+    public void setPropertyTable(PropertyList properties) {
+        TableView<Property> table = properties.toTableView();
+        table.setMaxHeight(210);
+        table.setMinHeight(210);
+        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        propertiesGoHere.setCenter(table);
+        propertiesGoHere.setMinHeight(TABLE_HEIGHT);
+    }
+
 }
