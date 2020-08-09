@@ -23,6 +23,13 @@ public enum Direction {
         }
     }
 
+    public static Direction parseDirection(String s) {
+        for (Direction d : values())
+            if (d.toString().equalsIgnoreCase(s))
+                return d;
+        return null;
+    }
+
     public static int rotationFromCardinal(String cardinal) {
         cardinal = cardinal.toUpperCase();
         switch (cardinal) {

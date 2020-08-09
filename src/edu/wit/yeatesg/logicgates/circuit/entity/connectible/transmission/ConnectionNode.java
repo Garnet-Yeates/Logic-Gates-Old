@@ -1,17 +1,14 @@
 package edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission;
 
-import edu.wit.yeatesg.logicgates.datatypes.BoundingBox;
+import edu.wit.yeatesg.logicgates.datatypes.*;
 import edu.wit.yeatesg.logicgates.circuit.Circuit;
-import edu.wit.yeatesg.logicgates.datatypes.Vector;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.ConnectibleEntity;
-import edu.wit.yeatesg.logicgates.datatypes.CircuitPoint;
-import edu.wit.yeatesg.logicgates.datatypes.PanelDrawPoint;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
 import java.util.Comparator;
 
-public class ConnectionNode implements Powerable {
+public class ConnectionNode implements Dependent {
 
    protected CircuitPoint location;
    protected ConnectibleEntity connectedTo;
@@ -33,27 +30,19 @@ public class ConnectionNode implements Powerable {
        return Comparator.comparingDouble(o -> o.location.y);
    }
 
-   // Dependent implementation
+   public static final int MAX_DATA_BITS = 16;
 
-    protected DependencyList dependingOn = new DependencyList(this);
+   private int numBits = 1;
 
-    @Override
-    public DependencyList dependingOn() {
-        return dependingOn;
-    }
+   public void setNumBits(int numBits) {
+       if (numBits < 1 || numBits > MAX_DATA_BITS)
+           throw new RuntimeException("Invalid Number Of Data Bits");
+       this.numBits = numBits;
+   }
 
-    protected PowerStatus powerStatus = PowerStatus.UNDETERMINED;
-
-    @Override
-    public void setPowerStatus(PowerStatus status) {
-        this.powerStatus = status;
-    }
-
-    @Override
-    public PowerStatus getPowerStatus() {
-        return powerStatus;
-    }
-
+   public int getNumBits() {
+       return numBits;
+   }
 
     protected boolean isNegated = false;
 
@@ -65,15 +54,6 @@ public class ConnectionNode implements Powerable {
 
     public boolean isNegated() {
         return isNegated;
-    }
-
-    /**
-     * Takes isNegated into account, used for determining the power of what depends on this
-     */
-    public PowerStatus getTruePowerValue() {
-        if (powerStatus == PowerStatus.OFF || powerStatus == PowerStatus.ON)
-            return !isNegated ? powerStatus : powerStatus == PowerStatus.ON ? PowerStatus.OFF : PowerStatus.ON;
-        return powerStatus;
     }
 
 
@@ -172,6 +152,39 @@ public class ConnectionNode implements Powerable {
         double dist = (bb.p4.x - bb.p1.x) * center.getCircuit().getScale();
         g.setStroke(strokeCol);
         g.strokeOval(p1.x, p1.y, dist, dist);
+    }
+
+    public DependencyTree dependencyTree;
+
+    @Override
+    public DependencyTree getDependencyTree() {
+        return dependencyTree;
+    }
+
+    @Override
+    public void setDependencyTree(DependencyTree tree) {
+        dependencyTree = tree;
+    }
+
+    @Override
+    public Circuit getCircuit() {
+        return location.getCircuit();
+    }
+
+    private boolean marked = false;
+
+    @Override
+    public void setMarked(boolean marked) {
+        this.marked = marked;
+    }
+
+    @Override
+    public boolean isMarked() {
+        return marked;
+    }
+
+    public boolean hasDependencyTree() {
+        return dependencyTree != null;
     }
 
 }

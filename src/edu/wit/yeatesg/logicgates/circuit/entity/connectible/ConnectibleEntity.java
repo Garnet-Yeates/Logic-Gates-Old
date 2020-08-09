@@ -4,6 +4,7 @@ import edu.wit.yeatesg.logicgates.circuit.Circuit;
 import edu.wit.yeatesg.logicgates.circuit.entity.Entity;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission.*;
 import edu.wit.yeatesg.logicgates.datatypes.CircuitPoint;
+import edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission.DependencyTree;
 
 import java.util.ArrayList;
 import java.util.LinkedList;
@@ -47,16 +48,6 @@ public abstract class ConnectibleEntity extends Entity {
         return connections.hasOutputNodes();
     }
 
-    public boolean transmitsOnly() {
-        return (hasOutputNodes() && !hasInputNodes());
-    }
-
-    public final void calculateDependedBy() {
-        for (ConnectionNode node : connections)
-            if (node instanceof OutputNode)
-                ((OutputNode) node).calculateDependedBy();
-    }
-
 
     public void establishInputNode(CircuitPoint location) {
         connections.add(new InputNode(location, this));
@@ -90,7 +81,7 @@ public abstract class ConnectibleEntity extends Entity {
      * @return true if these entities can connect
      */
     public abstract boolean canConnectTo(ConnectibleEntity e, CircuitPoint at);
-
+    
     public void disconnectAll() {
         for (ConnectibleEntity e : getConnectedEntities()) {
             disconnect(e);
@@ -198,20 +189,9 @@ public abstract class ConnectibleEntity extends Entity {
         return connections.hasConnectionTo(potentiallyConnectedEntity);
     }
 
-    public abstract void determinePowerStateOf(OutputNode outputNode);
-    
+    public abstract PowerValue getLocalPowerStateOf(OutputNode root);
 
-    public LinkedList<InputNode> getRelevantInputNodesFor(OutputNode out) {
-        LinkedList<InputNode> relevants = new LinkedList<>();
-        for (Powerable inputNode : out.dependingOn())
-            if (inputNode.getPowerStatus() == Powerable.PowerStatus.ON
-                    || inputNode.getPowerStatus() == Powerable.PowerStatus.OFF)
-                relevants.add((InputNode) inputNode);
-        return relevants;
-    }
 
     public abstract ConnectibleEntity getCloned(Circuit onto);
-
-
 
 }

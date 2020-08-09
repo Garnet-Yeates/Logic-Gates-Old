@@ -1,6 +1,7 @@
 package edu.wit.yeatesg.logicgates;
 
 import edu.wit.yeatesg.logicgates.circuit.Circuit;
+import edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission.ConnectionNode;
 import edu.wit.yeatesg.logicgates.datatypes.Vector;
 import edu.wit.yeatesg.logicgates.datatypes.CircuitPoint;
 import edu.wit.yeatesg.logicgates.datatypes.PanelDrawPoint;
@@ -15,6 +16,7 @@ import java.util.Iterator;
 public class LogicGates {
 
     private long startTime;
+
 
     public static String doTimeTest(Runnable r) {
         long start = System.currentTimeMillis();

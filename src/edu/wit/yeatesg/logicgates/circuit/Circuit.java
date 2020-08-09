@@ -1,6 +1,5 @@
 package edu.wit.yeatesg.logicgates.circuit;
 
-import edu.wit.yeatesg.logicgates.LogicGates;
 import edu.wit.yeatesg.logicgates.datatypes.*;
 import edu.wit.yeatesg.logicgates.circuit.entity.*;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.*;
@@ -11,7 +10,6 @@ import edu.wit.yeatesg.logicgates.datatypes.Vector;
 import edu.wit.yeatesg.logicgates.gui.EditorPanel;
 import edu.wit.yeatesg.logicgates.gui.MainGUI;
 import edu.wit.yeatesg.logicgates.gui.Project;
-import javafx.beans.value.ObservableValue;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.MenuItem;
 import javafx.scene.paint.Color;
@@ -146,7 +144,7 @@ public class Circuit implements PropertyMutable {
     public EntityList<Entity> getSimilarEntities(Entity similarTo) {
         EntityList<Entity> similar = new EntityList<>();
         for (Entity e : similarTo.getInterceptingEntities())
-            if (e.isSimilar(similarTo))
+            if (e.isSimilar(similarTo) && e != similarTo)
                 similar.add(e);
         return similar;
     }
@@ -965,9 +963,15 @@ public class Circuit implements PropertyMutable {
 
         protected int opCode = opCodeAssign++;
 
+        private boolean track;
+
         public StateChangeOperation(boolean track) {
             if (track)
                 stateController.onOperationOccurrence(this);
+        }
+
+        public boolean isTracked() {
+            return track;
         }
 
         public abstract StateChangeOperation getOpposite();
@@ -1025,9 +1029,10 @@ public class Circuit implements PropertyMutable {
         return false;
     }
 
-    private enum SelectiveFocus { SELECTED, NON_SELECTED }
+    private enum SelectiveFocus { SELECTED, NON_SELECTED, ANY }
     private static final SelectiveFocus SELECTED = SelectiveFocus.SELECTED;
     private static final SelectiveFocus NON_SELECTED = SelectiveFocus.NON_SELECTED;
+    private static final SelectiveFocus ANY = SelectiveFocus.ANY;
 
     /**
      * Disables transform and update, must be re enabled when you are done using the method
@@ -1035,15 +1040,15 @@ public class Circuit implements PropertyMutable {
      * @param focus
      * @return
      */
-    public PieceList<Entity> getOperands(Entity mainOperand, SelectiveFocus focus) {
+    public PieceList<Entity> getOperandsOnCircuit(Entity mainOperand, SelectiveFocus focus) {
+        if (mainOperand.existsInCircuit())
+            throw new RuntimeException("Operands should be similar but non-existing entities");
         disableTransforms();
         disableUpdate();
         PieceList<Entity> operands = new PieceList<>();
         if (!(mainOperand instanceof Wire)) {
             for (Entity e : mainOperand.getInterceptingEntities()) {
-                if (e.isSimilar(mainOperand)
-                        && e.isSelected() == (focus == SelectiveFocus.SELECTED)) // e's selected state must match the focus
-                {
+                if (e.isSimilar(mainOperand) && (focus == ANY || e.isSelected() == (focus == SelectiveFocus.SELECTED))) {
                     operands.add(e);
                     break;
                 }
@@ -1059,6 +1064,8 @@ public class Circuit implements PropertyMutable {
             operands.addAll(wirePieces);
             operands.causingBisectHere = wirePieces.causingBisectHere;
         }
+        if (operands.isEmpty())
+            throw new RuntimeException("Could not find non-wire operand for " + mainOperand.toParsableString());
         return operands;
     }
 
@@ -1133,12 +1140,11 @@ public class Circuit implements PropertyMutable {
         if (building.getRighterEdgePoint().isSimilar(lefter)) {
             return currPieces;
         }
-        boolean select = focus == SelectiveFocus.SELECTED;
         Wire lastScanned = currPieces.isEmpty() ? null : currPieces.get(currPieces.size() - 1);
         for (Entity e : lefter.getInterceptingEntities()) {
             if (e instanceof Wire
                     && ((Wire) e).getDirection() == building.getDirection()
-                    && e.isSelected() == select
+                    && (e.isSelected() == (focus == SelectiveFocus.SELECTED) || focus == ANY)
                     && ( lastScanned == null || !lastScanned.isSimilar(e)) ) {
                 Wire w = (Wire) e;
                 if (w.getLefterEdgePoint().intercepts(lefter)) {
@@ -1170,7 +1176,7 @@ public class Circuit implements PropertyMutable {
         @Override
         public void operate() {
             System.out.println(this.getClass().getSimpleName() + " .operate on " + selecting);
-            PieceList<Entity> ops = getOperands(selecting, SelectiveFocus.NON_SELECTED);
+            PieceList<Entity> ops = getOperandsOnCircuit(selecting, SelectiveFocus.NON_SELECTED);
             ops.forEach(Entity::select);
             enableTransforms();
             enableUpdate();
@@ -1196,7 +1202,7 @@ public class Circuit implements PropertyMutable {
         @Override
         public void operate() {
             System.out.println(this.getClass().getSimpleName() + " .operate on " + deselecting.toParsableString());
-            PieceList<Entity> ops = getOperands(deselecting, SELECTED);
+            PieceList<Entity> ops = getOperandsOnCircuit(deselecting, SELECTED);
             for (Entity e : ops)
                 e.deselect();
             enableTransforms();
@@ -1204,53 +1210,97 @@ public class Circuit implements PropertyMutable {
             ops.forEach(Entity::update);
         }
     }
-    
-    public Vector negate(CircuitPoint negating) {
-        for (ConnectibleEntity entity : negating.getInterceptingEntities().thatExtend(ConnectibleEntity.class)) {
-            if (entity instanceof InputNegatable) {
-                ConnectionNode node;
-                if (entity.hasNodeAt(negating) && (node = entity.getNodeAt(negating)) instanceof InputNode) {
-                    InputNode in = (InputNode) node;
-                    if (!((InputNegatable) entity).negateInput(negating))
-                        throw new RuntimeException();
-                    return ((InputNegatable) entity).getNegateVectorFor(in).getMultiplied(in.isNegated() ? -1 : 1);
-                }
-            }
-            if (entity instanceof OutputNegatable) {
-                ConnectionNode node;
-                if (entity.hasNodeAt(negating) && (node = entity.getNodeAt(negating)) instanceof OutputNode) {
-                    OutputNode out = (OutputNode) node;
-                    if (!((OutputNegatable) entity).negateOutput(negating))
-                        throw new RuntimeException();
-                    return ((OutputNegatable) entity).getNegateVectorFor(out).getMultiplied(out.isNegated() ? -1 : 1);
-                }
-            }
-        }
-        return null;
-    }
 
-    public class NegateOperation extends StateChangeOperation {
+    public class EntityNegateOperation extends StateChangeOperation {
 
-        public CircuitPoint negatingNodeAt;
-        public Vector negationVector;
+        public Entity mainOperand;
+        public ArrayList<Integer> negatedIndices;
+        private boolean input;
 
-        public NegateOperation(CircuitPoint negatingNodeAt, Vector negationVector, boolean track) {
+        private EntityList<Wire> similarCreating = new EntityList<>();
+        private EntityList<Wire> similarDeleting = new EntityList<>();
+
+        public EntityNegateOperation(Entity similarNegating, boolean input, ArrayList<Integer> indices, boolean track) {
             super(track);
-            this.negatingNodeAt = negatingNodeAt.getSimilar();
-            this.negationVector = negationVector.clone();
+            this.input = input;
+            if (input && !(similarNegating instanceof InputNegatable) || !input && !(similarNegating instanceof OutputNegatable))
+                throw new RuntimeException("Cannot perform NegateOperation on this entity");
+            this.mainOperand = similarNegating.getSimilarEntity();
+            this.negatedIndices = new ArrayList<>(indices);
+            indices.forEach(this::determineWireModificationForNegationOf);
+        }
+
+        private void determineWireModificationForNegationOf(int indexOfNode) {
+            boolean wasNegatedBefore;
+            Vector nonNegateToNegateVector;
+            CircuitPoint startLoc;
+            if (input) {
+                InputNegatable mainOp = (InputNegatable) mainOperand;
+                InputNode in = mainOp.getInputList().get(indexOfNode);
+                wasNegatedBefore = in.isNegated();
+                nonNegateToNegateVector = mainOp.getNonNegateToNegateUnitVectorFor(in);
+                startLoc = in.getLocation();
+            } else {
+                OutputNegatable mainOp = (OutputNegatable) mainOperand;
+                OutputNode out = mainOp.getOutputList().get(indexOfNode);
+                wasNegatedBefore = out.isNegated();
+                nonNegateToNegateVector = mainOp.getNonNegateToNegateUnitVectorFor(out);
+                startLoc = out.getLocation();
+            }
+
+            if (!wasNegatedBefore) {
+                CircuitPoint endLoc = startLoc.getIfModifiedBy(nonNegateToNegateVector);
+                for (Wire w: startLoc.getInterceptingEntities().getWiresGoingInSameDirection(nonNegateToNegateVector.getGeneralDirection()))
+                    if (w.intercepts(endLoc))
+                        similarDeleting.add(new Wire(startLoc, endLoc));
+            }
+            else {
+                CircuitPoint endLoc = startLoc.getIfModifiedBy(nonNegateToNegateVector.getMultiplied(-1));
+                for (Wire w: startLoc.getInterceptingEntities().getWiresGoingInSameDirection(nonNegateToNegateVector.getGeneralDirection()))
+                    if (w.isEdgePoint(startLoc) && !w.intercepts(endLoc))
+                        similarCreating.add(new Wire(startLoc, endLoc));
+            }
+
         }
 
         @Override
-        public NegateOperation getOpposite() {
-            return new NegateOperation(negatingNodeAt.getIfModifiedBy(negationVector), negationVector.getMultiplied(-1), false);
+        public StateChangeOperation getOpposite() {
+            Entity operandClone = mainOperand.getSimilarEntity();
+            for (int negatedIndex : negatedIndices) {
+                if (input)
+                    ((InputNegatable) operandClone).negateInput(negatedIndex);
+                else
+                    ((OutputNegatable) operandClone).negateOutput(negatedIndex);
+            }
+            return new EntityNegateOperation(operandClone, input, negatedIndices, false);
         }
 
         @Override
         public void operate() {
-            if (negate(negatingNodeAt) == null)
-                throw new RuntimeException("Negate Failed");
-        }
+            Entity operand = getOperandsOnCircuit(mainOperand, SelectiveFocus.ANY).get(0);
+            EntityList<Entity> usedToIntercept = operand.getInterceptingEntities();
+            System.out.println("NEGATE OPERATION ON OPERAND: " + operand.toParsableString()); // TODO REM
+            for (int negatedIndex : negatedIndices) {
+                if (input)
+                    ((InputNegatable) operand).negateInput(negatedIndex);
+                else
+                    ((OutputNegatable) operand).negateOutput(negatedIndex);
+            }
+            enableTransforms();
+            enableUpdate();
+            operand.update();
+            usedToIntercept.forEach(Entity::update);
 
+            // On the first occurrence of this operation, we also want to automatically move wires to fit the negate
+            // if this operation is tracked, we will also track these wire modification operations so they will undo
+            // when this is undone
+            if (similarCreating != null)
+                similarCreating.forEach(wire -> new EntityAddOperation(wire, isTracked()).operate());
+            if (similarDeleting != null)
+                similarDeleting.forEach(wire -> new EntityDeleteOperation(wire, isTracked()).operate());
+            similarCreating = null;
+            similarDeleting = null;
+        }
     }
 
 
@@ -1334,8 +1384,7 @@ public class Circuit implements PropertyMutable {
 
         @Override
         public void operate() {
-            System.out.println(this.getClass().getSimpleName() + " .operate on " + deleting);
-            PieceList<Entity> ops = getOperands(deleting, NON_SELECTED);
+            PieceList<Entity> ops = getOperandsOnCircuit(deleting, NON_SELECTED);
             EntityList<Entity> usedToIntercept = deleting.getInterceptingEntities();
             causingBisectMap = ops.causingBisectHere;
             for (Entity e : ops) {
@@ -1552,25 +1601,6 @@ public class Circuit implements PropertyMutable {
         yoff = y;
     }
 
-
-    public void recalculateTransmissions() {
-        System.out.println("Recalculate Transmissions Took " + LogicGates.doTimeTest(() -> {
-            Powerable.resetDependencies(Circuit.this);
-            Powerable.resetPowerstatuses(Circuit.this, true); // Reset power statuses and illogicals as well
-            Powerable.calculateDependencies(Circuit.this); // Calculate dependencies, may cause illogicies
-            Powerable.calculateSuperDependencies(Circuit.this);
-            Powerable.illogicalCheck(Circuit.this); // Determine illogicals based on calculated dependencies
-            Powerable.determinePowerStatuses(Circuit.this);
-        }));
-       
-    }
-
-    public void recalculatePowerStatuses() {
-        Powerable.resetPowerstatuses(this, false);
-        Powerable.determinePowerStatuses(this);
-    }
-
-
     // Dynamic / 'Propetiable' Methods
 
     @Override
@@ -1620,5 +1650,88 @@ public class Circuit implements PropertyMutable {
     public void setScale(int scale) {
         this.scale = scale;
     }
+
+
+
+    private ArrayList<DependencyTree> markedTrees = new ArrayList<>();
+
+    public void markTree(DependencyTree marking) {
+        marking.setMarked(true);
+        markedTrees.add(marking);
+    }
+
+    public void clearMarkedTrees() {
+        for (DependencyTree d : markedTrees)
+            d.setMarked(false);
+        markedTrees.clear();
+    }
+
+    private ArrayList<Dependent> markedDependents = new ArrayList<>();
+
+    public void mark(Dependent marking) {
+        marking.setMarked(true);
+        markedDependents.add(marking);
+    }
+
+    public void clearMarkedDependents() {
+        for (Dependent d : markedDependents)
+            d.setMarked(false);
+        markedDependents.clear();
+    }
+
+    /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+     * REFRESHING TRANSMISSIONS
+     * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+    public ArrayList<DependencyTree> dependencyTrees = new ArrayList<>();
+
+    public void clearDependencyTrees() {
+        dependencyTrees.forEach(DependencyTree::disconnectDependents);
+        dependencyTrees.clear();
+    }
+
+    public void createDependencyTrees() {
+        for (Entity e : allEntities) {
+            if (e instanceof ConnectibleEntity) {
+                DependencyTree created;
+                for (InputNode in : ((ConnectibleEntity) e).getInputNodes())
+                    if ((created = DependencyTree.createDependencyTree(in, this)) != null)
+                        dependencyTrees.add(created);
+                for (OutputNode out : ((ConnectibleEntity) e).getOutputNodes())
+                    if ((created = DependencyTree.createDependencyTree(out, this)) != null)
+                        dependencyTrees.add(created);
+            }
+        }
+    }
+
+    public void determineCircularities() {
+        for (DependencyTree dep : dependencyTrees)
+            dep.determineTreesAboveMe(); // <-- This method marks trees to find circles
+        clearMarkedTrees();
+    }
+
+    public void determinePowerStatuses() {
+        for (DependencyTree tree : dependencyTrees)
+            tree.determinePowerStatus();
+    }
+
+    public void reDeterminePowerStatuses() {
+        for (DependencyTree tree : dependencyTrees)
+            tree.resetPowerStatus(false);
+        determinePowerStatuses();
+    }
+
+    public void recalculateTransmissions() {
+        clearDependencyTrees();
+        createDependencyTrees();
+        determineCircularities();
+        determinePowerStatuses();
+    }
+
+    public void recalculatePowerStatuses() {
+        reDeterminePowerStatuses();
+    }
+
+
 
 }

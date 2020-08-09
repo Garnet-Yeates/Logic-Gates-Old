@@ -1,57 +1,53 @@
 package edu.wit.yeatesg.logicgates.circuit.entity.connectible.logicgate;
 
+import edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission.*;
 import edu.wit.yeatesg.logicgates.datatypes.BezierCurve;
 import edu.wit.yeatesg.logicgates.circuit.Circuit;
 import edu.wit.yeatesg.logicgates.datatypes.Vector;
 import edu.wit.yeatesg.logicgates.circuit.entity.Entity;
 import edu.wit.yeatesg.logicgates.circuit.entity.Rotatable;
-import edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission.ConnectionNode;
-import edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission.Powerable;
-import edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission.InputNode;
-import edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission.OutputNode;
 import edu.wit.yeatesg.logicgates.datatypes.CircuitPoint;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
 import java.util.ArrayList;
-import java.util.LinkedList;
 
 public class GateOR extends LogicGate {
 
 
-    /**
-     * ConnectibleEntity constructor template:
-     * set main fields such as rotation, origin, etc based on the params in the constructor
-     * set {@link #connections} to a new ConnectionList
-     * call construct()
-     *
-     * @param origin
-     * @param rotation
-     * @param size
-     * @param numInputs
-     */
-    public GateOR(CircuitPoint origin, int rotation, Size size, int numInputs, boolean negate, ArrayList<Integer> nots) {
-        super(origin, rotation, size, numInputs, negate, nots);
+    public GateOR(CircuitPoint origin, int rotation, Size size, int numInputs, boolean negate,
+                   ArrayList<Integer> negatedInputIndices, OutputType outType, int dataBits) {
+        super(origin, rotation, size, numInputs, negate, negatedInputIndices, outType, dataBits);
+    }
+
+    public GateOR(CircuitPoint origin, int rotation, Size size, int numInputs, boolean negate,
+                   ArrayList<Integer> negatedInputIndices, OutputType outType) {
+        super(origin, rotation, size, numInputs, negate, negatedInputIndices, outType, 1);
+    }
+
+    public GateOR(CircuitPoint origin, int rotation, Size size, int numInputs, boolean negate,
+                   ArrayList<Integer> negatedInputIndices) {
+        super(origin, rotation, size, numInputs, negate, negatedInputIndices, OutputType.ZERO_ONE);
     }
 
     public GateOR(CircuitPoint origin, int rotation, Size size, int numInputs, boolean negate) {
-        super(origin, rotation, size, numInputs, negate);
+        super(origin, rotation, size, numInputs, negate, null);
     }
 
     public GateOR(CircuitPoint origin, int rotation, Size size, int numInputs) {
-        super(origin, rotation, size, numInputs);
+        super(origin, rotation, size, numInputs, false);
     }
 
     public GateOR(CircuitPoint origin, int rotation, Size size) {
-        super(origin, rotation, size);
+        super(origin, rotation, size, getNumBaseInputs(size));
     }
 
     public GateOR(CircuitPoint origin, int rotation) {
-        super(origin, rotation);
+        super(origin, rotation, Size.MEDIUM);
     }
 
     public GateOR(CircuitPoint origin) {
-        super(origin);
+        super(origin, 270);
     }
 
     public static GateOR parse(String s, Circuit c) {
@@ -65,7 +61,9 @@ public class GateOR extends LogicGate {
         String[] notsString = fields[6].split(";");
         for (String str : notsString)
             nots.add(Integer.parseInt(str));
-        return new GateOR(origin, rotation, size, numInputs, negate, nots);
+        OutputType outType = OutputType.parse(fields[7]);
+        int dataBits = Integer.parseInt(fields[8]);
+        return new GateOR(origin, rotation, size, numInputs, negate, nots, outType, dataBits);
     }
 
     @Override
@@ -170,21 +168,27 @@ public class GateOR extends LogicGate {
 
 
     @Override
-    public void determinePowerStateOf(OutputNode outputNode) {
-        if (outputNode.getPowerStatus() == Powerable.PowerStatus.UNDETERMINED) {
-            LinkedList<InputNode> relevants = getRelevantInputNodesFor(outputNode);
-            if (relevants.size() == 0)
-                outputNode.setPowerStatus(Powerable.PowerStatus.PARTIALLY_DEPENDENT);
-            if (outputNode.getPowerStatus() == Powerable.PowerStatus.UNDETERMINED) {
-                outputNode.setPowerStatus(Powerable.PowerStatus.OFF);
-                for (InputNode n : getRelevantInputNodesFor(outputNode)) {
-                    if (n.getTruePowerValue() == Powerable.PowerStatus.ON) {
-                        outputNode.setPowerStatus(Powerable.PowerStatus.ON);
-                        return;
-                    }
-                }
+    public PowerValue getLocalPowerStateOf(OutputNode outputNode) {
+        if (outputNode.getPowerValueFromTree() != PowerValue.UNDETERMINED)
+            throw new RuntimeException();
+        ArrayList<PowerValue> powerVals = outputNode.getRelevantPowerValuesAffectingMe();
+        if (powerVals.size() == 0)
+            return PowerValue.FLOATING_ERROR;
+
+        PowerValue returning = null;
+        for (PowerValue val : powerVals) {
+            if (val == PowerValue.ON) {
+                returning = PowerValue.ON;
+                break;
             }
         }
+        if (returning == null)
+            returning = PowerValue.OFF;
+        if (outputNode.isNegated())
+            returning = returning.getNegated();
+        if ( returning == PowerValue.ON && outputType == OutputType.ZERO_FLOATING || returning == PowerValue.OFF && outputType == OutputType.FLOATING_ONE)
+            returning = PowerValue.FLOATING;
+        return returning;
     }
 
     @Override
@@ -198,7 +202,7 @@ public class GateOR extends LogicGate {
 
     @Override
     public GateOR getCloned(Circuit onto) {
-        return new GateOR(origin.clone(onto), rotation, size, numInputs, out.isNegated(), new ArrayList<>(inNots));
+        return new GateOR(origin.clone(onto), rotation, size, numInputs, out.isNegated(), new ArrayList<>(inNots), outputType, dataBits);
     }
 
     @Override

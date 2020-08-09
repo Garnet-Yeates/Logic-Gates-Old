@@ -2,6 +2,8 @@ package edu.wit.yeatesg.logicgates.gui;
 
 import edu.wit.yeatesg.logicgates.circuit.Circuit;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.peripheral.InputBlock;
+import edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission.InputNegatable;
+import edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission.OutputNegatable;
 import edu.wit.yeatesg.logicgates.datatypes.*;
 import edu.wit.yeatesg.logicgates.circuit.entity.*;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.ConnectibleEntity;
@@ -123,10 +125,11 @@ public class EditorPanel extends Pane {
 
         if (code == R) {
             for (Entity selected : currSelection.clone()) {
-                if (selected.hasProperty("rotation")) {
-                    int rotation = Integer.parseInt(selected.getPropertyValue("rotation"));
-                    String nextRotation = Rotatable.getNextRotation(rotation) + "";
-                    c.new PropertyChangeOperation(selected, "rotation", nextRotation, true).operate();
+                if (selected.hasProperty("facing")) {
+                    System.out.println(selected.getPropertyValue("facing"));
+                    int rotation = Direction.rotationFromCardinal(selected.getPropertyValue("facing"));
+                    int nextRotation = Integer.parseInt(Rotatable.getNextRotation(rotation) + "");
+                    c.new PropertyChangeOperation(selected, "facing", Direction.cardinalFromRotation(nextRotation), true).operate();
                 }
             }
             c.appendCurrentStateChanges("Rotate " + currSelection.size() + " Entit" + (currSelection.size() == 1 ? "y" : "ies" ) + " 90 degrees");
@@ -180,13 +183,28 @@ public class EditorPanel extends Pane {
         if (code == D && e.isControlDown())
             duplicateSelection();
         if (code == N) {
-            CircuitPoint gridsnapAtMouse = circuitPointAtMouse(true);
-            Vector negateDir = c.negate(gridsnapAtMouse);
-            if (negateDir != null) { // We know we successfully negated something
-                c.new NegateOperation(gridsnapAtMouse, negateDir, true);
-                c.appendCurrentStateChanges("Negate Input Node At " + gridsnapAtMouse.toParsableString());
+            CircuitPoint gridSnapAtMouse = circuitPointAtMouse(true);
+            int negatedIndex = -1;
+            for (Entity intercepting : gridSnapAtMouse.getInterceptingEntities()) {
+                if (intercepting instanceof OutputNegatable &&
+                        (negatedIndex = ((OutputNegatable) intercepting).indexOfOutput(gridSnapAtMouse)) != -1) {
+                    ArrayList<Integer> negatedIndices = new ArrayList<>();
+                    negatedIndices.add(negatedIndex);
+                    c.new EntityNegateOperation(intercepting, false, negatedIndices, true).operate();
+                    break;
+                }
+                if (intercepting instanceof InputNegatable)
+                System.out.println("INDEX OF INPUT = " + ((InputNegatable) intercepting).indexOfInput(gridSnapAtMouse));
+                if (intercepting instanceof InputNegatable &&
+                        (negatedIndex = ((InputNegatable) intercepting).indexOfInput(gridSnapAtMouse)) != -1) {
+                    ArrayList<Integer> negatedIndices = new ArrayList<>();
+                    negatedIndices.add(negatedIndex);
+                    c.new EntityNegateOperation(intercepting, true, negatedIndices, true).operate();
+                    break;
+                }
             }
-            // negaete
+            if (negatedIndex != -1)
+                c.appendCurrentStateChanges("Negate ConnectionNode at " + gridSnapAtMouse.toParsableString());
         }
         e.consume();
         repaint(c());
@@ -960,10 +978,12 @@ public class EditorPanel extends Pane {
 
     private Timer autoPokeTimer = new Timer(750, (e -> {
         Platform.runLater(() -> {
-            autoPokers.forEach(AutoInputPoker::nextState);
-            autoPokers.forEach(AutoInputPoker::setPowerStatuses);
-            c().recalculatePowerStatuses();
-            repaint();
+            if (!autoPokers.isEmpty()) {
+                autoPokers.forEach(AutoInputPoker::nextState);
+                autoPokers.forEach(AutoInputPoker::setPowerStatuses);
+                c().recalculatePowerStatuses();
+                repaint();
+            }
         });
     }));
 

@@ -1,14 +1,12 @@
 package edu.wit.yeatesg.logicgates.circuit.entity.connectible.logicgate;
 
 import edu.wit.yeatesg.logicgates.LogicGates;
-import edu.wit.yeatesg.logicgates.circuit.Circuit;
 import edu.wit.yeatesg.logicgates.circuit.entity.*;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.ConnectibleEntity;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.ConnectionList;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission.*;
 import edu.wit.yeatesg.logicgates.datatypes.*;
 import edu.wit.yeatesg.logicgates.datatypes.PanelDrawPoint;
-import javafx.beans.value.ObservableValue;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
@@ -24,7 +22,8 @@ public abstract class LogicGate extends ConnectibleEntity implements Rotatable, 
      * @param numInputs
      * @param negatedInputIndices
      */
-    public LogicGate(CircuitPoint origin, int rotation, Size size, int numInputs, boolean negate, ArrayList<Integer> negatedInputIndices) {
+    public LogicGate(CircuitPoint origin, int rotation, Size size, int numInputs, boolean negate,
+                     ArrayList<Integer> negatedInputIndices, OutputType outType, int dataBits) {
         super(origin.getCircuit());
         setDefaults();
         this.origin = origin.getSimilar();
@@ -37,8 +36,13 @@ public abstract class LogicGate extends ConnectibleEntity implements Rotatable, 
         if (negate)
             outNots.add(0);
         this.inNots = new ArrayList<>(negatedInputIndices);
+        this.outputType = outType;
+        this.dataBits = dataBits;
         construct();
     }
+
+    protected OutputType outputType;
+    protected int dataBits;
 
     /**
      * Since instance fields aren't initialized until after super() is called, instance fields of sub classes
@@ -46,13 +50,21 @@ public abstract class LogicGate extends ConnectibleEntity implements Rotatable, 
      */
     public void setDefaults() { }
 
+
+    public LogicGate(CircuitPoint origin, int rotation, Size size, int numInputs, boolean negate, ArrayList<Integer> negatedInputIndices, OutputType outType) {
+        this(origin, rotation, size, numInputs, negate, negatedInputIndices, outType, 1);
+    }
+
+    public LogicGate(CircuitPoint origin, int rotation, Size size, int numInputs, boolean negate, ArrayList<Integer> negatedInputIndices) {
+        this(origin, rotation, size, numInputs, negate, negatedInputIndices, OutputType.ZERO_ONE);
+    }
+
     public LogicGate(CircuitPoint origin, int rotation, Size size, int numInputs, boolean negate) {
         this(origin, rotation, size, numInputs, negate, null);
-
     }
 
     public LogicGate(CircuitPoint origin, int rotation, Size size, int numInputs) {
-        this(origin, rotation, size, numInputs, false, null);
+        this(origin, rotation, size, numInputs, false);
     }
 
     public LogicGate(CircuitPoint origin, int rotation, Size size) {
@@ -69,7 +81,7 @@ public abstract class LogicGate extends ConnectibleEntity implements Rotatable, 
 
     @Override
     public String toParsableString() {
-        // [class name] <origin.x>,<origin.y>,<rotation>,<size>,<numInputs>,<negate>,<nots>
+        // [class name] <origin.x>,<origin.y>,<rotation>,<size>,<numInputs>,<negate>,<nots>,<outtype.simplestring>,<numbits>
         String notString = ""; // fuckuu
         for (int i = 0; i < inNots.size(); i++)
             notString += inNots.get(i) + (i == inNots.size() - 1 ? "" : ";");
@@ -81,7 +93,9 @@ public abstract class LogicGate extends ConnectibleEntity implements Rotatable, 
                 + size + ","
                 + numInputs + ","
                 + out.isNegated() + ","
-                + notString;
+                + notString + ","
+                + outputType.getSimpleString() + ","
+                + dataBits;
     }
 
     @Override
@@ -131,6 +145,13 @@ public abstract class LogicGate extends ConnectibleEntity implements Rotatable, 
         outputNodes.add(out);
         postOutputConstruct(rotation);
         assignOutputsToInputs();
+
+        for (OutputNode out : outputNodes) {
+            out.setNumBits(dataBits);
+            out.setOutputType(outputType);
+        }
+        for (InputNode in : inputNodes)
+            in.setNumBits(dataBits);
 
         // TODO not inputs after
     }
@@ -376,10 +397,9 @@ public abstract class LogicGate extends ConnectibleEntity implements Rotatable, 
 
     }
 
-
     @Override
     protected void assignOutputsToInputs() {
-        getInputNodes().forEach(inputNode -> out.dependingOn().add(inputNode));
+        getInputNodes().forEach(inputNode -> out.addInputThatAffectsMe(inputNode));
     }
 
     @Override
@@ -417,15 +437,15 @@ public abstract class LogicGate extends ConnectibleEntity implements Rotatable, 
     }
 
 
-    public static final String[] possibleNumInputs = { "2", "3", "4", "5", "6", "7", "8", "9", "10",
-            "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28",
-            "29", "30", "31", "32"};
+
 
     @Override
     public PropertyList getPropertyList() {
         PropertyList propList = new PropertyList(this, c);
         propList.add(new Property("Facing", Direction.cardinalFromRotation(rotation), "NORTH", "SOUTH", "EAST", "WEST"));
-        propList.add(new Property("Num Inputs", numInputs + "", possibleNumInputs));
+        propList.add(new Property("Num Inputs", numInputs + "", Property.possibleNumInputs));
+        propList.add(new Property("Data Bits", dataBits + "", Property.possibleDataBits ));
+        propList.add(new Property("Output Type", outputType.getSimpleString() + "", Property.possibleOutTypes ));
         return propList;
     }
 
@@ -433,8 +453,13 @@ public abstract class LogicGate extends ConnectibleEntity implements Rotatable, 
     public void onPropertyChangeViaTable(String propName, String old, String newVal) {
         if (isTemplateEntity())
             onPropertyChange(propName, old, newVal);
-        else
+        else {
+            if (propName.equalsIgnoreCase("num inputs")) {
+                ArrayList<Integer> negatedInputs = new ArrayList<>(getNegatedInputIndices());
+                c.new EntityNegateOperation(this.getSimilarEntity(), true, negatedInputs, true).operate();
+            }
             c.new PropertyChangeOperation(this, propName, newVal, true).operate();
+        }
     }
 
     @Override
@@ -444,7 +469,16 @@ public abstract class LogicGate extends ConnectibleEntity implements Rotatable, 
             reconstruct();
         }
         if (propertyName.equalsIgnoreCase("num inputs")) {
+            inNots.clear();
             numInputs = Integer.parseInt(newVal);
+            reconstruct();
+        }
+        if (propertyName.equalsIgnoreCase("data bits")) {
+            dataBits = Integer.parseInt(newVal);
+            reconstruct();
+        }
+        if (propertyName.equalsIgnoreCase("output type")) {
+            outputType = OutputType.parse(newVal);
             reconstruct();
         }
     }
@@ -455,6 +489,10 @@ public abstract class LogicGate extends ConnectibleEntity implements Rotatable, 
             return Direction.cardinalFromRotation(rotation);
         if (propertyName.equalsIgnoreCase("num inputs"))
             return numInputs + "";
+        if (propertyName.equalsIgnoreCase("data bits"))
+            return dataBits + "";
+        if (propertyName.equalsIgnoreCase("output type"))
+            return outputType.getSimpleString();
         return null;
     }
 
@@ -462,8 +500,12 @@ public abstract class LogicGate extends ConnectibleEntity implements Rotatable, 
     @Override
     public boolean hasProperty(String propertyName) {
         return propertyName.equalsIgnoreCase("facing")
-                || propertyName.equalsIgnoreCase("num inputs");
+                || propertyName.equalsIgnoreCase("num inputs")
+                || propertyName.equalsIgnoreCase("data bits")
+                || propertyName.equalsIgnoreCase("output type");
     }
+
+
 
     @Override
     public void connect(ConnectibleEntity e, CircuitPoint atLocation) {
@@ -530,14 +572,8 @@ public abstract class LogicGate extends ConnectibleEntity implements Rotatable, 
         return inNots;
     }
 
-    /** Should be a direct reference */
     @Override
-    public ArrayList<Integer> getOldNegatedInputIndices() {
-        return oldInNots;
-    }
-
-    @Override
-    public Vector getNegateVectorFor(InputNode inNode) {
+    public Vector getNonNegateToNegateUnitVectorFor(InputNode inNode) {
         return getOriginToInputOrigin().getUnitVector().getRotated(rotation);
     }
 
@@ -558,41 +594,10 @@ public abstract class LogicGate extends ConnectibleEntity implements Rotatable, 
         return outNots;
     }
 
-    /** Should be a direct reference */
-    @Override
-    public ArrayList<Integer> getOldNegatedOutputIndices() {
-        return oldOutNots;
-    }
 
     @Override
-    public Vector getNegateVectorFor(OutputNode outNode) {
+    public Vector getNonNegateToNegateUnitVectorFor(OutputNode outNode) {
         return getOriginToInputOrigin().getUnitVector().getRotated(rotation).getMultiplied(-1);
     }
-
-    private boolean canInputNegateMoveWires = false;
-
-    @Override
-    public void setCanInputNegateMoveWires(boolean canMoveWires) {
-        this.canInputNegateMoveWires = canMoveWires;
-    }
-
-    @Override
-    public boolean getCanInputNegateMoveWires() {
-        return canInputNegateMoveWires;
-    }
-
-    private boolean canOutputNegateMoveWires = false;
-
-    @Override
-    public void setCanOutputNegateMoveWires(boolean canMoveWires) {
-        this.canOutputNegateMoveWires = canMoveWires;
-    }
-
-    @Override
-    public boolean getCanOutputNegateMoveWires() {
-        return canOutputNegateMoveWires;
-    }
-
-
 
 }

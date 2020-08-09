@@ -1,22 +1,18 @@
 package edu.wit.yeatesg.logicgates.circuit.entity.connectible.logicgate;
 
 
+import edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission.*;
 import edu.wit.yeatesg.logicgates.datatypes.BezierCurve;
 import edu.wit.yeatesg.logicgates.circuit.Circuit;
 import edu.wit.yeatesg.logicgates.datatypes.Vector;
 import edu.wit.yeatesg.logicgates.circuit.entity.Entity;
 import edu.wit.yeatesg.logicgates.datatypes.CircuitPointList;
-import edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission.ConnectionNode;
-import edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission.Powerable;
-import edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission.InputNode;
-import edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission.OutputNode;
 import edu.wit.yeatesg.logicgates.datatypes.CircuitPoint;
 import edu.wit.yeatesg.logicgates.datatypes.PanelDrawPoint;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
 import java.util.ArrayList;
-import java.util.LinkedList;
 
 public class GateAND extends LogicGate {
 
@@ -32,30 +28,41 @@ public class GateAND extends LogicGate {
      * @param size
      * @param numInputs
      */
-    public GateAND(CircuitPoint origin, int rotation, Size size, int numInputs, boolean negate, ArrayList<Integer> nots) {
-        super(origin, rotation, size, numInputs, negate, nots);
+    public GateAND(CircuitPoint origin, int rotation, Size size, int numInputs, boolean negate,
+                     ArrayList<Integer> negatedInputIndices, OutputType outType, int dataBits) {
+        super(origin, rotation, size, numInputs, negate, negatedInputIndices, outType, dataBits);
+    }
+
+    public GateAND(CircuitPoint origin, int rotation, Size size, int numInputs, boolean negate,
+                   ArrayList<Integer> negatedInputIndices, OutputType outType) {
+        super(origin, rotation, size, numInputs, negate, negatedInputIndices, outType, 1);
+    }
+
+    public GateAND(CircuitPoint origin, int rotation, Size size, int numInputs, boolean negate,
+                   ArrayList<Integer> negatedInputIndices) {
+        super(origin, rotation, size, numInputs, negate, negatedInputIndices, OutputType.ZERO_ONE);
     }
 
     public GateAND(CircuitPoint origin, int rotation, Size size, int numInputs, boolean negate) {
-        super(origin, rotation, size, numInputs, negate);
+        super(origin, rotation, size, numInputs, negate, null);
     }
 
     public GateAND(CircuitPoint origin, int rotation, Size size, int numInputs) {
-        super(origin, rotation, size, numInputs);
+        super(origin, rotation, size, numInputs, false);
     }
 
     public GateAND(CircuitPoint origin, int rotation, Size size) {
-        super(origin, rotation, size);
+        super(origin, rotation, size, getNumBaseInputs(size));
     }
 
     public GateAND(CircuitPoint origin, int rotation) {
-        super(origin, rotation);
+        super(origin, rotation, Size.MEDIUM);
     }
 
     public GateAND(CircuitPoint origin) {
-        super(origin);
+        super(origin, 270);
     }
-
+    
     public static GateAND parse(String s, Circuit c) {
         String[] fields = s.split(",");
         CircuitPoint origin = new CircuitPoint(fields[0], fields[1], c);
@@ -67,7 +74,9 @@ public class GateAND extends LogicGate {
         String[] notsString = fields[6].split(";");
         for (String str : notsString)
             nots.add(Integer.parseInt(str));
-        return new GateAND(origin, rotation, size, numInputs, negate, nots);
+        OutputType outType = OutputType.parse(fields[7]);
+        int dataBits = Integer.parseInt(fields[8]);
+        return new GateAND(origin, rotation, size, numInputs, negate, nots, outType, dataBits);
     }
 
     @Override
@@ -124,22 +133,29 @@ public class GateAND extends LogicGate {
     }
 
     @Override
-    public void determinePowerStateOf(OutputNode outputNode) {
-        if (outputNode.getPowerStatus() == Powerable.PowerStatus.UNDETERMINED) {
-            LinkedList<InputNode> relevants = getRelevantInputNodesFor(outputNode);
-            if (relevants.size() == 0)
-                outputNode.setPowerStatus(Powerable.PowerStatus.PARTIALLY_DEPENDENT);
-            if (outputNode.getPowerStatus() == Powerable.PowerStatus.UNDETERMINED) {
-                outputNode.setPowerStatus(Powerable.PowerStatus.ON);
-                for (InputNode n : getRelevantInputNodesFor(outputNode)) {
-                    if (n.getTruePowerValue() == Powerable.PowerStatus.OFF) {
-                        outputNode.setPowerStatus(Powerable.PowerStatus.OFF);
-                        return;
-                    }
-                }
+    public PowerValue getLocalPowerStateOf(OutputNode outputNode) {
+        if (outputNode.getPowerValueFromTree() != PowerValue.UNDETERMINED)
+            throw new RuntimeException();
+        ArrayList<PowerValue> powerVals = outputNode.getRelevantPowerValuesAffectingMe();
+        if (powerVals.size() == 0)
+            return PowerValue.FLOATING_ERROR;
+
+        PowerValue returning = null;
+        for (PowerValue val : powerVals) {
+            if (val == PowerValue.OFF) {
+                returning = PowerValue.OFF;
+                break;
             }
         }
+        if (returning == null)
+            returning = PowerValue.ON;
+        if (outputNode.isNegated())
+            returning = returning.getNegated();
+        if ( returning == PowerValue.ON && outputType == OutputType.ZERO_FLOATING || returning == PowerValue.OFF && outputType == OutputType.FLOATING_ONE)
+            returning = PowerValue.FLOATING;
+        return returning;
     }
+
 
     @Override
     public boolean isSimilar(Entity other) {
@@ -153,7 +169,7 @@ public class GateAND extends LogicGate {
 
     @Override
     public GateAND getCloned(Circuit onto) {
-        return new GateAND(origin.clone(onto), rotation, size, numInputs, out.isNegated(), new ArrayList<>(inNots));
+        return new GateAND(origin.clone(onto), rotation, size, numInputs, out.isNegated(), new ArrayList<>(inNots), outputType, dataBits);
     }
 
     @Override

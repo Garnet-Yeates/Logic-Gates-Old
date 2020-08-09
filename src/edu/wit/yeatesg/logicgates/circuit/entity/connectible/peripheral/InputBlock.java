@@ -7,14 +7,13 @@ import edu.wit.yeatesg.logicgates.circuit.entity.connectible.ConnectibleEntity;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.ConnectionList;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission.ConnectionNode;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission.OutputNode;
+import edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission.PowerValue;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission.Wire;
 import edu.wit.yeatesg.logicgates.datatypes.*;
 import edu.wit.yeatesg.logicgates.datatypes.PanelDrawPoint;
-import javafx.beans.value.ObservableValue;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
-import static edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission.Powerable.*;
 
 public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable {
 
@@ -64,8 +63,8 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
     protected void assignOutputsToInputs() { /* Output Node Dependency List Will Be Empty For Input Nodes */}
 
     @Override
-    public void determinePowerStateOf(OutputNode outputNode) {
-        outputNode.setPowerStatus(powerStatus ? PowerStatus.ON : PowerStatus.OFF);
+    public PowerValue getLocalPowerStateOf(OutputNode root) {
+        return powerStatus ? PowerValue.ON : PowerValue.OFF;
     }
 
     @Override
@@ -96,7 +95,7 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
     // Other stuff
 
     public Color getColor() {
-        return out.getPowerStatus().getColor();
+        return out.getPowerValueFromTree().getColor();
     }
 
     @Override
@@ -122,16 +121,16 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
         circleSize *= 1.2;
         drawPoint = centerPoint.toPanelDrawPoint();
 
-        g.setFill(col == null ? out.getPowerStatus().getColor() : col);
+        g.setFill(col == null ? out.getPowerValueFromTree().getColor() : col);
         g.fillOval(drawPoint.x - circleSize/2.00, drawPoint.y - circleSize/2.00, circleSize, circleSize);
 
         // Draw Text 0 / 1
-        PowerStatus outStatus = out.getPowerStatus();
-        String text = outStatus == PowerStatus.OFF ? "0" : (outStatus == PowerStatus.ON ? "1" : "");
+        PowerValue outStatus = out.getPowerValueFromTree();
+        String text = outStatus == PowerValue.OFF ? "0" : (outStatus == PowerValue.ON ? "1" : "");
         double widthOfThisHereInputBlock = c.getScale()*2; // TODO change for diff size
         double maxWidth = widthOfThisHereInputBlock*0.70;
         Color numCol = strokeCol;
-        if (col == null && outStatus == PowerStatus.OFF)
+        if (col == null && outStatus == PowerValue.OFF)
             numCol = Color.rgb(0, 0, 0);
         LogicGates.drawText(text, getLineWidth()*0.5, c, g, numCol, centerPoint.getSimilar(), maxWidth);
 

@@ -5,17 +5,12 @@ import edu.wit.yeatesg.logicgates.LogicGates;
 import edu.wit.yeatesg.logicgates.circuit.entity.*;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.ConnectibleEntity;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.ConnectionList;
-import edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission.ConnectionNode;
-import edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission.InputNode;
-import edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission.OutputNode;
-import edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission.Wire;
+import edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission.*;
 import edu.wit.yeatesg.logicgates.datatypes.*;
 import edu.wit.yeatesg.logicgates.datatypes.PanelDrawPoint;
-import javafx.beans.value.ObservableValue;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
-import static edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission.Powerable.*;
 
 public class OutputBlock extends ConnectibleEntity implements Rotatable {
 
@@ -61,7 +56,9 @@ public class OutputBlock extends ConnectibleEntity implements Rotatable {
     protected void assignOutputsToInputs() { /* Output Node Dependency List Will Be Empty For Input Nodes */}
 
     @Override
-    public void determinePowerStateOf(OutputNode outputNode) { }
+    public PowerValue getLocalPowerStateOf(OutputNode root) {
+        return null; // Doesn't have out nodes
+    }
 
     @Override
     public boolean canPullPointGoHere(CircuitPoint gridSnap) {
@@ -89,7 +86,7 @@ public class OutputBlock extends ConnectibleEntity implements Rotatable {
     // Other stuff
 
     public Color getColor() {
-        return in.getPowerStatus().getColor();
+        return in.getPowerValueFromTree().getColor();
     }
 
     private BoundingBox boundingBox;
@@ -125,16 +122,16 @@ public class OutputBlock extends ConnectibleEntity implements Rotatable {
         connectNode.draw(g, col, opacity);
         // Draw Circle Inside
         CircuitPoint centerPoint = pts.get(5);
-        g.setFill(col == null ? in.getPowerStatus().getColor() : col);
+        g.setFill(col == null ? in.getPowerValueFromTree().getColor() : col);
         double circleSize = (c.getScale() * 1.4);
         drawPoint = centerPoint.toPanelDrawPoint();
         g.fillOval(drawPoint.x - circleSize/2.00, drawPoint.y - circleSize/2.00, circleSize, circleSize);
 
-        PowerStatus inStatus = in.getPowerStatus();
-        String text = inStatus == PowerStatus.OFF ? "0" : (inStatus == PowerStatus.ON ? "1" : "");
+        PowerValue inStatus = in.getPowerValueFromTree();
+        String text = inStatus == PowerValue.OFF ? "0" : (inStatus == PowerValue.ON ? "1" : "");
         double widthOfThisHereInputBlock = c.getScale()*2; // TODO change for diff size
         double maxWidth = widthOfThisHereInputBlock*0.70;
-        if (col == null && inStatus == PowerStatus.OFF)
+        if (col == null && inStatus == PowerValue.OFF)
             strokeCol = Color.rgb(0, 0, 0);
         LogicGates.drawText(text, getLineWidth()*0.5, c, g, strokeCol, centerPoint.getSimilar(), maxWidth);
     }

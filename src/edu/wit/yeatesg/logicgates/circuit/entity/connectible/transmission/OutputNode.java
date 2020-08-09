@@ -6,6 +6,8 @@ import edu.wit.yeatesg.logicgates.datatypes.PanelDrawPoint;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
+import java.util.ArrayList;
+
 public class OutputNode extends ConnectionNode {
 
     public OutputNode(CircuitPoint location, ConnectibleEntity connectingFrom, ConnectibleEntity connectedTo) {
@@ -16,38 +18,38 @@ public class OutputNode extends ConnectionNode {
         this(location, connectingFrom, null);
     }
 
-    public boolean isIndependent() {
-        return parent != null && parent.transmitsOnly();
+    private OutputType outType = OutputType.ZERO_ONE;
+
+    public void setOutputType(OutputType type) {
+        this.outType = type;
     }
 
-    private void calculateDependedBy(Wire connectingWire) {
-        if (connectingWire.getFullConnections().size() > 1) {
-            for (ConnectibleEntity ce : connectingWire.getConnectedEntities()) {
-                Powerable thatDependsOnThis = null;
-                if (ce instanceof Wire)
-                    thatDependsOnThis = (Powerable) ce;
-                else if (ce.getConnectionTo(connectingWire) instanceof InputNode)
-                    thatDependsOnThis = ce.getConnectionTo(connectingWire);
-                if (thatDependsOnThis == null)
-                    continue;
-                if (!thatDependsOnThis.dependingOn().contains(this)) {
-                    thatDependsOnThis.dependingOn().add(this);
-                    if (thatDependsOnThis instanceof Wire)
-                        calculateDependedBy((Wire) thatDependsOnThis);
-                    // TODO dependingOnMe.add(thatDependsOnThis)
-                }
-            }
-        }
+    public OutputType getOutputType() {
+        return outType;
     }
 
-    // During refreshTransmissions, this should be called on every entity that has OutputNodes
-    public final void calculateDependedBy() {
-        if (connectedTo instanceof Wire && getPowerStatus() == PowerStatus.UNDETERMINED) {
-            Wire w = (Wire) connectedTo;
-            w.dependingOn().add(this);
-            // TODO dependingOnMe.add(thatDependsOnThis)
-            calculateDependedBy(w);
+    private ArrayList<InputNode> inputsThatAffectMe = new ArrayList<>();
+
+    public void addInputThatAffectsMe(InputNode n) {
+        inputsThatAffectMe.add(n);
+    }
+
+    public ArrayList<DependencyTree> getTreesIDependOn() {
+        ArrayList<DependencyTree> trees = new ArrayList<>();
+        for (InputNode n : inputsThatAffectMe)
+            if (n.hasDependencyTree())
+                trees.add(n.getDependencyTree());
+        return trees;
+    }
+
+    public ArrayList<PowerValue> getRelevantPowerValuesAffectingMe() {
+        ArrayList<PowerValue> powerValues = new ArrayList<>();
+        for (InputNode thatAffectsMe : inputsThatAffectMe) {
+            PowerValue powerVal = thatAffectsMe.getPowerValueFromTree();
+            if (powerVal.isRelevantForCalculations())
+                powerValues.add(thatAffectsMe.isNegated ? powerVal.getNegated() : powerVal);
         }
+        return powerValues;
     }
 
     @Override
@@ -56,7 +58,7 @@ public class OutputNode extends ConnectionNode {
             CircuitPoint negCenter = location.getIfModifiedBy(getVectorToParent().getMultiplied(0.5));
             ConnectionNode.drawNegationCircle(g, col == null ? Color.BLACK : col, negCenter, 1);
         }
-        col = col == null ? getTruePowerValue().getColor() : col;
+        col = col == null ? getPowerValueFromTree().getColor() : col;
         g.setFill(col);
         double circleSize = parent.getCircuit().getScale() * 0.55;
         circleSize *= getLocation().getCircuit().getScale() < 10 ? 1.1 : 1;

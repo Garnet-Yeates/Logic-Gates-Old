@@ -31,7 +31,7 @@ public class BezierCurve {
 
         double circuitDistance = longestLine.getLength();
 
-        int numIterations = 16;
+        int numIterations = 12;
         if (c.getScale() == 12)
             numIterations = 14;
         if (c.getScale() == 10)

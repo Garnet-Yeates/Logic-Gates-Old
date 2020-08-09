@@ -5,6 +5,7 @@ import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 
+import java.util.ArrayList;
 import java.util.LinkedList;
 
 public class PropertyList extends LinkedList<Property> {
@@ -26,7 +27,7 @@ public class PropertyList extends LinkedList<Property> {
      */
     @SuppressWarnings("unchecked")
     public void merge(PropertyList other) {
-        for (Property p: this) {
+        for (Property p: new ArrayList<>(this)) {
             boolean found = false;
             for (Property p2 : other) {
                 if (p2.equals(p)) {
@@ -50,6 +51,7 @@ public class PropertyList extends LinkedList<Property> {
                 remove(p);
         }
     }
+
 
     public void addParent(PropertyMutable parent) {
         merge(parent.getPropertyList());
@@ -90,10 +92,8 @@ public class PropertyList extends LinkedList<Property> {
         for (Property prop : this) {
             tableView.getItems().add(prop);
             prop.addChangeListener((propertyName, oldVal, newVal) -> {
-                for (PropertyMutable parent : parents) {
-                    System.out.println("CHANGEY WANGEY FOR " + prop.getPropertyName());
+                for (PropertyMutable parent : parents)
                     parent.onPropertyChangeViaTable(prop.getPropertyName(), oldVal, newVal);
-                }
                 c.appendCurrentStateChanges("Change Property '" + propertyName + "' to " + newVal);
                 c.recalculateTransmissions(); // TODO maybe this is inefficient
                 c.repaint();

@@ -1,59 +1,54 @@
 package edu.wit.yeatesg.logicgates.circuit.entity.connectible.logicgate;
 
+import edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission.*;
 import edu.wit.yeatesg.logicgates.datatypes.BezierCurve;
 import edu.wit.yeatesg.logicgates.circuit.Circuit;
 import edu.wit.yeatesg.logicgates.datatypes.Vector;
 import edu.wit.yeatesg.logicgates.circuit.entity.Entity;
 import edu.wit.yeatesg.logicgates.circuit.entity.Rotatable;
-import edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission.ConnectionNode;
-import edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission.Powerable;
-import edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission.InputNode;
-import edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission.OutputNode;
 import edu.wit.yeatesg.logicgates.datatypes.CircuitPoint;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
-import static edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission.Powerable.*;
 
 import java.util.ArrayList;
-import java.util.LinkedList;
 
 public class GateXOR extends LogicGate {
 
-    /**
-     * ConnectibleEntity constructor template:
-     * set main fields such as rotation, origin, etc based on the params in the constructor
-     * set {@link #connections} to a new ConnectionList
-     * call construct()
-     *
-     * @param origin
-     * @param rotation
-     * @param size
-     * @param numInputs
-     */
-    public GateXOR(CircuitPoint origin, int rotation, Size size, int numInputs, boolean negate, ArrayList<Integer> nots) {
-        super(origin, rotation, size, numInputs, negate, nots);
+    public GateXOR(CircuitPoint origin, int rotation, Size size, int numInputs, boolean negate,
+                  ArrayList<Integer> negatedInputIndices, OutputType outType, int dataBits) {
+        super(origin, rotation, size, numInputs, negate, negatedInputIndices, outType, dataBits);
+    }
+
+    public GateXOR(CircuitPoint origin, int rotation, Size size, int numInputs, boolean negate,
+                  ArrayList<Integer> negatedInputIndices, OutputType outType) {
+        super(origin, rotation, size, numInputs, negate, negatedInputIndices, outType, 1);
+    }
+
+    public GateXOR(CircuitPoint origin, int rotation, Size size, int numInputs, boolean negate,
+                  ArrayList<Integer> negatedInputIndices) {
+        super(origin, rotation, size, numInputs, negate, negatedInputIndices, OutputType.ZERO_ONE);
     }
 
     public GateXOR(CircuitPoint origin, int rotation, Size size, int numInputs, boolean negate) {
-        super(origin, rotation, size, numInputs, negate);
+        super(origin, rotation, size, numInputs, negate, null);
     }
 
     public GateXOR(CircuitPoint origin, int rotation, Size size, int numInputs) {
-        super(origin, rotation, size, numInputs);
+        super(origin, rotation, size, numInputs, false);
     }
 
     public GateXOR(CircuitPoint origin, int rotation, Size size) {
-        super(origin, rotation, size);
+        super(origin, rotation, size, getNumBaseInputs(size));
     }
 
     public GateXOR(CircuitPoint origin, int rotation) {
-        super(origin, rotation);
+        super(origin, rotation, Size.MEDIUM);
     }
 
     public GateXOR(CircuitPoint origin) {
-        super(origin);
+        super(origin, 270);
     }
-    
+
     public static GateXOR parse(String s, Circuit c) {
         String[] fields = s.split(",");
         CircuitPoint origin = new CircuitPoint(fields[0], fields[1], c);
@@ -65,7 +60,9 @@ public class GateXOR extends LogicGate {
         String[] notsString = fields[6].split(";");
         for (String str : notsString)
             nots.add(Integer.parseInt(str));
-        return new GateXOR(origin, rotation, size, numInputs, negate, nots);
+        OutputType outType = OutputType.parse(fields[7]);
+        int dataBits = Integer.parseInt(fields[8]);
+        return new GateXOR(origin, rotation, size, numInputs, negate, nots, outType, dataBits);
     }
 
     @Override
@@ -179,27 +176,22 @@ public class GateXOR extends LogicGate {
 
 
     @Override
-    public void determinePowerStateOf(OutputNode outNode) {
-        if (outNode.getPowerStatus() == Powerable.PowerStatus.UNDETERMINED) {
-            LinkedList<InputNode> relevants = getRelevantInputNodesFor(outNode);
-            if (relevants.size() == 0)
-                outNode.setPowerStatus(Powerable.PowerStatus.PARTIALLY_DEPENDENT);
-            if (outNode.getPowerStatus() == PowerStatus.UNDETERMINED) {
-                int numOn = 0;
-                for (InputNode in : relevants) {
-                    if (in.getTruePowerValue() == PowerStatus.ON) {
-                        numOn++;
-                    }
-                }
-
-                PowerStatus out = PowerStatus.OFF;
-                if (numOn == 1)
-                    out = PowerStatus.ON;
-                // TODO if it's notted flip 'out' power status
-                outNode.setPowerStatus(out);
-            }
-
-        }
+    public PowerValue getLocalPowerStateOf(OutputNode outputNode) {
+        if (outputNode.getPowerValueFromTree() != PowerValue.UNDETERMINED)
+            throw new RuntimeException();
+        ArrayList<PowerValue> powerVals = outputNode.getRelevantPowerValuesAffectingMe();
+        if (powerVals.size() == 0)
+            return PowerValue.FLOATING_ERROR;
+        int numOn = 0;
+        for (PowerValue val : powerVals)
+            if (val == PowerValue.ON)
+                numOn++;
+        PowerValue returning = numOn == 1 ? PowerValue.ON : PowerValue.OFF;
+        if (outputNode.isNegated())
+            returning = returning.getNegated();
+        if ( returning == PowerValue.ON && outputType == OutputType.ZERO_FLOATING || returning == PowerValue.OFF && outputType == OutputType.FLOATING_ONE)
+            returning = PowerValue.FLOATING;
+        return returning;
     }
 
     @Override
@@ -213,7 +205,7 @@ public class GateXOR extends LogicGate {
 
     @Override
     public GateXOR getCloned(Circuit onto) {
-        return new GateXOR(origin.clone(onto), rotation, size, numInputs, out.isNegated(), new ArrayList<>(inNots));
+        return new GateXOR(origin.clone(onto), rotation, size, numInputs, out.isNegated(), new ArrayList<>(inNots), outputType, dataBits);
     }
 
     @Override

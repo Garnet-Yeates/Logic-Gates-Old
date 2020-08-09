@@ -1,5 +1,7 @@
 package edu.wit.yeatesg.logicgates.circuit.entity;
 
+import edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission.ConnectionNode;
+import edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission.OutputType;
 import javafx.beans.value.ChangeListener;
 import javafx.scene.Node;
 import javafx.scene.control.ComboBox;
@@ -67,5 +69,26 @@ public class Property {
     public Node getPropertyValue() {
         return propertyValue;
     }
+
+    public static String[] possibleNumInputs = { "2", "3", "4", "5", "6", "7", "8", "9", "10",
+            "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28",
+            "29", "30", "31", "32"};
+
+
+    public static String[] possibleDataBits;
+    static {
+        possibleDataBits = new String[ConnectionNode.MAX_DATA_BITS];
+        for (int i = 0; i < possibleDataBits.length; i++)
+            possibleDataBits[i] = (i + 1) + "";
+    }
+
+    public static String[] possibleOutTypes;
+    static {
+        possibleOutTypes = new String[OutputType.values().length];
+        for (int i = 0; i < OutputType.values().length; i++)
+            possibleOutTypes[i] = OutputType.values()[i].getSimpleString();
+    }
+
+
 }
 

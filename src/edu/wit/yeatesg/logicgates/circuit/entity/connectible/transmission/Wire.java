@@ -8,13 +8,12 @@ import edu.wit.yeatesg.logicgates.circuit.entity.*;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.*;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.logicgate.LogicGate;
 import edu.wit.yeatesg.logicgates.datatypes.Vector;
-import javafx.beans.value.ObservableValue;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
 import java.util.*;
 
-public class Wire extends ConnectibleEntity implements Powerable {
+public class Wire extends ConnectibleEntity implements Dependent {
 
     protected CircuitPoint startLocation;
     protected CircuitPoint endLocation;
@@ -150,29 +149,10 @@ public class Wire extends ConnectibleEntity implements Powerable {
         return intercepts(other.getStartLocation()) && intercepts(other.getEndLocation()) && getLength() > other.getLength();
     }
 
-
-    // INHERITED FROM TRANSMITTER INTERFACE
-
-    private PowerStatus powerStatus = PowerStatus.UNDETERMINED;
-    private DependencyList receivingFrom = new DependencyList(this);
-
     @Override
-    public PowerStatus getPowerStatus() {
-        return powerStatus;
+    public PowerValue getLocalPowerStateOf(OutputNode root) {
+        return null; // Has volatile nodes
     }
-
-    @Override
-    public DependencyList dependingOn() {
-        return receivingFrom;
-    }
-
-    @Override
-    public void setPowerStatus(PowerStatus status) {
-        this.powerStatus = status;
-    }
-
-    @Override
-    public void determinePowerStateOf(OutputNode outputNode) { /* Not Implemented For Wire, Has Volatile Nodes */ }
 
     @Override
     protected void assignOutputsToInputs() { /* Not Implemented For Wire, Has Volatile Nodes */ }
@@ -508,7 +488,7 @@ public class Wire extends ConnectibleEntity implements Powerable {
 
     public Color getColor() {
         try {
-            return getPowerStatus().getColor();
+            return getPowerValueFromTree().getColor();
         } catch (Exception e) { System.out.println("No color for " + this); e.printStackTrace(); System.exit(0);}
         return null;
     }
@@ -650,6 +630,37 @@ public class Wire extends ConnectibleEntity implements Powerable {
     public boolean hasProperty(String propertyName) {
         return false;
     }
+
+
+    private DependencyTree dependencyTree;
+
+    @Override
+    public DependencyTree getDependencyTree() {
+        return dependencyTree;
+    }
+
+    @Override
+    public void setDependencyTree(DependencyTree tree) {
+        dependencyTree = tree;
+    }
+
+    private boolean marked = false;
+
+    @Override
+    public void setMarked(boolean marked) {
+        this.marked = marked;
+    }
+
+    @Override
+    public boolean isMarked() {
+        return marked;
+    }
+
+    @Override
+    public boolean isNegated() {
+        return false;
+    }
+
 
 
     public static class WireGenerator {
