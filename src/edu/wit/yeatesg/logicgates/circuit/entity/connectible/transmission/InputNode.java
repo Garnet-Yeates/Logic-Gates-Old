@@ -25,7 +25,7 @@ public class InputNode extends ConnectionNode {
 
     public void drawTail(GraphicsContext g, Color col) {
         if (!tailLocation.isSimilar(location)) {
-            PowerValue powerValue = isNegated ? getPowerValueFromTree().getNegated() : getPowerValueFromTree();
+            PowerValue powerValue = isNegated ? getPowerValue().getNegated() : getPowerValue();
             col = col == null ? powerValue.getColor() : col;
             g.setLineWidth(Wire.getLineWidth(location.getCircuit()));
             g.setStroke(col);
@@ -54,7 +54,7 @@ public class InputNode extends ConnectionNode {
             CircuitPoint negCenter = location.getIfModifiedBy(getVectorToParent().getMultiplied(0.5));
             ConnectionNode.drawNegationCircle(g, col == null ? Color.BLACK : col, negCenter, 0.8);
         }
-        col = col == null ? getPowerValueFromTree().getColor() : col;
+        col = col == null ? getPowerValue().getColor() : col;
         g.setFill(col);
         double circleSize = parent.getCircuit().getScale() * 0.55;
         circleSize *= getLocation().getCircuit().getScale() < 10 ? 1.1 : 1;

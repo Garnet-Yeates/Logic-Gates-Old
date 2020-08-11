@@ -212,8 +212,10 @@ public abstract class Entity implements PropertyMutable {
     public final void update() {
         if (!c.isUpdateDisabled() && !blockUpdate && existsInCircuit()) {
             updateInvalidInterceptPoints();
-            if (this instanceof ConnectibleEntity)
+            if (this instanceof ConnectibleEntity) {
                 ((ConnectibleEntity) this).connectCheck();
+                ((ConnectibleEntity) this).updateTree();
+            }
         }
     }
 

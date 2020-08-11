@@ -966,6 +966,7 @@ public class Circuit implements PropertyMutable {
         private boolean track;
 
         public StateChangeOperation(boolean track) {
+            this.track = track;
             if (track)
                 stateController.onOperationOccurrence(this);
         }
@@ -1227,7 +1228,8 @@ public class Circuit implements PropertyMutable {
                 throw new RuntimeException("Cannot perform NegateOperation on this entity");
             this.mainOperand = similarNegating.getSimilarEntity();
             this.negatedIndices = new ArrayList<>(indices);
-            indices.forEach(this::determineWireModificationForNegationOf);
+            if (track)
+                indices.forEach(this::determineWireModificationForNegationOf);
         }
 
         private void determineWireModificationForNegationOf(int indexOfNode) {
@@ -1653,18 +1655,7 @@ public class Circuit implements PropertyMutable {
 
 
 
-    private ArrayList<DependencyTree> markedTrees = new ArrayList<>();
 
-    public void markTree(DependencyTree marking) {
-        marking.setMarked(true);
-        markedTrees.add(marking);
-    }
-
-    public void clearMarkedTrees() {
-        for (DependencyTree d : markedTrees)
-            d.setMarked(false);
-        markedTrees.clear();
-    }
 
     private ArrayList<Dependent> markedDependents = new ArrayList<>();
 
@@ -1690,47 +1681,14 @@ public class Circuit implements PropertyMutable {
         dependencyTrees.clear();
     }
 
-    public void createDependencyTrees() {
-        for (Entity e : allEntities) {
-            if (e instanceof ConnectibleEntity) {
-                DependencyTree created;
-                for (InputNode in : ((ConnectibleEntity) e).getInputNodes())
-                    if ((created = DependencyTree.createDependencyTree(in, this)) != null)
-                        dependencyTrees.add(created);
-                for (OutputNode out : ((ConnectibleEntity) e).getOutputNodes())
-                    if ((created = DependencyTree.createDependencyTree(out, this)) != null)
-                        dependencyTrees.add(created);
-            }
-        }
+    public ArrayList<DependencyTree> getDependencyTrees() {
+        return dependencyTrees;
     }
 
-    public void determineCircularities() {
-        for (DependencyTree dep : dependencyTrees)
-            dep.determineTreesAboveMe(); // <-- This method marks trees to find circles
-        clearMarkedTrees();
-    }
 
-    public void determinePowerStatuses() {
-        for (DependencyTree tree : dependencyTrees)
-            tree.determinePowerStatus();
-    }
+    public void recalculateTransmissions() {}
+    public void recalculatePowerStatuses() {}
 
-    public void reDeterminePowerStatuses() {
-        for (DependencyTree tree : dependencyTrees)
-            tree.resetPowerStatus(false);
-        determinePowerStatuses();
-    }
-
-    public void recalculateTransmissions() {
-        clearDependencyTrees();
-        createDependencyTrees();
-        determineCircularities();
-        determinePowerStatuses();
-    }
-
-    public void recalculatePowerStatuses() {
-        reDeterminePowerStatuses();
-    }
 
 
 

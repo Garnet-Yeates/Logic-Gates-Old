@@ -25,6 +25,27 @@ public abstract class ConnectibleEntity extends Entity {
         super(c);
     }
 
+    public void updateTree() {
+        if (this instanceof Wire)
+            ((Wire) this).treeUpdate();
+        getInputNodes().forEach(Dependent::treeUpdate);
+        getOutputNodes().forEach(Dependent::treeUpdate);
+    }
+
+    public void poll() {
+        poll(new FlowSignature());
+    }
+
+    public void poll(FlowSignature flowSignature) {
+        for (OutputNode out : getOutputNodes()) {
+            PowerValue before = out.getPowerValue();
+            PowerValue after = getLocalPowerStateOf(out);
+            if (!before.equals(after) && (before != PowerValue.SELF_DEPENDENT || !flowSignature.isErrorOrigin()) )
+                out.treeUpdate(flowSignature);
+        }
+
+    }
+
     /**
      * MUST be called by every ConnectibleEntity at the end of the construct() method
      */
@@ -81,7 +102,7 @@ public abstract class ConnectibleEntity extends Entity {
      * @return true if these entities can connect
      */
     public abstract boolean canConnectTo(ConnectibleEntity e, CircuitPoint at);
-    
+
     public void disconnectAll() {
         for (ConnectibleEntity e : getConnectedEntities()) {
             disconnect(e);
@@ -189,8 +210,15 @@ public abstract class ConnectibleEntity extends Entity {
         return connections.hasConnectionTo(potentiallyConnectedEntity);
     }
 
+    /**
+     * Obtains the PowerValue that this parent wants this OutputNode to be. This is not necessarily going to be
+     * what the current state of the OutputNode is, because OutputNode status is determined by getting the local
+     * power states of all other OutputNodes in the tree and choosing the appropriate one.
+     * @see DependencyTree#determinePowerStatus()
+     * @param root
+     * @return
+     */
     public abstract PowerValue getLocalPowerStateOf(OutputNode root);
-
 
     public abstract ConnectibleEntity getCloned(Circuit onto);
 

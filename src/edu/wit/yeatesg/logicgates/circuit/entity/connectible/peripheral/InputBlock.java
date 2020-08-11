@@ -95,7 +95,7 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
     // Other stuff
 
     public Color getColor() {
-        return out.getPowerValueFromTree().getColor();
+        return out.getPowerValue().getColor();
     }
 
     @Override
@@ -121,11 +121,11 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
         circleSize *= 1.2;
         drawPoint = centerPoint.toPanelDrawPoint();
 
-        g.setFill(col == null ? out.getPowerValueFromTree().getColor() : col);
+        g.setFill(col == null ? out.getPowerValue().getColor() : col);
         g.fillOval(drawPoint.x - circleSize/2.00, drawPoint.y - circleSize/2.00, circleSize, circleSize);
 
         // Draw Text 0 / 1
-        PowerValue outStatus = out.getPowerValueFromTree();
+        PowerValue outStatus = out.getPowerValue();
         String text = outStatus == PowerValue.OFF ? "0" : (outStatus == PowerValue.ON ? "1" : "");
         double widthOfThisHereInputBlock = c.getScale()*2; // TODO change for diff size
         double maxWidth = widthOfThisHereInputBlock*0.70;
@@ -169,13 +169,18 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
 
     private boolean powerStatus;
 
-    public void setPowerStatus(boolean powerStatus) {
+    public void setPowerBoolean(boolean powerStatus) {
         this.powerStatus = powerStatus;
+    }
+
+    public boolean getPowerBoolean() {
+        return powerStatus;
     }
 
     @Override
     public void onPoke() {
         powerStatus = !powerStatus;
+        poll();
     }
 
     @Override

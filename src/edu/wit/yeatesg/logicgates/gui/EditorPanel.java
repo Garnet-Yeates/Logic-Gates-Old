@@ -981,7 +981,6 @@ public class EditorPanel extends Pane {
             if (!autoPokers.isEmpty()) {
                 autoPokers.forEach(AutoInputPoker::nextState);
                 autoPokers.forEach(AutoInputPoker::setPowerStatuses);
-                c().recalculatePowerStatuses();
                 repaint();
             }
         });
@@ -1028,9 +1027,14 @@ public class EditorPanel extends Pane {
         public void setPowerStatuses() {
             String stateString = states[stateIndex];
             System.out.println("CURR STATE STRING: " + stateString);
+            for (InputBlock poking : poking) {
+                if (poking.getPowerBoolean())
+                    poking.onPoke();
+            }
             for (int i = 0; i < stateString.length(); i++) {
                 InputBlock poking = this.poking[i];
-                poking.setPowerStatus(stateString.charAt(i) == '1');
+                if (stateString.charAt(i) == '1')
+                    poking.onPoke();
             }
         }
 

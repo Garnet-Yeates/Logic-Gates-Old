@@ -6,12 +6,13 @@ import edu.wit.yeatesg.logicgates.circuit.entity.connectible.ConnectibleEntity;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
+import java.util.ArrayList;
 import java.util.Comparator;
 
 public class ConnectionNode implements Dependent {
 
    protected CircuitPoint location;
-   protected ConnectibleEntity connectedTo;
+   private ConnectibleEntity connectedTo;
    protected ConnectibleEntity parent;
 
    protected Vector vectorToParent;
@@ -105,9 +106,23 @@ public class ConnectionNode implements Dependent {
         this.connectedTo = connectedTo;
     }
 
+    @Override
+    public void setPowerValue(PowerValue value) {
+       powerValue = value;
+    }
+
     public ConnectibleEntity getParent() {
         return parent;
     }
+
+    private PowerValue powerValue = PowerValue.FLOATING;
+
+    @Override
+    public PowerValue getPowerValue() {
+        return powerValue;
+    }
+
+
 
     @Override
     public boolean equals(Object other) {

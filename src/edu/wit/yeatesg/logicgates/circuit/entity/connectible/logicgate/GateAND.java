@@ -134,8 +134,6 @@ public class GateAND extends LogicGate {
 
     @Override
     public PowerValue getLocalPowerStateOf(OutputNode outputNode) {
-        if (outputNode.getPowerValueFromTree() != PowerValue.UNDETERMINED)
-            throw new RuntimeException();
         ArrayList<PowerValue> powerVals = outputNode.getRelevantPowerValuesAffectingMe();
         if (powerVals.size() == 0)
             return PowerValue.FLOATING_ERROR;

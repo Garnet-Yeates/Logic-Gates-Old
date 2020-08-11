@@ -45,7 +45,7 @@ public class OutputNode extends ConnectionNode {
     public ArrayList<PowerValue> getRelevantPowerValuesAffectingMe() {
         ArrayList<PowerValue> powerValues = new ArrayList<>();
         for (InputNode thatAffectsMe : inputsThatAffectMe) {
-            PowerValue powerVal = thatAffectsMe.getPowerValueFromTree();
+            PowerValue powerVal = thatAffectsMe.getPowerValue();
             if (powerVal.isRelevantForCalculations())
                 powerValues.add(thatAffectsMe.isNegated ? powerVal.getNegated() : powerVal);
         }
@@ -58,7 +58,7 @@ public class OutputNode extends ConnectionNode {
             CircuitPoint negCenter = location.getIfModifiedBy(getVectorToParent().getMultiplied(0.5));
             ConnectionNode.drawNegationCircle(g, col == null ? Color.BLACK : col, negCenter, 1);
         }
-        col = col == null ? getPowerValueFromTree().getColor() : col;
+        col = col == null ? getPowerValue().getColor() : col;
         g.setFill(col);
         double circleSize = parent.getCircuit().getScale() * 0.55;
         circleSize *= getLocation().getCircuit().getScale() < 10 ? 1.1 : 1;

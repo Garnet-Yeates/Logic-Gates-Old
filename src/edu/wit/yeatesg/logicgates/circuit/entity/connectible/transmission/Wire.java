@@ -260,17 +260,17 @@ public class Wire extends ConnectibleEntity implements Dependent {
         } else if (e instanceof InputBlock) {
             InputBlock block = (InputBlock) e;
             connections.add(new ConnectionNode(atLocation, this, e));
-            block.getNodeAt(atLocation).connectedTo = this;
+            block.getNodeAt(atLocation).setConnectedTo(this);
         }
         else if (e instanceof OutputBlock) {
             OutputBlock block = (OutputBlock) e;
             connections.add(new ConnectionNode(atLocation, this, e));
-            block.getNodeAt(atLocation).connectedTo = this;
+            block.getNodeAt(atLocation).setConnectedTo(this);
         }
         else if (e instanceof LogicGate) {
             LogicGate gate = (LogicGate) e;
             connections.add(new ConnectionNode(atLocation, this, e));
-            gate.getNodeAt(atLocation).connectedTo = this;
+            gate.getNodeAt(atLocation).setConnectedTo(this);
         }
     }
 
@@ -488,7 +488,7 @@ public class Wire extends ConnectibleEntity implements Dependent {
 
     public Color getColor() {
         try {
-            return getPowerValueFromTree().getColor();
+            return getPowerValue().getColor();
         } catch (Exception e) { System.out.println("No color for " + this); e.printStackTrace(); System.exit(0);}
         return null;
     }
@@ -661,6 +661,17 @@ public class Wire extends ConnectibleEntity implements Dependent {
         return false;
     }
 
+    private PowerValue powerValue = PowerValue.UNDETERMINED;
+
+    @Override
+    public PowerValue getPowerValue() {
+        return powerValue;
+    }
+
+    @Override
+    public void setPowerValue(PowerValue val) {
+        powerValue = val;
+    }
 
 
     public static class WireGenerator {

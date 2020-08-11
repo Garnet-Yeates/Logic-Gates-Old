@@ -86,7 +86,7 @@ public class OutputBlock extends ConnectibleEntity implements Rotatable {
     // Other stuff
 
     public Color getColor() {
-        return in.getPowerValueFromTree().getColor();
+        return in.getPowerValue().getColor();
     }
 
     private BoundingBox boundingBox;
@@ -122,12 +122,12 @@ public class OutputBlock extends ConnectibleEntity implements Rotatable {
         connectNode.draw(g, col, opacity);
         // Draw Circle Inside
         CircuitPoint centerPoint = pts.get(5);
-        g.setFill(col == null ? in.getPowerValueFromTree().getColor() : col);
+        g.setFill(col == null ? in.getPowerValue().getColor() : col);
         double circleSize = (c.getScale() * 1.4);
         drawPoint = centerPoint.toPanelDrawPoint();
         g.fillOval(drawPoint.x - circleSize/2.00, drawPoint.y - circleSize/2.00, circleSize, circleSize);
 
-        PowerValue inStatus = in.getPowerValueFromTree();
+        PowerValue inStatus = in.getPowerValue();
         String text = inStatus == PowerValue.OFF ? "0" : (inStatus == PowerValue.ON ? "1" : "");
         double widthOfThisHereInputBlock = c.getScale()*2; // TODO change for diff size
         double maxWidth = widthOfThisHereInputBlock*0.70;

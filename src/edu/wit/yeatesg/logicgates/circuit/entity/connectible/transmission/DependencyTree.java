@@ -15,22 +15,26 @@ public class DependencyTree {
     private ArrayList<Wire> branches;
     private ArrayList<InputNode> leaves;
 
-    public static DependencyTree createDependencyTree(Dependent startingFrom, Circuit c) {
+    private FlowSignature signature;
+
+    public static DependencyTree createDependencyTree(FlowSignature signature, Dependent startingFrom, Circuit c) {
         if (!(startingFrom instanceof OutputNode) && !(startingFrom instanceof InputNode))
             throw new RuntimeException("Can only create from Input/Output nodes");
         if (startingFrom.hasDependencyTree())
             return null;
-        return new DependencyTree(startingFrom, c);
+        DependencyTree created = new DependencyTree(signature, startingFrom, c);
+        c.getDependencyTrees().add(created);
+        return created;
     }
 
-    private DependencyTree(Dependent startingFrom, Circuit c) {
+    private DependencyTree(FlowSignature signature,Dependent startingFrom, Circuit c) {
         if (!(startingFrom instanceof OutputNode) && !(startingFrom instanceof InputNode))
             throw new RuntimeException("Can only create from Input/Output nodes");
         this.c = c;
+        this.signature = signature.copy();
         roots = new ArrayList<>();
         branches = new ArrayList<>();
         leaves = new ArrayList<>();
-        powerValue = PowerValue.UNDETERMINED;
 
         c.clearMarkedDependents();
         grow(startingFrom);
@@ -52,8 +56,8 @@ public class DependencyTree {
             for (ConnectibleEntity e : w.getConnectedEntities())
                 if (e instanceof Dependent)
                     grow((Dependent) e);
-                else if ((connectionTo = e.getConnectionTo(w)) instanceof Dependent)
-                    grow((Dependent) connectionTo);
+                else if ((connectionTo = e.getConnectionTo(w)) != null)
+                    grow(connectionTo);
         }
     }
 
@@ -74,97 +78,47 @@ public class DependencyTree {
         }
     }
 
-    /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
-     * MARK STUFF - TEMPORARILY MARK TREES TO SAY "WE ALREADY ITERATED OVER THIS TREE"
-     * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-
-    private boolean isMarked;
-
-    public void setMarked(boolean mark) {
-        this.isMarked = mark;
+    public void disconnectDependents() {
+        roots.forEach(out -> out.setDependencyTree(null));
+        branches.forEach(wire -> wire.setDependencyTree(null));
+        leaves.forEach(in -> in.setDependencyTree(null));
     }
 
-    private void mark() {
-        c.markTree(this);
-    }
 
-    private boolean isMarked() {
-        return isMarked;
-    }
+    private boolean canPoll = true;
 
-    /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
-     * CALCULATE TREES ABOVE ME - RECURSIVELY GAIN REFERENCES TO THE TREES ABOVE THIS ONE. GOES FROM TOP TO BOTTOM
-     * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-
-    private ArrayList<DependencyTree> allTreesAboveMe = null;
-    private ArrayList<DependencyTree> treesDirectlyAboveMe = null;
-
-    private boolean areTreesAboveMeDetermined = false;
-
-    public void determineTreesAboveMe() {
-        allTreesAboveMe = new ArrayList<>();
-        treesDirectlyAboveMe = new ArrayList<>();
-        mark(); // At the beginning of a call, we mark this Entity. At the end, we set areTreesAboveMeDetermined to true.
-        // if we run into a marked entity where areTreesAboveMeDetermined == false it means we went in a circle
-        allTreesAboveMe = new ArrayList<>();
-        for (OutputNode root : roots) {
-            for (DependencyTree directlyAboveMe : root.getTreesIDependOn()) {
-                if (!directlyAboveMe.areTreesAboveMeDetermined) {
-                    if (directlyAboveMe.isMarked()) {
-                        powerValue = PowerValue.SELF_DEPENDENT; // We went in a Circle
-                        continue;
-                    }
-                    directlyAboveMe.determineTreesAboveMe(); // Wont be performed if Circular
-                }
-                // If it is circular, none of this will be performed
-                treesDirectlyAboveMe.add(directlyAboveMe);
-                allTreesAboveMe.add(directlyAboveMe);
-                allTreesAboveMe.addAll(directlyAboveMe.allTreesAboveMe);
-            }
-        }
-        areTreesAboveMeDetermined = true;
-    }
-
-    /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
-     * CALCULATE POWER VALUE BASED ON TREES DIRECTLY ABOVE ME. GOES FROM TOP TO BOTTOM
-     * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-
-    private PowerValue powerValue;
-
-    public boolean isPowerStatusDetermined() {
-        return powerValue != PowerValue.UNDETERMINED;
-    }
-
-    public void resetPowerStatus(boolean resetIfCircular) {
-        if (powerValue != PowerValue.SELF_DEPENDENT || resetIfCircular)
-            powerValue = PowerValue.UNDETERMINED;
+    public void disablePoll() {
+        canPoll = false;
     }
 
     // O = (num roots + num leaves) ^ 2
     public void determinePowerStatus() {
-        if (isPowerStatusDetermined())
-            return;
-        if (powerValue == PowerValue.SELF_DEPENDENT)
-            return;
-
-        // Make sure power statuses above me are determined
-        for (DependencyTree dirAbove : treesDirectlyAboveMe)
-            if (!dirAbove.isPowerStatusDetermined())
-                dirAbove.determinePowerStatus();
-
-        // Self dependent check
-        for (DependencyTree dirAbove : treesDirectlyAboveMe)
-            if (dirAbove.getPowerValue().equals(PowerValue.SELF_DEPENDENT)) {
-                powerValue = PowerValue.SELF_DEPENDENT;
-                return; // If anything above me is self dependent, I am self dependent
+        for (OutputNode root : roots) {
+            for (InputNode leaf : leaves) {
+                if (root.getParent().equalsExact(leaf.getParent())) {
+                    setPowerValue(PowerValue.SELF_DEPENDENT);
+                    signature = new FlowSignature(true);
+                    poll();
+                    return;
+                }
             }
-
+        }
+        ArrayList<Dependent> signaturesBeingAdded = new ArrayList<>();
+        signaturesBeingAdded.addAll(roots);
+        signaturesBeingAdded.addAll(leaves);
+        for (Dependent dependent : signaturesBeingAdded) {
+            if (!signature.addSignature(dependent)) {
+                canPoll = false;
+                return;
+            }
+        }
+        PowerValue powerValue = PowerValue.UNDETERMINED;
         // Data bit multi dependency check
         if (roots.size() > 1) {
             for (OutputNode root : roots) {
                 if (root.getNumBits() > 1) {
                     powerValue = PowerValue.MULTI_MULTI_BIT;
-                    return;
+                    break;
                 }
             }
         }
@@ -172,51 +126,58 @@ public class DependencyTree {
         // Data bit compatibility check
         ArrayList<ConnectionNode> rootsAndLeaves = new ArrayList<>(roots);
         rootsAndLeaves.addAll(leaves);
-        for (ConnectionNode n : rootsAndLeaves) {
-            for (ConnectionNode n2 : rootsAndLeaves) {
-                if (n.getNumBits() != n2.getNumBits()) {
-                    powerValue = PowerValue.INCOMPATIBLE_BITS;
-                    return;
-                }
-            }
-        }
-
-        // Root compatibility check
-        if (roots.size() > 1) {
-            for (OutputNode root : roots) {
-                if (root.getOutputType() == OutputType.ZERO_ONE) {
-                    powerValue = PowerValue.INCOMPATIBLE_TYPES;
-                    return; // If we have any 0/1 mixed with any other OutputType (0/1, 0/f, f/1) it is invalid
-                }
-            }
-            for (OutputNode root : roots) {
-                for (OutputNode root2 : roots) {
-                    if (root.getOutputType() != root2.getOutputType()) {
-                        powerValue = PowerValue.INCOMPATIBLE_TYPES;
-                        return; // We don't have any 0/1's, but they are not all equivalent
+        if (powerValue == PowerValue.UNDETERMINED) {
+            for (ConnectionNode n : rootsAndLeaves) {
+                for (ConnectionNode n2 : rootsAndLeaves) {
+                    if (n.getNumBits() != n2.getNumBits()) {
+                        powerValue = PowerValue.INCOMPATIBLE_BITS;
+                        break;
                     }
                 }
             }
         }
 
-        PowerValue floating = PowerValue.FLOATING;
 
-        LinkedList<PowerValue> possibleValues = new LinkedList<>();
-        for (OutputNode root : roots) {
-            if (root.getPowerValueFromTree() != PowerValue.UNDETERMINED)
-                throw new RuntimeException("fuk up at " + root.getLocation().toParsableString());
-            possibleValues.add(root.getParent().getLocalPowerStateOf(root));
+        // Root compatibility check
+        if (roots.size() > 1 && powerValue == PowerValue.UNDETERMINED) {
+            for (OutputNode root : roots) {
+                if (root.getOutputType() == OutputType.ZERO_ONE) {
+                    powerValue = PowerValue.INCOMPATIBLE_TYPES;
+                    break; // If we have any 0/1 mixed with any other OutputType (0/1, 0/f, f/1) it is invalid
+                }
+            }
+            if (powerValue == PowerValue.UNDETERMINED) {
+                for (OutputNode root : roots) {
+                    for (OutputNode root2 : roots) {
+                        if (root.getOutputType() != root2.getOutputType()) {
+                            powerValue = PowerValue.INCOMPATIBLE_TYPES;
+                            break; // We don't have any 0/1's, but they are not all equivalent
+                        }
+                    }
+                }
+            }
         }
-        possibleValues.sort(Comparator.comparingInt(PowerValue::getPriority));
 
+        if (powerValue == PowerValue.UNDETERMINED) {
+            LinkedList<PowerValue> possibleValues = new LinkedList<>();
+            for (OutputNode root : roots)
+                possibleValues.add(root.getParent().getLocalPowerStateOf(root));
+            possibleValues.sort(Comparator.comparingInt(PowerValue::getPriority));
 
-        // At this point, we don't have any errors so we can calculate the PowerStatus of this tree!
-
-        powerValue = possibleValues.isEmpty() ? floating : possibleValues.get(possibleValues.size() - 1);
+            powerValue = possibleValues.isEmpty() ? PowerValue.FLOATING : possibleValues.get(possibleValues.size() - 1);
+        }
+        setPowerValue(powerValue);
     }
 
-    public PowerValue getPowerValue() {
-        return powerValue;
+    public void setPowerValue(PowerValue val) {
+        roots.forEach(outputNode -> outputNode.setPowerValue(val));
+        branches.forEach(wire -> wire.setPowerValue(val));
+        leaves.forEach(inputNode -> inputNode.setPowerValue(val));
+    }
+
+    public void poll() {
+        if (canPoll)
+            leaves.forEach(inputNode -> inputNode.pollParent(signature));
     }
 
     public ArrayList<OutputNode> getRoots() {
@@ -229,13 +190,6 @@ public class DependencyTree {
 
     public ArrayList<InputNode> getLeaves() {
         return leaves;
-    }
-
-    public void disconnectDependents() {
-        roots.forEach(out -> out.setDependencyTree(null));
-        branches.forEach(wire -> wire.setDependencyTree(null));
-        leaves.forEach(in -> in.setDependencyTree(null));
-
     }
 }
 
