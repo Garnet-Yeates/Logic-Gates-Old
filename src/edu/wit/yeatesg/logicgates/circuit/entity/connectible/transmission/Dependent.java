@@ -6,7 +6,6 @@ import edu.wit.yeatesg.logicgates.circuit.entity.connectible.ConnectibleEntity;
 import edu.wit.yeatesg.logicgates.datatypes.CircuitPoint;
 
 import java.util.ArrayList;
-import java.util.Collection;
 
 public interface Dependent {
     DependencyTree getDependencyTree();
@@ -18,16 +17,21 @@ public interface Dependent {
     PowerValue getPowerValue();
     void setPowerValue(PowerValue val);
 
-    default void treeUpdate() {
-        treeUpdate(new FlowSignature());
+    default void parallelTreeUpdate() {
+        updateTreesInParallel(getTrees(new FlowSignature()));
     }
 
-    default void treeUpdate(FlowSignature signature) {
+    static void updateTreesInParallel(ArrayList<DependencyTree> trees) {
+        trees.forEach(DependencyTree::determinePowerStatus);
+        trees.forEach(DependencyTree::poll);
+    }
+
+    default ArrayList<DependencyTree> getTrees(FlowSignature signature) {
         Circuit c = getCircuit();
         c.clearDependencyTrees();
         ArrayList<OutputNode> outs = new ArrayList<>();
         ArrayList<InputNode> ins = new ArrayList<>();
-        resetWireStatuses(this, outs, ins);
+        resetPowerValues(this, outs, ins);
         boolean debug = false;
         if (debug) {
                System.out.println("INS:");
@@ -36,34 +40,32 @@ public interface Dependent {
                outs.forEach(outputNode -> System.out.println(" " + outputNode));
         }
 
-
         ins.forEach(in -> DependencyTree.createDependencyTree(signature, in, c));
         outs.forEach(out -> DependencyTree.createDependencyTree(signature, out, c));
         ArrayList<DependencyTree> circuitTrees = new ArrayList<>(c.getDependencyTrees());
         c.clearDependencyTrees();
-        circuitTrees.forEach(DependencyTree::determinePowerStatus);
-        circuitTrees.forEach(DependencyTree::poll);
+        return circuitTrees;
     }
 
-    private void resetWireStatuses(Dependent root, ArrayList<OutputNode> outs, ArrayList<InputNode> ins) {
+    private void resetPowerValues(Dependent root, ArrayList<OutputNode> outs, ArrayList<InputNode> ins) {
         Circuit c = root.getCircuit();
         c.clearMarkedDependents();
-        resetWireStatusesMain(root, outs, ins);
+        resetPowerValues_(root, outs, ins);
         c.clearMarkedDependents();
     }
 
-    private static void resetWireStatusesMain(Dependent root, ArrayList<OutputNode> outs, ArrayList<InputNode> ins) {
+    private static void resetPowerValues_(Dependent root, ArrayList<OutputNode> outs, ArrayList<InputNode> ins) {
         if (root.isMarked())
             return;
         root.mark();
-        root.setPowerValue(PowerValue.UNDETERMINED);
+        root.resetPowerValue();
         if (root instanceof InputNode)
             ins.add((InputNode) root);
         if (root instanceof OutputNode)
             outs.add((OutputNode) root);
         ArrayList<Dependent> nextCallDeps = new ArrayList<>();
         root.getConnectibleLocations().forEach(circuitPoint -> nextCallDeps.addAll(getDependentsAt(circuitPoint)));
-        nextCallDeps.forEach(dependent -> resetWireStatusesMain(dependent, outs, ins));
+        nextCallDeps.forEach(dependent -> resetPowerValues_(dependent, outs, ins));
     }
 
     static ArrayList<Dependent> getDependentsAt(CircuitPoint cp) {
@@ -96,16 +98,24 @@ public interface Dependent {
         return getDependencyTree() != null;
     }
 
-    default void pollParent() {
-        pollParent(new FlowSignature());
-    }
 
-    default void pollParent(FlowSignature flowSignature) {
+    default ArrayList<DependencyTree> pollParent(FlowSignature flowSignature) {
         if (!(this instanceof InputNode))
             throw new RuntimeException();
         ConnectibleEntity parent = ((InputNode) this).parent;
-        parent.poll(flowSignature);
+        return parent.poll(flowSignature);
     }
 
+    default void resetPowerValue() {
+        setPowerValue(PowerValue.UNDETERMINED);
+        setOscillationIndex(-1);
+    }
+
+    default boolean isOscillated() {
+        return getOscillationIndex() != -1;
+    }
+
+    int getOscillationIndex();
+    void setOscillationIndex(int index);
 
 }

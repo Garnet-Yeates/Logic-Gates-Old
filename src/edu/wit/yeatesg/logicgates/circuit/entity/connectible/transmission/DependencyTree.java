@@ -91,7 +91,7 @@ public class DependencyTree {
         canPoll = false;
     }
 
-    // O = (num roots + num leaves) ^ 2
+    // O = num roots * num leaves
     public void determinePowerStatus() {
         for (OutputNode root : roots) {
             for (InputNode leaf : leaves) {
@@ -108,7 +108,7 @@ public class DependencyTree {
         signaturesBeingAdded.addAll(leaves);
         for (Dependent dependent : signaturesBeingAdded) {
             if (!signature.addSignature(dependent)) {
-                canPoll = false;
+                disablePoll();
                 return;
             }
         }
@@ -124,11 +124,9 @@ public class DependencyTree {
         }
 
         // Data bit compatibility check
-        ArrayList<ConnectionNode> rootsAndLeaves = new ArrayList<>(roots);
-        rootsAndLeaves.addAll(leaves);
         if (powerValue == PowerValue.UNDETERMINED) {
-            for (ConnectionNode n : rootsAndLeaves) {
-                for (ConnectionNode n2 : rootsAndLeaves) {
+            for (ConnectionNode n : roots) {
+                for (ConnectionNode n2 : leaves) {
                     if (n.getNumBits() != n2.getNumBits()) {
                         powerValue = PowerValue.INCOMPATIBLE_BITS;
                         break;
@@ -176,8 +174,11 @@ public class DependencyTree {
     }
 
     public void poll() {
-        if (canPoll)
-            leaves.forEach(inputNode -> inputNode.pollParent(signature));
+        if (canPoll) {
+            ArrayList<DependencyTree> toUpdate = new ArrayList<>();
+            leaves.forEach(inputNode -> toUpdate.addAll(inputNode.pollParent(signature.copy())));
+            Dependent.updateTreesInParallel(toUpdate);
+        }
     }
 
     public ArrayList<OutputNode> getRoots() {

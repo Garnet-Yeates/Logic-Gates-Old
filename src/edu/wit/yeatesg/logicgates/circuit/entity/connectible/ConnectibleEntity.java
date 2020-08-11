@@ -7,7 +7,6 @@ import edu.wit.yeatesg.logicgates.datatypes.CircuitPoint;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission.DependencyTree;
 
 import java.util.ArrayList;
-import java.util.LinkedList;
 
 public abstract class ConnectibleEntity extends Entity {
 
@@ -27,23 +26,27 @@ public abstract class ConnectibleEntity extends Entity {
 
     public void updateTree() {
         if (this instanceof Wire)
-            ((Wire) this).treeUpdate();
-        getInputNodes().forEach(Dependent::treeUpdate);
-        getOutputNodes().forEach(Dependent::treeUpdate);
+            ((Wire) this).parallelTreeUpdate();
+        getInputNodes().forEach(Dependent::parallelTreeUpdate);
+        getOutputNodes().forEach(Dependent::parallelTreeUpdate);
     }
 
-    public void poll() {
-        poll(new FlowSignature());
+    public ArrayList<DependencyTree> poll() {
+        return poll(new FlowSignature());
     }
 
-    public void poll(FlowSignature flowSignature) {
+    /**
+     * Returns the dependencytrees that need to be updated
+     */
+    public ArrayList<DependencyTree> poll(FlowSignature flowSignature) {
+        ArrayList<DependencyTree> needUpdating = new ArrayList<>();
         for (OutputNode out : getOutputNodes()) {
             PowerValue before = out.getPowerValue();
             PowerValue after = getLocalPowerStateOf(out);
             if (!before.equals(after) && (before != PowerValue.SELF_DEPENDENT || !flowSignature.isErrorOrigin()) )
-                out.treeUpdate(flowSignature);
+                needUpdating.addAll(out.getTrees(flowSignature));
         }
-
+        return needUpdating;
     }
 
     /**

@@ -1,5 +1,6 @@
 package edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission;
 
+import edu.wit.yeatesg.logicgates.LogicGates;
 import edu.wit.yeatesg.logicgates.datatypes.Vector;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.ConnectibleEntity;
 import edu.wit.yeatesg.logicgates.datatypes.CircuitPoint;

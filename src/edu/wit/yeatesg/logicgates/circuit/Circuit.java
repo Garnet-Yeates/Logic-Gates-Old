@@ -185,11 +185,19 @@ public class Circuit implements PropertyMutable {
         list.forEach(Entity::update);
     }
 
+    public final void spreadUpdateEntities(Collection<? extends Entity> list) {
+        list.forEach(Entity::spreadUpdate);
+    }
+
+    public final void spreadUpdateEntities(Entity... entities) {
+        spreadUpdateEntities(Arrays.asList(entities));
+    }
+
     public final void updateEntitiesAt(CircuitPoint... atLocations) {
         updateEntitiesAt(Arrays.asList(atLocations));
     }
 
-    public final void updateEntitiesAt(Collection<CircuitPoint> atLocations) {
+    public final void updateEntitiesAt(Collection<? extends CircuitPoint> atLocations) {
         for (CircuitPoint cp : atLocations)
             for (Entity e : getEntitiesThatIntercept(cp))
                 e.update(); // Entities might be updated multiple times, but that's fine

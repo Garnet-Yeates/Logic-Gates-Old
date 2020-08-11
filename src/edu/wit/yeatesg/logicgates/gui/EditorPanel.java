@@ -2,12 +2,10 @@ package edu.wit.yeatesg.logicgates.gui;
 
 import edu.wit.yeatesg.logicgates.circuit.Circuit;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.peripheral.InputBlock;
-import edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission.InputNegatable;
-import edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission.OutputNegatable;
+import edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission.*;
 import edu.wit.yeatesg.logicgates.datatypes.*;
 import edu.wit.yeatesg.logicgates.circuit.entity.*;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.ConnectibleEntity;
-import edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission.Wire;
 import edu.wit.yeatesg.logicgates.datatypes.Vector;
 import javafx.application.Platform;
 import javafx.scene.canvas.Canvas;
@@ -898,7 +896,12 @@ public class EditorPanel extends Pane {
             drawOrder.addAll(drawFirst);
             drawOrder.addAll(drawSecond);
 
+            ArrayList<ConnectionNode> oscillated = new ArrayList<>();
             for (Entity e : drawOrder) {
+                if (e instanceof ConnectibleEntity)
+                    for (ConnectionNode n : ((ConnectibleEntity) e).getConnections())
+                        if (n.isOscillated())
+                            oscillated.add(n);
                 if (e instanceof Wire) {
                     if (getScreenBoundaries().simpleTouches(e))
                         e.draw(gc);
@@ -906,6 +909,8 @@ public class EditorPanel extends Pane {
                         e.draw(gc);
 
             }
+
+            oscillated.forEach(node -> node.drawOscillationNumber(gc));
 
             if (currentPullPoint != null)
                 currentPullPoint.drawPullPoint(gc);

@@ -1,5 +1,6 @@
 package edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission;
 
+import edu.wit.yeatesg.logicgates.LogicGates;
 import edu.wit.yeatesg.logicgates.datatypes.*;
 import edu.wit.yeatesg.logicgates.circuit.Circuit;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.ConnectibleEntity;
@@ -124,6 +125,8 @@ public class ConnectionNode implements Dependent {
 
 
 
+
+
     @Override
     public boolean equals(Object other) {
         if (other instanceof ConnectionNode) {
@@ -200,6 +203,22 @@ public class ConnectionNode implements Dependent {
 
     public boolean hasDependencyTree() {
         return dependencyTree != null;
+    }
+
+    private int oscillationIndex = -1;
+
+    public void drawOscillationNumber(GraphicsContext g) {
+        LogicGates.drawText(oscillationIndex + "", getCircuit().getLineWidth(), getCircuit(), g, Color.BLACK, getLocation(), getCircuit().getScale()*1.2);
+    }
+
+    @Override
+    public int getOscillationIndex() {
+        return oscillationIndex;
+    }
+
+    @Override
+    public void setOscillationIndex(int index) {
+        oscillationIndex = index;
     }
 
 }

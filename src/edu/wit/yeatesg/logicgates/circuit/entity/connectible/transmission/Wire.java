@@ -344,8 +344,11 @@ public class Wire extends ConnectibleEntity implements Dependent {
                 blockBisect = true;
                 blockMerge = true;
                 other.disconnectAll();
+                c.disableUpdate();
                 other.set(other.startLocation, bisectPoint);
                 Wire added = new Wire(bisectPoint.getSimilar(), otherOldStartLoc.getSimilar());
+                c.enableUpdate();
+                c.updateEntities(other, added, this);
                 if (other.isSelected())
                     added.select();
                 added.add();
@@ -671,6 +674,15 @@ public class Wire extends ConnectibleEntity implements Dependent {
     @Override
     public void setPowerValue(PowerValue val) {
         powerValue = val;
+    }
+
+    @Override
+    public int getOscillationIndex() {
+        return 0;
+    }
+
+    @Override
+    public void setOscillationIndex(int index) {
     }
 
 

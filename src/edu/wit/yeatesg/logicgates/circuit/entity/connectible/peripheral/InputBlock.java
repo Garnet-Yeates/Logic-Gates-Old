@@ -5,10 +5,7 @@ import edu.wit.yeatesg.logicgates.LogicGates;
 import edu.wit.yeatesg.logicgates.circuit.entity.*;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.ConnectibleEntity;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.ConnectionList;
-import edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission.ConnectionNode;
-import edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission.OutputNode;
-import edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission.PowerValue;
-import edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission.Wire;
+import edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission.*;
 import edu.wit.yeatesg.logicgates.datatypes.*;
 import edu.wit.yeatesg.logicgates.datatypes.PanelDrawPoint;
 import javafx.scene.canvas.GraphicsContext;
@@ -180,7 +177,7 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
     @Override
     public void onPoke() {
         powerStatus = !powerStatus;
-        poll();
+        Dependent.updateTreesInParallel(poll());
     }
 
     @Override

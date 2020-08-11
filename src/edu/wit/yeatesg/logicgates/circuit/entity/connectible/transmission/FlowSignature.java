@@ -23,12 +23,19 @@ public class FlowSignature {
     public boolean addSignature(Dependent d) {
         System.out.println("SIGN " + d);
         int indexOfD = signed.indexOf(d);
+        int numOccurrences = 0;
         if (indexOfD != -1) {
+            for (Dependent dep : signed)
+                if (dep == d)
+                    numOccurrences++;
+        }
+        if (numOccurrences >= 2) {
             Circuit c = signed.get(0).getCircuit();
             c.clearDependencyTrees();
             System.out.println("OSCILLATION APPARENT: AFFECTED NODES: ");
-            for (int i = indexOfD; i < signed.size(); i++) {
+            for (int i = signed.lastIndexOf(d), o = 1; i < signed.size(); i++, o++) {
                 Dependent dependent = signed.get(i);
+                dependent.setOscillationIndex(o);
                 System.out.println("  " + dependent);
                 DependencyTree.createDependencyTree(new FlowSignature(true), dependent, c);
             }
@@ -39,6 +46,7 @@ public class FlowSignature {
 
             return false;
         }
+
         signed.add(d);
         return true;
     }
