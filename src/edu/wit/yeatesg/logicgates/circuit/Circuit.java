@@ -1662,9 +1662,6 @@ public class Circuit implements PropertyMutable {
     }
 
 
-
-
-
     private ArrayList<Dependent> markedDependents = new ArrayList<>();
 
     public void mark(Dependent marking) {
@@ -1681,17 +1678,6 @@ public class Circuit implements PropertyMutable {
     /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
      * REFRESHING TRANSMISSIONS
      * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-
-    public ArrayList<DependencyTree> dependencyTrees = new ArrayList<>();
-
-    public void clearDependencyTrees() {
-        dependencyTrees.forEach(DependencyTree::disconnectDependents);
-        dependencyTrees.clear();
-    }
-
-    public ArrayList<DependencyTree> getDependencyTrees() {
-        return dependencyTrees;
-    }
 
 
     public void recalculateTransmissions() {}

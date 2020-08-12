@@ -21,14 +21,29 @@ public interface Dependent {
         updateTreesInParallel(getTrees(new FlowSignature()));
     }
 
+    static void updateTreesInSeries(ArrayList<DependencyTree> trees) {
+        if (!trees.isEmpty()) {
+            for (DependencyTree tree : trees)
+                updateTreesInSeries(tree.determinePowerStatus());
+        }
+    }
+
     static void updateTreesInParallel(ArrayList<DependencyTree> trees) {
-        trees.forEach(DependencyTree::determinePowerStatus);
-        trees.forEach(DependencyTree::poll);
+        updateTreesInSeries(trees);
+      /*  System.out.println("UPDATE TREES IN PARALLEL");
+        ArrayList<DependencyTree> currUpdate = trees;
+        ArrayList<DependencyTree> nextUpdate = new ArrayList<>();
+        int treeLevel = 0;
+        while (!currUpdate.isEmpty()) {
+            System.out.println("  TREE LEVEL" + treeLevel++);
+            nextUpdate.clear();
+            currUpdate.forEach(tree -> nextUpdate.addAll(tree.determinePowerStatus()));
+            currUpdate = new ArrayList<>(nextUpdate);
+        }*/
     }
 
     default ArrayList<DependencyTree> getTrees(FlowSignature signature) {
         Circuit c = getCircuit();
-        c.clearDependencyTrees();
         ArrayList<OutputNode> outs = new ArrayList<>();
         ArrayList<InputNode> ins = new ArrayList<>();
         resetPowerValues(this, outs, ins);
@@ -40,11 +55,11 @@ public interface Dependent {
                outs.forEach(outputNode -> System.out.println(" " + outputNode));
         }
 
-        ins.forEach(in -> DependencyTree.createDependencyTree(signature, in, c));
-        outs.forEach(out -> DependencyTree.createDependencyTree(signature, out, c));
-        ArrayList<DependencyTree> circuitTrees = new ArrayList<>(c.getDependencyTrees());
-        c.clearDependencyTrees();
-        return circuitTrees;
+        ArrayList<DependencyTree> createdTrees = new ArrayList<>();
+        ins.forEach(in -> DependencyTree.createDependencyTree(signature, in, c, createdTrees));
+        outs.forEach(out -> DependencyTree.createDependencyTree(signature, out, c, createdTrees));
+        createdTrees.forEach(DependencyTree::disconnectDependents); // We are done creating trees, so un mark all dependents
+        return createdTrees;
     }
 
     private void resetPowerValues(Dependent root, ArrayList<OutputNode> outs, ArrayList<InputNode> ins) {
@@ -99,11 +114,11 @@ public interface Dependent {
     }
 
 
-    default ArrayList<DependencyTree> pollParent(FlowSignature flowSignature) {
+    default ArrayList<DependencyTree> getNextTreesToUpdate(FlowSignature flowSignature) {
         if (!(this instanceof InputNode))
             throw new RuntimeException();
         ConnectibleEntity parent = ((InputNode) this).parent;
-        return parent.poll(flowSignature);
+        return parent.pollForTreeUpdate(flowSignature);
     }
 
     default void resetPowerValue() {
@@ -113,7 +128,7 @@ public interface Dependent {
 
     default boolean isOscillated() {
         return getOscillationIndex() != -1;
-    }
+}
 
     int getOscillationIndex();
     void setOscillationIndex(int index);

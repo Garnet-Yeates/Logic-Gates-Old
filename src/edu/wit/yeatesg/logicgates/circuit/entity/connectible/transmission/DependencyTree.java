@@ -17,14 +17,13 @@ public class DependencyTree {
 
     private FlowSignature signature;
 
-    public static DependencyTree createDependencyTree(FlowSignature signature, Dependent startingFrom, Circuit c) {
+    public static void createDependencyTree(FlowSignature signature, Dependent startingFrom, Circuit c, ArrayList<DependencyTree> addingTo) {
         if (!(startingFrom instanceof OutputNode) && !(startingFrom instanceof InputNode))
             throw new RuntimeException("Can only create from Input/Output nodes");
         if (startingFrom.hasDependencyTree())
-            return null;
+            return;
         DependencyTree created = new DependencyTree(signature, startingFrom, c);
-        c.getDependencyTrees().add(created);
-        return created;
+        addingTo.add(created);
     }
 
     private DependencyTree(FlowSignature signature,Dependent startingFrom, Circuit c) {
@@ -85,33 +84,38 @@ public class DependencyTree {
     }
 
 
-    private boolean canPoll = true;
 
-    public void disablePoll() {
-        canPoll = false;
+    private boolean canDeterminePowerStatus = true;
+
+    public void disablePowerDetermining() {
+        canDeterminePowerStatus = false;
     }
 
     // O = num roots * num leaves
-    public void determinePowerStatus() {
+    /** Returns the next trees that have to be updated */
+    public ArrayList<DependencyTree> determinePowerStatus() {
+        if (!canDeterminePowerStatus) // Very important. When the signature is added to the FlowSignature, it may determine that the power flow has gone in a Circle. If this happens, the power status of all signatures (ins/outs) are set to circular
+            return new ArrayList<>();
+
         for (OutputNode root : roots) {
             for (InputNode leaf : leaves) {
                 if (root.getParent().equalsExact(leaf.getParent())) {
-                    setPowerValue(PowerValue.SELF_DEPENDENT);
+                    setPowerValue(PowerValue.SELF_DEPENDENT); // <-- Now 'powerDetermined' is set to true
                     signature = new FlowSignature(true);
-                    poll();
-                    return;
+                    ArrayList<DependencyTree> toUpdate = new ArrayList<>();
+                    leaves.forEach(inputNode -> toUpdate.addAll(inputNode.getNextTreesToUpdate(signature.copy())));
+                    return toUpdate;
                 }
             }
         }
         ArrayList<Dependent> signaturesBeingAdded = new ArrayList<>();
         signaturesBeingAdded.addAll(roots);
         signaturesBeingAdded.addAll(leaves);
-        for (Dependent dependent : signaturesBeingAdded) {
-            if (!signature.addSignature(dependent)) {
-                disablePoll();
-                return;
-            }
-        }
+
+        for (Dependent dependent : signaturesBeingAdded)
+            if (!signature.addSignature(dependent))
+                return new ArrayList<>();
+
         PowerValue powerValue = PowerValue.UNDETERMINED;
         // Data bit multi dependency check
         if (roots.size() > 1) {
@@ -134,7 +138,6 @@ public class DependencyTree {
                 }
             }
         }
-
 
         // Root compatibility check
         if (roots.size() > 1 && powerValue == PowerValue.UNDETERMINED) {
@@ -165,6 +168,10 @@ public class DependencyTree {
             powerValue = possibleValues.isEmpty() ? PowerValue.FLOATING : possibleValues.get(possibleValues.size() - 1);
         }
         setPowerValue(powerValue);
+
+        ArrayList<DependencyTree> toUpdate = new ArrayList<>();
+        leaves.forEach(inputNode -> toUpdate.addAll(inputNode.getNextTreesToUpdate(signature.copy())));
+        return toUpdate;
     }
 
     public void setPowerValue(PowerValue val) {
@@ -173,13 +180,6 @@ public class DependencyTree {
         leaves.forEach(inputNode -> inputNode.setPowerValue(val));
     }
 
-    public void poll() {
-        if (canPoll) {
-            ArrayList<DependencyTree> toUpdate = new ArrayList<>();
-            leaves.forEach(inputNode -> toUpdate.addAll(inputNode.pollParent(signature.copy())));
-            Dependent.updateTreesInParallel(toUpdate);
-        }
-    }
 
     public ArrayList<OutputNode> getRoots() {
         return roots;

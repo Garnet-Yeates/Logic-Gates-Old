@@ -31,14 +31,14 @@ public abstract class ConnectibleEntity extends Entity {
         getOutputNodes().forEach(Dependent::parallelTreeUpdate);
     }
 
-    public ArrayList<DependencyTree> poll() {
-        return poll(new FlowSignature());
+    public ArrayList<DependencyTree> pollForTreeUpdate() {
+        return pollForTreeUpdate(new FlowSignature());
     }
 
     /**
      * Returns the dependencytrees that need to be updated
      */
-    public ArrayList<DependencyTree> poll(FlowSignature flowSignature) {
+    public ArrayList<DependencyTree> pollForTreeUpdate(FlowSignature flowSignature) {
         ArrayList<DependencyTree> needUpdating = new ArrayList<>();
         for (OutputNode out : getOutputNodes()) {
             PowerValue before = out.getPowerValue();

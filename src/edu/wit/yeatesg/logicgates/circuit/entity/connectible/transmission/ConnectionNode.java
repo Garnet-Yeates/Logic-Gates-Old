@@ -208,7 +208,7 @@ public class ConnectionNode implements Dependent {
     private int oscillationIndex = -1;
 
     public void drawOscillationNumber(GraphicsContext g) {
-        LogicGates.drawText(oscillationIndex + "", getCircuit().getLineWidth(), getCircuit(), g, Color.BLACK, getLocation(), getCircuit().getScale()*1.2);
+      //  LogicGates.drawText(oscillationIndex + "", getCircuit().getLineWidth(), getCircuit(), g, Color.BLACK, getLocation(), getCircuit().getScale()*1.2);
     }
 
     @Override
