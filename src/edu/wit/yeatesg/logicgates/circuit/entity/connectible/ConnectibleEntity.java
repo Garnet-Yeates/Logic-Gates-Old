@@ -26,25 +26,25 @@ public abstract class ConnectibleEntity extends Entity {
 
     public void updateTree() {
         if (this instanceof Wire)
-            ((Wire) this).parallelTreeUpdate();
-        getInputNodes().forEach(Dependent::parallelTreeUpdate);
-        getOutputNodes().forEach(Dependent::parallelTreeUpdate);
+            ((Wire) this).treeUpdate();
+        getInputNodes().forEach(Dependent::treeUpdate);
+        getOutputNodes().forEach(Dependent::treeUpdate);
     }
 
-    public ArrayList<DependencyTree> pollForTreeUpdate() {
-        return pollForTreeUpdate(new FlowSignature());
+    public ArrayList<DependencyTree> pollOutputs() {
+        return pollOutputs(new FlowSignature());
     }
 
     /**
      * Returns the dependencytrees that need to be updated
      */
-    public ArrayList<DependencyTree> pollForTreeUpdate(FlowSignature flowSignature) {
+    public ArrayList<DependencyTree> pollOutputs(FlowSignature flowSignature) {
         ArrayList<DependencyTree> needUpdating = new ArrayList<>();
         for (OutputNode out : getOutputNodes()) {
             PowerValue before = out.getPowerValue();
             PowerValue after = getLocalPowerStateOf(out);
             if (!before.equals(after) && (before != PowerValue.SELF_DEPENDENT || !flowSignature.isErrorOrigin()) )
-                needUpdating.addAll(out.getTrees(flowSignature));
+                needUpdating.addAll(out.getTreesAroundMe(flowSignature));
         }
         return needUpdating;
     }

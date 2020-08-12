@@ -17,13 +17,13 @@ import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
 import javax.swing.Timer;
+import static edu.wit.yeatesg.logicgates.circuit.Circuit.*;
 
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.util.*;
 
 import static edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission.Wire.*;
-import static edu.wit.yeatesg.logicgates.circuit.Circuit.*;
 
 import static javafx.scene.input.KeyCode.*;
 
@@ -75,15 +75,64 @@ public class EditorPanel extends Pane {
         blinkTimer.start();
     }
 
+    private void onKeyPressDetermineSelectionModifications(KeyEvent event) {
+        KeyCode co = event.getCode();
+        Circuit c = c();
+        Circuit.Selection currSelection = c.currentSelectionReference();
+        if (co == S // Displays whats in selection
+                || co == R // Rotates selection
+                || co == LEFT || co == RIGHT || co == DOWN || co == UP  // Moves selection
+                || co == D && event.isControlDown() // Duplicates selection
+                || co == ESCAPE) { // Deselects
+            if (co == ESCAPE) {
+                if (placingAtCursor != null)
+                    placingAtCursor.cancel();
+                else if (currSelection.size() > 0) {
+                    if (movingSelection)
+                        cancelMovingSelection();
+                    else {
+                        currSelection.deselectAllAndTrack();
+                        c.appendCurrentStateChanges("Deselect All Via Esc");
+                    }
+                }
+            } else if (placingAtCursor == null && !movingSelection && !currSelection.isEmpty()) { // If we have entities on the cursor, don't do any of this below
+
+                if (co == S) {
+                    System.out.println("SELECTION:");
+                    for (Entity en : currSelection)
+                        System.out.println(" " + en.toParsableString());
+                }
+                else if (co == R) {
+                    for (Entity selected : currSelection.clone()) {
+                        if (selected.hasProperty("facing")) {
+                            System.out.println(selected.getPropertyValue("facing"));
+                            int rotation = Direction.rotationFromCardinal(selected.getPropertyValue("facing"));
+                            int nextRotation = Integer.parseInt(Rotatable.getNextRotation(rotation) + "");
+                            c.new PropertyChangeOperation(selected, "facing", Direction.cardinalFromRotation(nextRotation), true).operate();
+                        }
+                    }
+                    c.appendCurrentStateChanges("Rotate " + currSelection.size() + " Entit" + (currSelection.size() == 1 ? "y" : "ies" ) + " 90 degrees");
+                }
+                else if (co == LEFT || co == RIGHT || co == DOWN || co == UP) {
+                    Vector vec;
+                    if ((vec = Vector.directionVectorFrom(co.getName())) != null)
+                        userMoveSelection(vec, co.getName());
+                }
+                else /* if co == D and ctrl held */ {
+                    duplicateSelection();
+                }
+
+            }
+        }
+    }
+
+
     public void onKeyPressed(KeyEvent e) {
         Circuit c = c();
         Circuit.Selection currSelection = c.currentSelectionReference();
         KeyCode code = e.getCode();
-        if (code == S) {
-            System.out.println("SELECTION:");
-            for (Entity en : currSelection)
-                System.out.println(" " + en.toParsableString());
-        }
+        onKeyPressDetermineSelectionModifications(e);
+
         if (code == OPEN_BRACKET)
             autoPokeTimer.setDelay(autoPokeTimer.getDelay() + 50);
         if (code == CLOSE_BRACKET)
@@ -114,24 +163,7 @@ public class EditorPanel extends Pane {
             else
                 redo(true);
         }
-        if ((code == RIGHT || code == LEFT || code == UP || code == DOWN )
-                && !currSelection.isEmpty()) {
-            Vector vec;
-            if ((vec = Vector.directionVectorFrom(code.getName())) != null)
-                userMoveSelection(vec, code.getName());
-        }
 
-        if (code == R) {
-            for (Entity selected : currSelection.clone()) {
-                if (selected.hasProperty("facing")) {
-                    System.out.println(selected.getPropertyValue("facing"));
-                    int rotation = Direction.rotationFromCardinal(selected.getPropertyValue("facing"));
-                    int nextRotation = Integer.parseInt(Rotatable.getNextRotation(rotation) + "");
-                    c.new PropertyChangeOperation(selected, "facing", Direction.cardinalFromRotation(nextRotation), true).operate();
-                }
-            }
-            c.appendCurrentStateChanges("Rotate " + currSelection.size() + " Entit" + (currSelection.size() == 1 ? "y" : "ies" ) + " 90 degrees");
-        }
         if (e.isControlDown() && (code == EQUALS || code == MINUS)) {
             CircuitPoint oldCenter = getCenter();
             if (code == EQUALS && c().canScaleUp()) {
@@ -153,23 +185,12 @@ public class EditorPanel extends Pane {
             repaint(c);
         }
         if (code == ESCAPE) {
-            if (placingAtCursor != null)
-                placingAtCursor.cancel();
-            else if (currSelection.size() > 0) {
-                if (movingSelection)
-                    cancelMovingSelection();
-                else {
-                    currSelection.deselectAllAndTrack();
-                    c.appendCurrentStateChanges("Deselect All Via Esc");
-                }
-            }
             if (ppStateShift > 0) {
                 c().stateController().goLeft(); // Undo() wont work
                 c().stateController().clip();
                 currentPullPoint = null;
                 this.new PullPoint(circuitPointAtMouse(true));
             }
-            repaint(c);
         }
         if (code == P) {
             onPoke();
@@ -178,8 +199,6 @@ public class EditorPanel extends Pane {
         if (code == G) {
             toggleDrawGridPoints();
         }
-        if (code == D && e.isControlDown())
-            duplicateSelection();
         if (code == N) {
             CircuitPoint gridSnapAtMouse = circuitPointAtMouse(true);
             int negatedIndex = -1;
@@ -188,7 +207,7 @@ public class EditorPanel extends Pane {
                         (negatedIndex = ((OutputNegatable) intercepting).indexOfOutput(gridSnapAtMouse)) != -1) {
                     ArrayList<Integer> negatedIndices = new ArrayList<>();
                     negatedIndices.add(negatedIndex);
-                    c.new EntityNegateOperation(intercepting, false, negatedIndices, true).operate();
+                    c.new EntityNegateOperation(intercepting, false, negatedIndices, intercepting.isSelected() ? SELECTED : NON_SELECTED, true).operate();
                     break;
                 }
                 if (intercepting instanceof InputNegatable)
@@ -197,7 +216,7 @@ public class EditorPanel extends Pane {
                         (negatedIndex = ((InputNegatable) intercepting).indexOfInput(gridSnapAtMouse)) != -1) {
                     ArrayList<Integer> negatedIndices = new ArrayList<>();
                     negatedIndices.add(negatedIndex);
-                    c.new EntityNegateOperation(intercepting, true, negatedIndices, true).operate();
+                    c.new EntityNegateOperation(intercepting, true, negatedIndices, intercepting.isSelected() ? SELECTED : NON_SELECTED, true).operate();
                     break;
                 }
             }
@@ -921,7 +940,6 @@ public class EditorPanel extends Pane {
             c.drawInvalidEntities(gc);
 
             for (Entity e : currConnectionView) {
-                e.getBoundingBox().drawBorder(gc);
                 currConnectionView.draw(e, gc);
             }
 

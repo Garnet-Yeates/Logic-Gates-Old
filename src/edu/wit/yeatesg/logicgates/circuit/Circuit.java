@@ -766,11 +766,13 @@ public class Circuit implements PropertyMutable {
         }
 
         public void draw(Entity inThisSelection, GraphicsContext g) {
-            inThisSelection.draw(g);
-            if (blinkState) {
-                g.setLineWidth(3);
-                g.setStroke(Color.ORANGE);
-                inThisSelection.getBoundingBox().drawBorder(g);
+            if (!blinkState)
+                inThisSelection.draw(g);
+            else {
+                inThisSelection.draw(g, Color.ORANGE, 1);
+           //     g.setLineWidth(3);
+           //     g.setStroke(Color.ORANGE);
+           //     inThisSelection.getBoundingBox().drawBorder(g);
             }
         }
 
@@ -1039,9 +1041,9 @@ public class Circuit implements PropertyMutable {
     }
 
     private enum SelectiveFocus { SELECTED, NON_SELECTED, ANY }
-    private static final SelectiveFocus SELECTED = SelectiveFocus.SELECTED;
-    private static final SelectiveFocus NON_SELECTED = SelectiveFocus.NON_SELECTED;
-    private static final SelectiveFocus ANY = SelectiveFocus.ANY;
+    public static final SelectiveFocus SELECTED = SelectiveFocus.SELECTED;
+    public static final SelectiveFocus NON_SELECTED = SelectiveFocus.NON_SELECTED;
+    public static final SelectiveFocus ANY = SelectiveFocus.ANY;
 
     /**
      * Disables transform and update, must be re enabled when you are done using the method
@@ -1222,20 +1224,22 @@ public class Circuit implements PropertyMutable {
 
     public class EntityNegateOperation extends StateChangeOperation {
 
-        public Entity mainOperand;
-        public ArrayList<Integer> negatedIndices;
+        private Entity mainOperand;
+        private ArrayList<Integer> negatedIndices;
+        private SelectiveFocus focus;
         private boolean input;
 
         private EntityList<Wire> similarCreating = new EntityList<>();
         private EntityList<Wire> similarDeleting = new EntityList<>();
 
-        public EntityNegateOperation(Entity similarNegating, boolean input, ArrayList<Integer> indices, boolean track) {
+        public EntityNegateOperation(Entity similarNegating, boolean input, ArrayList<Integer> indices, SelectiveFocus focus, boolean track) {
             super(track);
             this.input = input;
             if (input && !(similarNegating instanceof InputNegatable) || !input && !(similarNegating instanceof OutputNegatable))
                 throw new RuntimeException("Cannot perform NegateOperation on this entity");
             this.mainOperand = similarNegating.getSimilarEntity();
             this.negatedIndices = new ArrayList<>(indices);
+            this.focus = focus;
             if (track)
                 indices.forEach(this::determineWireModificationForNegationOf);
         }
@@ -1282,12 +1286,12 @@ public class Circuit implements PropertyMutable {
                 else
                     ((OutputNegatable) operandClone).negateOutput(negatedIndex);
             }
-            return new EntityNegateOperation(operandClone, input, negatedIndices, false);
+            return new EntityNegateOperation(operandClone, input, negatedIndices, focus, false);
         }
 
         @Override
         public void operate() {
-            Entity operand = getOperandsOnCircuit(mainOperand, SelectiveFocus.ANY).get(0);
+            Entity operand = getOperandsOnCircuit(mainOperand, focus).get(0);
             EntityList<Entity> usedToIntercept = operand.getInterceptingEntities();
             System.out.println("NEGATE OPERATION ON OPERAND: " + operand.toParsableString()); // TODO REM
             for (int negatedIndex : negatedIndices) {

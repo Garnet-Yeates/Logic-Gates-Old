@@ -17,8 +17,9 @@ public interface Dependent {
     PowerValue getPowerValue();
     void setPowerValue(PowerValue val);
 
-    default void parallelTreeUpdate() {
-        updateTreesInParallel(getTrees(new FlowSignature()));
+    default void treeUpdate() {
+        treeUpdate(getTreesAroundMe(new FlowSignature()));
+        System.out.println("UPDATE TREES CALLED ON " + this);
     }
 
     static void updateTreesInSeries(ArrayList<DependencyTree> trees) {
@@ -28,21 +29,24 @@ public interface Dependent {
         }
     }
 
-    static void updateTreesInParallel(ArrayList<DependencyTree> trees) {
-        updateTreesInSeries(trees);
-      /*  System.out.println("UPDATE TREES IN PARALLEL");
+    static void treeUpdate(ArrayList<DependencyTree> trees) {
+        //updateTreesInSeries(trees);
+        updateTreesByLevel(trees);
+    }
+
+    static void updateTreesByLevel(ArrayList<DependencyTree> trees) {
         ArrayList<DependencyTree> currUpdate = trees;
         ArrayList<DependencyTree> nextUpdate = new ArrayList<>();
         int treeLevel = 0;
         while (!currUpdate.isEmpty()) {
-            System.out.println("  TREE LEVEL" + treeLevel++);
+            System.out.println("  TREE LEVEL " + treeLevel++);
             nextUpdate.clear();
             currUpdate.forEach(tree -> nextUpdate.addAll(tree.determinePowerStatus()));
             currUpdate = new ArrayList<>(nextUpdate);
-        }*/
+        }
     }
 
-    default ArrayList<DependencyTree> getTrees(FlowSignature signature) {
+    default ArrayList<DependencyTree> getTreesAroundMe(FlowSignature signature) {
         Circuit c = getCircuit();
         ArrayList<OutputNode> outs = new ArrayList<>();
         ArrayList<InputNode> ins = new ArrayList<>();
@@ -118,7 +122,7 @@ public interface Dependent {
         if (!(this instanceof InputNode))
             throw new RuntimeException();
         ConnectibleEntity parent = ((InputNode) this).parent;
-        return parent.pollForTreeUpdate(flowSignature);
+        return parent.pollOutputs(flowSignature);
     }
 
     default void resetPowerValue() {

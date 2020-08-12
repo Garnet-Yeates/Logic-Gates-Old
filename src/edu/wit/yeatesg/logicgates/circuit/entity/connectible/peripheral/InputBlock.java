@@ -177,7 +177,7 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
     @Override
     public void onPoke() {
         powerStatus = !powerStatus;
-        Dependent.updateTreesInParallel(pollForTreeUpdate());
+        Dependent.treeUpdate(pollOutputs());
     }
 
     @Override

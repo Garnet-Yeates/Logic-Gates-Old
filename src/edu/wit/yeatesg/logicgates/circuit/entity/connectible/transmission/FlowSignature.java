@@ -28,7 +28,7 @@ public class FlowSignature {
                 if (dep == d)
                     numOccurrences++;
         }
-        if (numOccurrences > 0) {
+        if (numOccurrences > 1) {
             Circuit c = signed.get(0).getCircuit();
             ArrayList<DependencyTree> createdTrees = new ArrayList<>();
             for (int i = signed.lastIndexOf(d), o = 1; i < signed.size(); i++, o++) {
@@ -39,7 +39,7 @@ public class FlowSignature {
             createdTrees.forEach(tree -> tree.setPowerValue(PowerValue.SELF_DEPENDENT));
             createdTrees.forEach(DependencyTree::disablePowerDetermining); // Very important. This is necessary so the parallel tree update (2 lines below) doesn't cancel out the SELF_DEPENDENT power status set. Since these trees are on a new flow signature of error origin they will automatically know not to update further trees that have SELF_DEPENDENT power status. But if we determine these trees to have regular status 2 lines below, that update wave will never be able to stop because it wont hit any self dependent trees!
             createdTrees.forEach(DependencyTree::disconnectDependents); // We are done creating trees, so un mark all dependents
-            Dependent.updateTreesInParallel(createdTrees);
+            Dependent.treeUpdate(createdTrees);
             return false;
         }
 

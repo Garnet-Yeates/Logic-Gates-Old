@@ -1,6 +1,7 @@
 package edu.wit.yeatesg.logicgates.circuit.entity.connectible.logicgate;
 
 import edu.wit.yeatesg.logicgates.LogicGates;
+import edu.wit.yeatesg.logicgates.circuit.Circuit;
 import edu.wit.yeatesg.logicgates.circuit.entity.*;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.ConnectibleEntity;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.ConnectionList;
@@ -456,7 +457,7 @@ public abstract class LogicGate extends ConnectibleEntity implements Rotatable, 
         else {
             if (propName.equalsIgnoreCase("num inputs")) {
                 ArrayList<Integer> negatedInputs = new ArrayList<>(getNegatedInputIndices());
-                c.new EntityNegateOperation(this.getSimilarEntity(), true, negatedInputs, true).operate();
+                c.new EntityNegateOperation(this.getSimilarEntity(), true, negatedInputs, Circuit.SELECTED, true).operate();
             }
             c.new PropertyChangeOperation(this, propName, newVal, true).operate();
         }
