@@ -133,11 +133,18 @@ public class EditorPanel extends Pane {
         KeyCode code = e.getCode();
         onKeyPressDetermineSelectionModifications(e);
 
-        if (code == OPEN_BRACKET)
-            autoPokeTimer.setDelay(autoPokeTimer.getDelay() + 50);
-        if (code == CLOSE_BRACKET)
+        if (code == OPEN_BRACKET) {
+            if (autoPokeTimer.getDelay() == 25)
+                autoPokeTimer.setDelay(50);
+            else
+                autoPokeTimer.setDelay(autoPokeTimer.getDelay() + 50);
+        }
+        if (code == CLOSE_BRACKET) {
             if (autoPokeTimer.getDelay() >= 100)
                 autoPokeTimer.setDelay(autoPokeTimer.getDelay() - 50);
+            if (autoPokeTimer.getDelay() == 50)
+                autoPokeTimer.setDelay(25);
+        }
         if (code == BACK_SLASH);
           //  c.getOperands(new Wire(LL, RR));
         if (code == DELETE)
@@ -1179,6 +1186,8 @@ public class EditorPanel extends Pane {
 
         public void onDragGridSnapChange() {
             Circuit c = c();
+            c.enablePowerUpdateBuffer();
+
             CircuitPoint start = pressPoint.clone();
             CircuitPoint end = circuitPointAtMouse(true);
 
@@ -1194,21 +1203,23 @@ public class EditorPanel extends Pane {
             EntityList<ConnectibleEntity> cesAtStart = c().getEntitiesThatIntercept(start).thatExtend(ConnectibleEntity.class);
             EntityList<ConnectibleEntity> cesAtEnd = c.getEntitiesThatIntercept(end).thatExtend(ConnectibleEntity.class);
             EntityList<Wire> startAndEndWires = cesAtStart.thatIntercept(end).thatExtend(Wire.class);
-            if (startAndEndWires.size() > 1 && !start.isSimilar(end))
+            if (startAndEndWires.size() > 1 && !start.isSimilar(end)) {
+                c.disableAndPollPowerUpdateBuffer();
                 throw new RuntimeException("Should not intercept 2 wires twice");
+            }
             Wire deleting = !end.isSimilar(start) && startAndEndWires.size() > 0 ? startAndEndWires.get(0) : null;
 
             if (canDelete && deleting != null && !lock) {
                 // DO THE OPERATION FIRST SO IT CAN PROPERLY CHECK THE SPECIAL CASE WHERE THE DELETED WIRE CAUSES A BISECT
-               if (new Wire(start, end).isSimilar(deleting)) {
+                if (new Wire(start, end).isSimilar(deleting)) {
                    c.removeSimilarEntityAndTrackOperation(new Wire(start.clone(), end.clone()));
                    undoMsg = "Delete Wire";
                     // TODO replace with c.deleteWithStateOperation
-               } else {
+                } else {
                    c.removeSimilarEntityAndTrackOperation(new Wire(start.clone(), end.clone()));
                    System.out.println("SHORT");
                    undoMsg = "Shorten Wire";
-               }
+                }
             } else {
                 boolean canStillCreate = true;
                 boolean canSlide = false; // If any entity at the start loc of the pullpoint can connect to any entity
@@ -1255,7 +1266,7 @@ public class EditorPanel extends Pane {
                 ppStateShift++;
             }
 
-            c.recalculateTransmissions();
+            c.disableAndPollPowerUpdateBuffer();
             repaint(c);
         }
 

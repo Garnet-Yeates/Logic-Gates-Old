@@ -103,8 +103,6 @@ public class LogicGates {
 
         PanelDrawPoint pp = center.toPanelDrawPoint();
 
-
-
         pp.y += height / 2;
         pp.x -= width / 2;
 

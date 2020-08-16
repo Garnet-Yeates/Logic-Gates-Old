@@ -16,13 +16,19 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
 
     private CircuitPoint origin;
     private OutputNode out;
-    private OutputNode out2;
 
-    public InputBlock(CircuitPoint origin, int rotation) {
+    private boolean highTriggering;
+
+    public InputBlock(CircuitPoint origin, int rotation, boolean highTriggering) {
         super(origin.getCircuit());
         this.origin = origin.getSimilar();
         this.rotation = rotation;
+        this.highTriggering = highTriggering;
         construct();
+    }
+
+    public InputBlock(CircuitPoint origin, int rotation) {
+        this(origin, rotation, false);
     }
 
     @Override
@@ -32,17 +38,17 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
         interceptPoints = getBoundingBox().getInterceptPoints();
 
         establishOutputNode(drawPoints.get(0));
-        establishOutputNode(drawPoints.get(6));
 
         out = (OutputNode) getNodeAt(drawPoints.get(0));
-        out2 = (OutputNode) getNodeAt(drawPoints.get(6));
+
+        getOutputNodes().forEach(outputNode -> outputNode.setCausesHighTriggering(highTriggering));
 
         postInit();
     }
 
     @Override
     public InputBlock getCloned(Circuit c) {
-        return new InputBlock(origin.clone(c), rotation);
+        return new InputBlock(origin.clone(c), rotation, highTriggering);
     }
 
 
@@ -53,7 +59,12 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
 
     @Override
     public String toParsableString() {
-        return "[InputBlock]" + origin.toParsableString() + "," + rotation;
+        return "[InputBlock]" + origin.toParsableString() + "," + rotation + "," + highTriggering;
+    }
+
+    public static InputBlock parse(String s, Circuit c) {
+        String[] p = s.split(",");
+        return new InputBlock(new CircuitPoint(p[0], p[1], c), Integer.parseInt(p[2]), Boolean.parseBoolean(p[3]));
     }
 
     @Override
@@ -66,7 +77,7 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
 
     @Override
     public boolean canPullPointGoHere(CircuitPoint gridSnap) {
-        return out.getLocation().equals(gridSnap) || out2.getLocation().equals(gridSnap);
+        return out.getLocation().equals(gridSnap);
     }
 
 
@@ -84,7 +95,6 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
         drawPointRelative.add(1, -2, c); // top right is 3
         drawPointRelative.add(1, 0, c); // bottom right is 4
         drawPointRelative.add(0, -1, c); // center point is 5
-        drawPointRelative.add(0, -2, c); // center point is 5
 
         return drawPointRelative;
     }
@@ -123,7 +133,7 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
 
         // Draw Text 0 / 1
         PowerValue outStatus = out.getPowerValue();
-        String text = outStatus == PowerValue.OFF ? "0" : (outStatus == PowerValue.ON ? "1" : "");
+        String text = outStatus.getAbbreviated();
         double widthOfThisHereInputBlock = c.getScale()*2; // TODO change for diff size
         double maxWidth = widthOfThisHereInputBlock*0.70;
         Color numCol = strokeCol;
@@ -144,8 +154,6 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
         g.strokeLine(bR.x, bR.y, bL.x, bL.y);
 
         ConnectionNode connectNode = getNodeAt(pts.get(0));
-        connectNode.draw(g, col, opacity);
-        connectNode = getNodeAt(pts.get(6));
         connectNode.draw(g, col, opacity);
 
 
@@ -177,7 +185,7 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
     @Override
     public void onPoke() {
         powerStatus = !powerStatus;
-        Dependent.treeUpdate(pollOutputs());
+        Powerable.updateTreesByLevel(pollOutputs());
     }
 
     @Override
@@ -243,6 +251,7 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
     public PropertyList getPropertyList() {
         PropertyList list = new PropertyList(this, c);
         list.add(new Property("Facing", Direction.cardinalFromRotation(rotation), "NORTH", "SOUTH", "EAST", "WEST"));
+        list.add(new Property("Pulse", (highTriggering + "").toUpperCase(), "TRUE", "FALSE"));
         return list;
     }
 
@@ -260,6 +269,9 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
         if (propertyName.equalsIgnoreCase("facing")) {
             rotation = Direction.rotationFromCardinal(newVal);
             reconstruct();
+        } else if (propertyName.equalsIgnoreCase("pulse")) {
+            highTriggering = Boolean.parseBoolean(newVal);
+            reconstruct();
         }
     }
 
@@ -273,7 +285,8 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
 
     @Override
     public boolean hasProperty(String propertyName) {
-        return propertyName.equalsIgnoreCase("facing");
+        return propertyName.equalsIgnoreCase("facing")
+                || propertyName.equalsIgnoreCase("pulse");
     }
 
 

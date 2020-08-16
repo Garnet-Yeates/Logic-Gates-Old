@@ -13,7 +13,7 @@ import javafx.scene.paint.Color;
 
 import java.util.*;
 
-public class Wire extends ConnectibleEntity implements Dependent {
+public class Wire extends ConnectibleEntity implements Powerable {
 
     protected CircuitPoint startLocation;
     protected CircuitPoint endLocation;
@@ -336,9 +336,9 @@ public class Wire extends ConnectibleEntity implements Dependent {
             if (other.getPointsExcludingEdgePoints().contains(edgePoint)
                     && other.getDirection() != getDirection()
                     && !c.isWireBridgeAt(edgePoint)) {// This means it is bisecting the wire
-        //        System.out.println("BISECT AT " + edgePoint.toParsableString());
-        //        System.out.println("  BISECTER: " + this.toParsableString());
-        //        System.out.println("  BISECTED: " + other.toParsableString());
+                System.out.println("BISECT AT " + edgePoint.toParsableString());
+                System.out.println("  BISECTER: " + this.toParsableString());
+                System.out.println("  BISECTED: " + other.toParsableString());
                 CircuitPoint bisectPoint = edgePoint.getSimilar();
                 CircuitPoint otherOldStartLoc = other.getStartLocation();
                 blockBisect = true;
@@ -347,11 +347,11 @@ public class Wire extends ConnectibleEntity implements Dependent {
                 c.disableUpdate();
                 other.set(other.startLocation, bisectPoint);
                 Wire added = new Wire(bisectPoint.getSimilar(), otherOldStartLoc.getSimilar());
-                c.enableUpdate();
-                c.updateEntities(other, added, this);
                 if (other.isSelected())
                     added.select();
                 added.add();
+                c.enableUpdate();
+                c.updateEntities(other, added, this);
                 blockBisect = false;
                 blockMerge = false;
             }
@@ -404,12 +404,16 @@ public class Wire extends ConnectibleEntity implements Dependent {
                         && getNumOtherEdgePointsInOppositeDirectionAt(edgePoint) == 0) {
              //       System.out.println("  MERGE " + this.toParsableString() + " ("
              //               + id + ")" + " with " + other.toParsableString() + " (" + other.id + ")");
+                    c.disableUpdate();
                     blockMerge = true;
                     blockBisect = true;
+                    CircuitPoint opposite = getOppositeEdgePoint(edgePoint);
                     other.remove(); // Checks done in delete
                    // System.out.println("SET " + edgePoint.toParsableString() + " to " + other.getOppositeEdgePoint(edgePoint).toParsableString());
                     set(edgePoint, other.getOppositeEdgePoint(edgePoint)); // Reconstruct done in set
                     //System.out.println("  DONE MERGE");
+                    c.enableUpdate();
+                    c.updateEntitiesAt(edgePoint, other.getOppositeEdgePoint(edgePoint), opposite);
                     blockMerge = false;
                     blockBisect = false;
                 }
@@ -678,11 +682,12 @@ public class Wire extends ConnectibleEntity implements Dependent {
 
     @Override
     public int getOscillationIndex() {
-        return 0;
+        return 0; // Not implemented for wires
     }
 
     @Override
     public void setOscillationIndex(int index) {
+        // Not implemented for wires
     }
 
 

@@ -214,7 +214,7 @@ public abstract class Entity implements PropertyMutable {
             updateInvalidInterceptPoints();
             if (this instanceof ConnectibleEntity) {
                 ((ConnectibleEntity) this).connectCheck();
-                ((ConnectibleEntity) this).updateTree();
+                c.powerUpdate((ConnectibleEntity) this);
             }
         }
     }
@@ -426,7 +426,7 @@ public abstract class Entity implements PropertyMutable {
         else if (enityType.equalsIgnoreCase("GateXOR"))
             return GateXOR.parse(s, c);
         else if (enityType.equalsIgnoreCase("InputBlock"))
-            return new InputBlock(new CircuitPoint(fields[0], fields[1], c), Integer.parseInt(fields[2]));
+            return InputBlock.parse(s, c);
         else if (enityType.equalsIgnoreCase("OutputBlock"))
             return new OutputBlock(new CircuitPoint(fields[0], fields[1], c), Integer.parseInt(fields[2]));
         return null;

@@ -3,7 +3,7 @@ package edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission;
 public class MultiBitPowerValue extends PowerValue {
 
     public MultiBitPowerValue(String bits) {
-        super(bits, 2, MULTI_BIT_COLOR);
+        super(bits, 2, MULTI_BIT_COLOR, "M");
     }
 
     public MultiBitPowerValue getAND(MultiBitPowerValue other) {

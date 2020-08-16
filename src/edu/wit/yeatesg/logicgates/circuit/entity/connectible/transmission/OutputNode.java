@@ -30,6 +30,10 @@ public class OutputNode extends ConnectionNode {
 
     private ArrayList<InputNode> inputsThatAffectMe = new ArrayList<>();
 
+    public ArrayList<InputNode> getInputsThatAffectMe() {
+        return new ArrayList<>(inputsThatAffectMe);
+    }
+
     public void addInputThatAffectsMe(InputNode n) {
         inputsThatAffectMe.add(n);
     }
@@ -43,9 +47,19 @@ public class OutputNode extends ConnectionNode {
     }
 
     public ArrayList<PowerValue> getRelevantPowerValuesAffectingMe() {
+        System.out.println("get relevant power values affecting me called on " + this);
         ArrayList<PowerValue> powerValues = new ArrayList<>();
         for (InputNode thatAffectsMe : inputsThatAffectMe) {
             PowerValue powerVal = thatAffectsMe.getPowerValue();
+
+            if (powerVal == PowerValue.ACTIVE || powerVal == PowerValue.DONE_ACTIVE) {
+                System.out.println("ACTIVIA");
+                powerVal = PowerValue.ON;
+            } else if (powerVal == PowerValue.INACTIVE)
+                powerVal = PowerValue.OFF;
+
+            System.out.println(powerVal);
+
             if (powerVal.isRelevantForCalculations())
                 powerValues.add(thatAffectsMe.isNegated ? powerVal.getNegated() : powerVal);
         }
@@ -64,5 +78,15 @@ public class OutputNode extends ConnectionNode {
         circleSize *= getLocation().getCircuit().getScale() < 10 ? 1.1 : 1;
         PanelDrawPoint drawPoint = getLocation().toPanelDrawPoint();
         g.fillOval(drawPoint.x - circleSize/2.00, drawPoint.y - circleSize/2.00, circleSize, circleSize);
+    }
+
+    private boolean causesHighTriggering = false;
+
+    public boolean causesHighTriggering() {
+        return causesHighTriggering;
+    }
+
+    public void setCausesHighTriggering(boolean b) {
+        causesHighTriggering = b;
     }
 }

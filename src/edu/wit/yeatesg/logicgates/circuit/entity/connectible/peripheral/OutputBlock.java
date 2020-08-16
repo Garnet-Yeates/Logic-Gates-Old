@@ -108,32 +108,33 @@ public class OutputBlock extends ConnectibleEntity implements Rotatable {
         strokeCol = Color.rgb((int) (255*strokeCol.getRed()), (int) (255*strokeCol.getGreen()), (int) (255*strokeCol.getBlue()), opacity);
         g.setStroke(strokeCol);
 
+        CircuitPoint centerPoint = pts.get(5);
+
         PanelDrawPoint tL = pts.get(1).toPanelDrawPoint();
         PanelDrawPoint bL = pts.get(2).toPanelDrawPoint();
         PanelDrawPoint bR = pts.get(3).toPanelDrawPoint();
         PanelDrawPoint tR = pts.get(4).toPanelDrawPoint();
-        double dist = new Vector(tL, tR).getLength();
-        BoundingBox forOval = new BoundingBox(tL, bR, null);
-        g.strokeOval(forOval.p1.toPanelDrawPoint().x, forOval.p1.toPanelDrawPoint().y, dist, dist);
+        double circleSize = (c.getScale() * 2);
+        drawPoint = centerPoint.toPanelDrawPoint();
+        g.strokeOval(drawPoint.x - circleSize/2.00, drawPoint.y - circleSize/2.00, circleSize, circleSize);
 
         // Draw Connection Thingy
 
         ConnectionNode connectNode = getNodeAt(pts.get(0));
         connectNode.draw(g, col, opacity);
         // Draw Circle Inside
-        CircuitPoint centerPoint = pts.get(5);
         g.setFill(col == null ? in.getPowerValue().getColor() : col);
-        double circleSize = (c.getScale() * 1.4);
+        circleSize = (c.getScale() * 1.5);
         drawPoint = centerPoint.toPanelDrawPoint();
         g.fillOval(drawPoint.x - circleSize/2.00, drawPoint.y - circleSize/2.00, circleSize, circleSize);
 
         PowerValue inStatus = in.getPowerValue();
-        String text = inStatus == PowerValue.OFF ? "0" : (inStatus == PowerValue.ON ? "1" : "");
+        String text = inStatus.getAbbreviated();
         double widthOfThisHereInputBlock = c.getScale()*2; // TODO change for diff size
         double maxWidth = widthOfThisHereInputBlock*0.70;
         if (col == null && inStatus == PowerValue.OFF)
             strokeCol = Color.rgb(0, 0, 0);
-        LogicGates.drawText(text, getLineWidth()*0.5, c, g, strokeCol, centerPoint.getSimilar(), maxWidth);
+        LogicGates.drawText(text, getLineWidth()*0.5, c, g, strokeCol, centerPoint.getSimilar(), maxWidth*0.9);
     }
 
 

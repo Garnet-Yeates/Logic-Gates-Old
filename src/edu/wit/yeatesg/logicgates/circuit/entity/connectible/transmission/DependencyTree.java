@@ -2,6 +2,7 @@ package edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission;
 
 import edu.wit.yeatesg.logicgates.circuit.Circuit;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.ConnectibleEntity;
+import edu.wit.yeatesg.logicgates.datatypes.Map;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -9,15 +10,13 @@ import java.util.LinkedList;
 
 public class DependencyTree {
 
-    private Circuit c;
-
     private ArrayList<OutputNode> roots;
     private ArrayList<Wire> branches;
     private ArrayList<InputNode> leaves;
 
     private FlowSignature signature;
 
-    public static void createDependencyTree(FlowSignature signature, Dependent startingFrom, Circuit c, ArrayList<DependencyTree> addingTo) {
+    public static void createDependencyTree(FlowSignature signature, Powerable startingFrom, Circuit c, ArrayList<DependencyTree> addingTo) {
         if (!(startingFrom instanceof OutputNode) && !(startingFrom instanceof InputNode))
             throw new RuntimeException("Can only create from Input/Output nodes");
         if (startingFrom.hasDependencyTree())
@@ -26,64 +25,70 @@ public class DependencyTree {
         addingTo.add(created);
     }
 
-    private DependencyTree(FlowSignature signature,Dependent startingFrom, Circuit c) {
+    private DependencyTree(FlowSignature signature,Powerable startingFrom, Circuit c) {
         if (!(startingFrom instanceof OutputNode) && !(startingFrom instanceof InputNode))
             throw new RuntimeException("Can only create from Input/Output nodes");
-        this.c = c;
         this.signature = signature.copy();
         roots = new ArrayList<>();
         branches = new ArrayList<>();
         leaves = new ArrayList<>();
 
-        c.clearMarkedDependents();
+        c.clearMarkedPowerables();
         grow(startingFrom);
-        c.clearMarkedDependents();
+        c.clearMarkedPowerables();
     }
 
-    private void grow(Dependent start) {
+    private void grow(Powerable start) {
         if (start.isMarked())
             return;
         start.mark();
         add(start);
-        if (start instanceof InputNode && ((InputNode) start).getConnectedTo() instanceof Dependent)
-            grow((Dependent) ((InputNode) start).getConnectedTo());
-        if (start instanceof OutputNode && ((OutputNode) start).getConnectedTo() instanceof Dependent)
-            grow((Dependent) ((OutputNode) start).getConnectedTo());
+        if (start instanceof InputNode && ((InputNode) start).getConnectedTo() instanceof Powerable)
+            grow((Powerable) ((InputNode) start).getConnectedTo());
+        if (start instanceof OutputNode && ((OutputNode) start).getConnectedTo() instanceof Powerable)
+            grow((Powerable) ((OutputNode) start).getConnectedTo());
         if (start instanceof Wire) {
             Wire w = (Wire) start;
             ConnectionNode connectionTo;
             for (ConnectibleEntity e : w.getConnectedEntities())
-                if (e instanceof Dependent)
-                    grow((Dependent) e);
+                if (e instanceof Powerable)
+                    grow((Powerable) e);
                 else if ((connectionTo = e.getConnectionTo(w)) != null)
                     grow(connectionTo);
         }
     }
 
-    public void add(Dependent dep) {
-        if (!(dep instanceof OutputNode || dep instanceof Wire || dep instanceof InputNode))
+    private boolean causesHighTriggering = false;
+
+    public void add(Powerable pow) {
+        if (!(pow instanceof OutputNode || pow instanceof Wire || pow instanceof InputNode))
             throw new RuntimeException("Dumb");
-        if (dep.hasDependencyTree())
-            throw new RuntimeException("Cannot add " + dep + " to this tree. It already has a tree");
+        if (pow.hasDependencyTree())
+            throw new RuntimeException("Cannot add " + pow + " to this tree. It already has a tree");
 
-        dep.setDependencyTree(this);
+        pow.setDependencyTree(this);
 
-        if (dep instanceof OutputNode)
-            roots.add((OutputNode) dep);
-        else if (dep instanceof Wire)
-            branches.add((Wire) dep);
+        if (pow instanceof OutputNode) {
+            if (((OutputNode) pow).causesHighTriggering())
+                causesHighTriggering = true;
+            roots.add((OutputNode) pow);
+        }
+        else if (pow instanceof Wire)
+            branches.add((Wire) pow);
         else {
-            leaves.add((InputNode) dep); // If dep is an input, its parent now depends on this tree
+            leaves.add((InputNode) pow); // If pows is an input, its parent now depends on this tree
         }
     }
 
-    public void disconnectDependents() {
+    public void disconnectPowerables() {
         roots.forEach(out -> out.setDependencyTree(null));
         branches.forEach(wire -> wire.setDependencyTree(null));
         leaves.forEach(in -> in.setDependencyTree(null));
     }
 
-
+    public FlowSignature getSignature() {
+        return signature;
+    }
 
     private boolean canDeterminePowerStatus = true;
 
@@ -92,29 +97,27 @@ public class DependencyTree {
     }
 
     // O = num roots * num leaves
-    /** Returns the next trees that have to be updated */
-    public ArrayList<DependencyTree> determinePowerStatus() {
+    /** Returns the entities that have to be polled to get the trees to update next */
+    public Map<ConnectibleEntity, FlowSignature> determinePowerStatus() {
         if (!canDeterminePowerStatus) // Very important. When the signature is added to the FlowSignature, it may determine that the power flow has gone in a Circle. If this happens, the power status of all signatures (ins/outs) are set to circular
-            return new ArrayList<>();
+            return new Map<>();
 
         for (OutputNode root : roots) {
             for (InputNode leaf : leaves) {
                 if (root.getParent().equalsExact(leaf.getParent())) {
                     setPowerValue(PowerValue.SELF_DEPENDENT); // <-- Now 'powerDetermined' is set to true
                     signature = new FlowSignature(true);
-                    ArrayList<DependencyTree> toUpdate = new ArrayList<>();
-                    leaves.forEach(inputNode -> toUpdate.addAll(inputNode.getNextTreesToUpdate(signature.copy())));
-                    return toUpdate;
+                    return getEntitiesToPollNext();
                 }
             }
         }
-        ArrayList<Dependent> signaturesBeingAdded = new ArrayList<>();
+        ArrayList<Powerable> signaturesBeingAdded = new ArrayList<>();
         signaturesBeingAdded.addAll(roots);
         signaturesBeingAdded.addAll(leaves);
 
-        for (Dependent dependent : signaturesBeingAdded)
-            if (!signature.addSignature(dependent))
-                return new ArrayList<>();
+        for (Powerable powerable : signaturesBeingAdded)
+            if (!signature.addSignature(powerable))
+                return new Map<>();
 
         PowerValue powerValue = PowerValue.UNDETERMINED;
         // Data bit multi dependency check
@@ -159,6 +162,12 @@ public class DependencyTree {
             }
         }
 
+
+
+     /*   for (InputNode in : leaves)
+            if (in.getPowerValue() == PowerValue.DONE_ACTIVE)
+                in.setPowerValue(PowerValue.INACTIVE);*/ // NOT RLLY NECESSARY, BECAUSE POLL ONLY CARES ABT ACTIVE ANYWAYS. LEAVING THIS COMMENTED MEANS IT LOOKS PRETTIER
+
         if (powerValue == PowerValue.UNDETERMINED) {
             LinkedList<PowerValue> possibleValues = new LinkedList<>();
             for (OutputNode root : roots)
@@ -167,11 +176,17 @@ public class DependencyTree {
 
             powerValue = possibleValues.isEmpty() ? PowerValue.FLOATING : possibleValues.get(possibleValues.size() - 1);
         }
-        setPowerValue(powerValue);
 
-        ArrayList<DependencyTree> toUpdate = new ArrayList<>();
-        leaves.forEach(inputNode -> toUpdate.addAll(inputNode.getNextTreesToUpdate(signature.copy())));
-        return toUpdate;
+        if (powerValue == PowerValue.ON && causesHighTriggering)
+            powerValue = PowerValue.ACTIVE;
+        setPowerValue(powerValue);
+        return getEntitiesToPollNext();
+    }
+
+    public Map<ConnectibleEntity, FlowSignature> getEntitiesToPollNext() {
+        Map<ConnectibleEntity, FlowSignature> toPoll = new Map<>();
+        leaves.forEach(inputNode -> toPoll.put(inputNode.getParent(), signature));
+        return toPoll;
     }
 
     public void setPowerValue(PowerValue val) {

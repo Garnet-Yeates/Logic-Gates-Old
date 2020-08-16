@@ -24,11 +24,11 @@ public abstract class ConnectibleEntity extends Entity {
         super(c);
     }
 
-    public void updateTree() {
+    public void updateTreesNearMe() {
         if (this instanceof Wire)
-            ((Wire) this).treeUpdate();
-        getInputNodes().forEach(Dependent::treeUpdate);
-        getOutputNodes().forEach(Dependent::treeUpdate);
+            ((Wire) this).updateTreesAroundMe();
+        getInputNodes().forEach(Powerable::updateTreesAroundMe);
+        getOutputNodes().forEach(Powerable::updateTreesAroundMe);
     }
 
     public ArrayList<DependencyTree> pollOutputs() {
@@ -39,13 +39,24 @@ public abstract class ConnectibleEntity extends Entity {
      * Returns the dependencytrees that need to be updated
      */
     public ArrayList<DependencyTree> pollOutputs(FlowSignature flowSignature) {
+        System.out.println("poll outputs called on " + this.toParsableString());
         ArrayList<DependencyTree> needUpdating = new ArrayList<>();
+        for (InputNode in : getInputNodes()) {
+            if (in.getPowerValue() == PowerValue.DONE_ACTIVE) {
+                in.setPowerValue(PowerValue.INACTIVE);
+                Powerable.setPowerValuesAround(in, PowerValue.INACTIVE, false, true);
+            }
+        }
         for (OutputNode out : getOutputNodes()) {
             PowerValue before = out.getPowerValue();
             PowerValue after = getLocalPowerStateOf(out);
             if (!before.equals(after) && (before != PowerValue.SELF_DEPENDENT || !flowSignature.isErrorOrigin()) )
                 needUpdating.addAll(out.getTreesAroundMe(flowSignature));
         }
+        for (InputNode in : getInputNodes())
+            if (in.getPowerValue() == PowerValue.ACTIVE) {
+                in.setPowerValue(PowerValue.DONE_ACTIVE);
+            }
         return needUpdating;
     }
 

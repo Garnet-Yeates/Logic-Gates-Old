@@ -1186,7 +1186,7 @@ public class Circuit implements PropertyMutable {
 
         @Override
         public void operate() {
-            System.out.println(this.getClass().getSimpleName() + " .operate on " + selecting);
+    //        System.out.println(this.getClass().getSimpleName() + " .operate on " + selecting);
             PieceList<Entity> ops = getOperandsOnCircuit(selecting, SelectiveFocus.NON_SELECTED);
             ops.forEach(Entity::select);
             enableTransforms();
@@ -1212,7 +1212,7 @@ public class Circuit implements PropertyMutable {
 
         @Override
         public void operate() {
-            System.out.println(this.getClass().getSimpleName() + " .operate on " + deselecting.toParsableString());
+ //           System.out.println(this.getClass().getSimpleName() + " .operate on " + deselecting.toParsableString());
             PieceList<Entity> ops = getOperandsOnCircuit(deselecting, SELECTED);
             for (Entity e : ops)
                 e.deselect();
@@ -1440,10 +1440,7 @@ public class Circuit implements PropertyMutable {
 
         @Override
         public void operate() {
-            System.out.println(this.getClass().getSimpleName() + " .operate on " + adding.toParsableString());
-
-            //          System.out.println(this.getClass().getSimpleName() + " OPERATE ");
-   //         System.out.println(adding);
+  //          System.out.println(this.getClass().getSimpleName() + " .operate on " + adding.toParsableString());
             Entity parsed = Entity.parseEntity(Circuit.this, false, adding.toParsableString());
             if (parsed == null)
                 throw new NullPointerException();
@@ -1666,22 +1663,49 @@ public class Circuit implements PropertyMutable {
     }
 
 
-    private ArrayList<Dependent> markedDependents = new ArrayList<>();
+    private ArrayList<Powerable> markedPowerables = new ArrayList<>();
 
-    public void mark(Dependent marking) {
+    public void mark(Powerable marking) {
         marking.setMarked(true);
-        markedDependents.add(marking);
+        markedPowerables.add(marking);
     }
 
-    public void clearMarkedDependents() {
-        for (Dependent d : markedDependents)
+    public void clearMarkedPowerables() {
+        for (Powerable d : markedPowerables)
             d.setMarked(false);
-        markedDependents.clear();
+        markedPowerables.clear();
     }
 
     /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
-     * REFRESHING TRANSMISSIONS
+     * BUFFERING POWER RESETS
      * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+
+
+    private ArrayList<Powerable> powerUpdateBuffer = null;
+
+    public void enablePowerUpdateBuffer() {
+        powerUpdateBuffer = new ArrayList<>();
+    }
+
+    public void disableAndPollPowerUpdateBuffer() {
+        Powerable.updateTreesAroundMultiple(powerUpdateBuffer);
+        powerUpdateBuffer = null;
+    }
+
+    public boolean isBufferingPowerUpdates() {
+        return powerUpdateBuffer != null;
+    }
+
+    public void powerUpdate(ConnectibleEntity ce) {
+        if (isBufferingPowerUpdates()) {
+            if (ce instanceof Wire)
+                powerUpdateBuffer.add((Wire) ce);
+            powerUpdateBuffer.addAll(ce.getInputNodes());
+            powerUpdateBuffer.addAll(ce.getOutputNodes());
+        } else
+            ce.updateTreesNearMe();
+    }
 
 
     public void recalculateTransmissions() {}
