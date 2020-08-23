@@ -56,7 +56,7 @@ public class GateAND extends LogicGate {
     }
 
     public GateAND(CircuitPoint origin, int rotation) {
-        super(origin, rotation, Size.MEDIUM);
+        super(origin, rotation, Size.NORMAL);
     }
 
     public GateAND(CircuitPoint origin) {
@@ -94,23 +94,41 @@ public class GateAND extends LogicGate {
         RelativePointSet relatives = new RelativePointSet();
         Circuit c = getCircuit();
         // Origin (middle bot of curve (u shaped curve))
-        relatives.add(0, 0, c);             // 0
 
-        // Top left of curve
-        relatives.add(-2.49, -2.49, c);    //  1
-        // Bottom left of curve
-        relatives.add(-2.49, 0.8, c);      //  2
-        // Bottom right of curve
-        relatives.add(2.49, 0.8, c);       //  3
-        // Top right of curve
-        relatives.add(2.49, -2.49, c);     //  4
+        if (size == NORMAL) {
+            relatives.add(0, 0, c);             // 0
 
-        // Top right
-        relatives.add(2.49, -5, c);        //  5
-        // Top left
-        relatives.add(-2.49, -5, c);       //  6
+            // Top left of curve
+            relatives.add(-2.5, -2.5, c);    //  1
+            // Bottom left of curve
+            relatives.add(-2.5, 0.8, c);      //  2
+            // Bottom right of curve
+            relatives.add(2.5, 0.8, c);       //  3
+            // Top right of curve
+            relatives.add(2.5, -2.5, c);     //  4
 
-        relatives.add(0, -5, c); // Input Origin (index 7)
+            // Top right
+            relatives.add(2.5, -5, c);        //  5
+            // Top left
+            relatives.add(-2.5, -5, c);       //  6
+        } else {
+            relatives.add(0, 0, c);             // 0
+
+            // Top left of curve
+            relatives.add(-1.5, -1.5, c);    //  1
+            // Bottom left of curve
+            relatives.add(-1.5, 0.5, c);      //  2
+            // Bottom right of curve
+            relatives.add(1.5, 0.5, c);       //  3
+            // Top right of curve
+            relatives.add(1.5, -1.5, c);     //  4
+
+            // Top right
+            relatives.add(1.5, -3, c);        //  5
+            // Top left
+            relatives.add(-1.5, -3, c);       //  6
+        }
+
 
   //      relatives.add();
 
@@ -119,12 +137,13 @@ public class GateAND extends LogicGate {
 
     @Override
     public Vector getOriginToInputOrigin() {
-        return new Vector(0, -5);
+        return new Vector(0, size == NORMAL ? -5 : -3);
     }
 
     @Override
     public InputWing getRelativeMainInputWing() {
-        return new LineInputWing(new CircuitPoint(-2, -5, c), new CircuitPoint(2, -5, c));
+        RelativePointSet rps = getRelativePointSet();
+        return new LineInputWing(rps.get(5), rps.get(6));
     }
 
     @Override
@@ -194,14 +213,15 @@ public class GateAND extends LogicGate {
         PanelDrawPoint p1 = ps.get(1).toPanelDrawPoint();
         PanelDrawPoint p4 = ps.get(4).toPanelDrawPoint();
 
+        double itMult = size == Size.NORMAL ? 1 : 1;
+
         // Curve 7, 1, 2, 0, 3, 4, 8
-        BezierCurve curve = new BezierCurve(ps.get(1), ps.get(2), ps.get(3), ps.get(4));
+        BezierCurve curve = new BezierCurve(itMult, ps.get(1), ps.get(2), ps.get(3), ps.get(4));
         curve.draw(g, col, getLineWidth());
 
         // Line 8 to 5
         g.strokeLine(p4.x, p4.y, p5.x, p5.y);
-        // Line 5 to 6
-        g.strokeLine(p5.x, p5.y, p6.x, p6.y);
+
         // Line 6 to 1
         g.strokeLine(p6.x, p6.y, p1.x, p1.y);
 

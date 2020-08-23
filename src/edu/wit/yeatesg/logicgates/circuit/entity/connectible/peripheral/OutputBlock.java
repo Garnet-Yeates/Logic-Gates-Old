@@ -30,10 +30,9 @@ public class OutputBlock extends ConnectibleEntity implements Rotatable {
         drawPoints = getRelativePointSet().applyToOrigin(origin, rotation);
         boundingBox = new BoundingBox(drawPoints.get(2), drawPoints.get(4), this);
         interceptPoints = getBoundingBox().getInterceptPoints();
-        update();
         establishInputNode(drawPoints.get(0));
         in = (InputNode) getNodeAt(drawPoints.get(0));
-        postInit();
+        assignOutputsToInputs();
     }
 
     @Override
@@ -61,7 +60,7 @@ public class OutputBlock extends ConnectibleEntity implements Rotatable {
     }
 
     @Override
-    public boolean canPullPointGoHere(CircuitPoint gridSnap) {
+    public boolean isPullableLocation(CircuitPoint gridSnap) {
         return in.getLocation().equals(gridSnap);
     }
 
@@ -93,7 +92,7 @@ public class OutputBlock extends ConnectibleEntity implements Rotatable {
 
     @Override
     public BoundingBox getBoundingBox() {
-        return boundingBox;
+        return boundingBox.clone();
     }
 
     @Override
@@ -137,10 +136,6 @@ public class OutputBlock extends ConnectibleEntity implements Rotatable {
         LogicGates.drawText(text, getLineWidth()*0.5, c, g, strokeCol, centerPoint.getSimilar(), maxWidth*0.9);
     }
 
-
-    public double getLineWidth() {
-        return getCircuit().getLineWidth();
-    }
 
     @Override
     public CircuitPointList getInvalidInterceptPoints(Entity e) {

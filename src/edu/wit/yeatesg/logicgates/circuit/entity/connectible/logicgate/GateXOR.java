@@ -42,7 +42,7 @@ public class GateXOR extends LogicGate {
     }
 
     public GateXOR(CircuitPoint origin, int rotation) {
-        super(origin, rotation, Size.MEDIUM);
+        super(origin, rotation, Size.NORMAL);
     }
 
     public GateXOR(CircuitPoint origin) {
@@ -98,11 +98,20 @@ public class GateXOR extends LogicGate {
     @Override
     public RelativePointSet getRelativePointSet() {
         Rotatable.RelativePointSet ps = new Rotatable.RelativePointSet();
-        ps.add(new CircuitPoint(0, 0, c)); // Out Node / Origin, 0
-        ps.add(new CircuitPoint(2.5, -5, c)); // Top right          1
-        ps.add(new CircuitPoint(-2.5, -5, c)); // Top left          2
-        ps.add(new CircuitPoint(-2.5, 0, c)); // Bot left          3
-        ps.add(new CircuitPoint(2.5, 0, c)); // Bot right         4
+        boolean medium = size == Size.NORMAL;
+        if (medium) {
+            ps.add(new CircuitPoint(0, 0, c)); // Out Node / Origin, 0
+            ps.add(new CircuitPoint(2.5, -5, c)); // Top right          1
+            ps.add(new CircuitPoint(-2.5, -5, c)); // Top left          2
+            ps.add(new CircuitPoint(-2.5, 0, c)); // Bot left          3
+            ps.add(new CircuitPoint(2.5, 0, c)); // Bot right         4
+        } else {
+            ps.add(new CircuitPoint(0, 0, c)); // Out Node / Origin, 0
+            ps.add(new CircuitPoint(1.5, -3, c)); // Top right          1
+            ps.add(new CircuitPoint(-1.5, -3, c)); // Top left          2
+            ps.add(new CircuitPoint(-1.5, 0, c)); // Bot left          3
+            ps.add(new CircuitPoint(1.5, 0, c)); // Bot right         4
+        }
 
         double yDist = ps.get(2).y - ps.get(3).y;
         double xDist = ps.get(0).x - ps.get(3).x;
@@ -132,8 +141,6 @@ public class GateXOR extends LogicGate {
 
         // Curve from 10 -> 11 -> 12 (XOR Gate)
 
-        // 10 is the input origin
-        ps.add(new CircuitPoint(0, -5, c));
         return ps;
     }
 
@@ -149,7 +156,7 @@ public class GateXOR extends LogicGate {
 
     @Override
     public Vector getOriginToInputOrigin() {
-        return new Vector(0, -6);
+        return new Vector(0, size == Size.NORMAL ? -6 : -4);
     }
 
 
@@ -158,10 +165,12 @@ public class GateXOR extends LogicGate {
         drawInputTails(g, col);
         g.setLineWidth(c.getLineWidth());
 
-        BezierCurve curve = new BezierCurve(drawPoints.get(2), drawPoints.get(5), drawPoints.get(0));
-        BezierCurve curve2 = new BezierCurve(drawPoints.get(1), drawPoints.get(6), drawPoints.get(0));
+        double itMult = size == Size.NORMAL ? 1 : 0.5;
 
-        BezierCurve backCurve = new BezierCurve(drawPoints.get(8), drawPoints.get(7), drawPoints.get(9));
+        BezierCurve curve = new BezierCurve(itMult, drawPoints.get(2), drawPoints.get(5), drawPoints.get(0));
+        BezierCurve curve2 = new BezierCurve(itMult, drawPoints.get(1), drawPoints.get(6), drawPoints.get(0));
+
+        BezierCurve backCurve = new BezierCurve(itMult, drawPoints.get(8), drawPoints.get(7), drawPoints.get(9));
 
         curve.draw(g, col, c.getLineWidth());
         curve2.draw(g, col, c.getLineWidth());

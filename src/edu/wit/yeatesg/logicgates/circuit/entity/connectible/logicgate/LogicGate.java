@@ -73,7 +73,7 @@ public abstract class LogicGate extends ConnectibleEntity implements Rotatable, 
     }
 
     public LogicGate(CircuitPoint origin, int rotation) {
-        this(origin, rotation, Size.MEDIUM);
+        this(origin, rotation, Size.NORMAL);
     }
 
     public LogicGate(CircuitPoint origin) {
@@ -104,7 +104,6 @@ public abstract class LogicGate extends ConnectibleEntity implements Rotatable, 
         return toParsableString() + " eid " + getEntityID();
     }
 
-    protected Size size;
     protected CircuitPoint origin;
     protected int rotation;
     protected BoundingBox boundingBox;
@@ -247,7 +246,7 @@ public abstract class LogicGate extends ConnectibleEntity implements Rotatable, 
 
         public CurveInputWing(CircuitPoint start, CircuitPoint controlPoint, CircuitPoint end) {
             super(start, controlPoint, end);
-            curve = new BezierCurve(start, controlPoint, end);
+            curve = new BezierCurve(1, start, controlPoint, end);
         }
 
         @Override
@@ -306,10 +305,8 @@ public abstract class LogicGate extends ConnectibleEntity implements Rotatable, 
         switch (size) {
             case SMALL:
                 return 3;
-            case MEDIUM:
+            case NORMAL:
                 return 5;
-            case LARGE:
-                return 7;
         }
         return 0;
     }
@@ -400,11 +397,11 @@ public abstract class LogicGate extends ConnectibleEntity implements Rotatable, 
 
     @Override
     protected void assignOutputsToInputs() {
-        getInputNodes().forEach(inputNode -> out.addInputThatAffectsMe(inputNode));
+        getInputNodes().forEach(inputNode -> out.assignToInput(inputNode));
     }
 
     @Override
-    public boolean canPullPointGoHere(CircuitPoint gridSnap) {
+    public boolean isPullableLocation(CircuitPoint gridSnap) {
         return hasNodeAt(gridSnap);
     }
 
@@ -445,6 +442,7 @@ public abstract class LogicGate extends ConnectibleEntity implements Rotatable, 
         PropertyList propList = new PropertyList(this, c);
         propList.add(new Property("Facing", Direction.cardinalFromRotation(rotation), "NORTH", "SOUTH", "EAST", "WEST"));
         propList.add(new Property("Num Inputs", numInputs + "", Property.possibleNumInputs));
+        propList.add(new Property("Size", size.toString(), Property.possibleSizes ));
         propList.add(new Property("Data Bits", dataBits + "", Property.possibleDataBits ));
         propList.add(new Property("Output Type", outputType.getSimpleString() + "", Property.possibleOutTypes ));
         return propList;
@@ -469,17 +467,21 @@ public abstract class LogicGate extends ConnectibleEntity implements Rotatable, 
             rotation = Direction.rotationFromCardinal(newVal);
             reconstruct();
         }
-        if (propertyName.equalsIgnoreCase("num inputs")) {
+        else if (propertyName.equalsIgnoreCase("num inputs")) {
             inNots.clear();
             numInputs = Integer.parseInt(newVal);
             reconstruct();
         }
-        if (propertyName.equalsIgnoreCase("data bits")) {
+        else if (propertyName.equalsIgnoreCase("data bits")) {
             dataBits = Integer.parseInt(newVal);
             reconstruct();
         }
-        if (propertyName.equalsIgnoreCase("output type")) {
+        else if (propertyName.equalsIgnoreCase("output type")) {
             outputType = OutputType.parse(newVal);
+            reconstruct();
+        }
+        else if (propertyName.equalsIgnoreCase("size")) {
+            size = Size.fromString(newVal);
             reconstruct();
         }
     }
@@ -494,6 +496,8 @@ public abstract class LogicGate extends ConnectibleEntity implements Rotatable, 
             return dataBits + "";
         if (propertyName.equalsIgnoreCase("output type"))
             return outputType.getSimpleString();
+        if (propertyName.equalsIgnoreCase("size"))
+            return size.toString();
         return null;
     }
 
@@ -503,7 +507,8 @@ public abstract class LogicGate extends ConnectibleEntity implements Rotatable, 
         return propertyName.equalsIgnoreCase("facing")
                 || propertyName.equalsIgnoreCase("num inputs")
                 || propertyName.equalsIgnoreCase("data bits")
-                || propertyName.equalsIgnoreCase("output type");
+                || propertyName.equalsIgnoreCase("output type")
+                || propertyName.equalsIgnoreCase("size");
     }
 
 
@@ -514,6 +519,8 @@ public abstract class LogicGate extends ConnectibleEntity implements Rotatable, 
             throw new RuntimeException("Cannot connect these 2 entities");
         if (!hasNodeAt(atLocation))
             throw new RuntimeException("Can't connect to LogicGate here, no ConnectionNode at this CircuitPoint");
+        if (!(e instanceof Wire))
+            throw new RuntimeException("Can only connect to Wires");
         getNodeAt(atLocation).setConnectedTo(e);
         e.getConnections().add(new ConnectionNode(atLocation, e, this));
     }
@@ -538,19 +545,10 @@ public abstract class LogicGate extends ConnectibleEntity implements Rotatable, 
 
     @Override
     protected void connectCheck(ConnectibleEntity e) {
-        for (CircuitPoint nodeLoc : connections.getEmptyConnectionLocations()) {
-            if (canConnectTo(e, nodeLoc) && e.canConnectTo(this, nodeLoc)) {
+        for (CircuitPoint nodeLoc : connections.getEmptyConnectionLocations())
+            if (canConnectTo(e, nodeLoc) && e.canConnectTo(this, nodeLoc))
                 connect(e, nodeLoc);
-            }
-        }
-
     }
-
-    @Override
-    public double getLineWidth() {
-        return c.getLineWidth();
-    }
-
 
     public void drawInputTails(GraphicsContext g, Color col) {
         for (InputNode in : getInputNodes())

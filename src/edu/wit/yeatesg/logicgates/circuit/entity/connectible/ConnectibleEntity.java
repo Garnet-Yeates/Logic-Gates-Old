@@ -39,7 +39,6 @@ public abstract class ConnectibleEntity extends Entity {
      * Returns the dependencytrees that need to be updated
      */
     public ArrayList<DependencyTree> pollOutputs(FlowSignature flowSignature) {
-        System.out.println("poll outputs called on " + this.toParsableString());
         ArrayList<DependencyTree> needUpdating = new ArrayList<>();
         for (InputNode in : getInputNodes()) {
             if (in.getPowerValue() == PowerValue.DONE_ACTIVE) {
@@ -103,7 +102,7 @@ public abstract class ConnectibleEntity extends Entity {
 
     public abstract boolean canCreateWireFrom(CircuitPoint locationOnThisEntity);
 
-    public abstract boolean canPullPointGoHere(CircuitPoint gridSnap);
+    public abstract boolean isPullableLocation(CircuitPoint gridSnap);
 
     public abstract void disconnect(ConnectibleEntity e);
 

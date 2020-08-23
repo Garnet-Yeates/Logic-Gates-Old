@@ -95,7 +95,6 @@ public class PropertyList extends LinkedList<Property> {
                 for (PropertyMutable parent : parents)
                     parent.onPropertyChangeViaTable(prop.getPropertyName(), oldVal, newVal);
                 c.appendCurrentStateChanges("Change Property '" + propertyName + "' to " + newVal);
-                c.recalculateTransmissions(); // TODO maybe this is inefficient
                 c.repaint();
             });
         }

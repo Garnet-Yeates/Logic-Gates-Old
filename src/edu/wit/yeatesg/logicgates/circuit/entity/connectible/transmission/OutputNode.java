@@ -34,7 +34,7 @@ public class OutputNode extends ConnectionNode {
         return new ArrayList<>(inputsThatAffectMe);
     }
 
-    public void addInputThatAffectsMe(InputNode n) {
+    public void assignToInput(InputNode n) {
         inputsThatAffectMe.add(n);
     }
 
@@ -47,18 +47,15 @@ public class OutputNode extends ConnectionNode {
     }
 
     public ArrayList<PowerValue> getRelevantPowerValuesAffectingMe() {
-        System.out.println("get relevant power values affecting me called on " + this);
         ArrayList<PowerValue> powerValues = new ArrayList<>();
         for (InputNode thatAffectsMe : inputsThatAffectMe) {
             PowerValue powerVal = thatAffectsMe.getPowerValue();
 
-            if (powerVal == PowerValue.ACTIVE || powerVal == PowerValue.DONE_ACTIVE) {
-                System.out.println("ACTIVIA");
+            if (powerVal == PowerValue.ACTIVE || powerVal == PowerValue.DONE_ACTIVE)
                 powerVal = PowerValue.ON;
-            } else if (powerVal == PowerValue.INACTIVE)
+            else if (powerVal == PowerValue.INACTIVE)
                 powerVal = PowerValue.OFF;
 
-            System.out.println(powerVal);
 
             if (powerVal.isRelevantForCalculations())
                 powerValues.add(thatAffectsMe.isNegated ? powerVal.getNegated() : powerVal);

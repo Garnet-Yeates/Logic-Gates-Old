@@ -3,6 +3,8 @@ package edu.wit.yeatesg.logicgates.datatypes;
 import edu.wit.yeatesg.logicgates.circuit.Circuit;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
+import javafx.scene.paint.Paint;
+import javafx.scene.shape.Circle;
 
 public class BezierCurve {
 
@@ -18,9 +20,8 @@ public class BezierCurve {
             numIterations += 2;
      */
 
-    public static final int BASE_SIZE = 5; // i
 
-    public BezierCurve(CurvePolygon shape) {
+    public BezierCurve(CurvePolygon shape, double iterationMultiplier) {
         this.shape = shape;
         Circuit c = shape.points[0].getCircuit();
         CurvePolygon.Line longestLine = null;
@@ -29,7 +30,6 @@ public class BezierCurve {
                 longestLine = l;
         assert longestLine != null;
 
-        double circuitDistance = longestLine.getLength();
 
         int numIterations = 12;
         if (c.getScale() == 12)
@@ -38,6 +38,8 @@ public class BezierCurve {
             numIterations = 12;
         if (c.getScale() < 10)
             numIterations = 8;
+
+        numIterations = (int) Math.max(iterationMultiplier*numIterations, 5);
 
         points = new CircuitPoint[numIterations];
         double weightInc = 1.0 / (numIterations - 1);
@@ -48,12 +50,12 @@ public class BezierCurve {
         }
     }
 
-    public BezierCurve(Circuit c, double... circuitPoints) {
-        this(new CurvePolygon(c, circuitPoints));
+    public BezierCurve(Circuit c, double iterationMultiplier, double... circuitPoints) {
+        this(new CurvePolygon(c, circuitPoints), iterationMultiplier);
     }
 
-    public BezierCurve(CircuitPoint... points) {
-        this(new CurvePolygon(points));
+    public BezierCurve(double iterationMultiplier, CircuitPoint... points) {
+        this(new CurvePolygon(points), iterationMultiplier);
     }
 
     public void draw(GraphicsContext g, Color col, double lineWidth) {

@@ -1,6 +1,7 @@
 package edu.wit.yeatesg.logicgates.circuit.entity;
 
 import edu.wit.yeatesg.logicgates.circuit.Circuit;
+import edu.wit.yeatesg.logicgates.circuit.entity.connectible.logicgate.GateNOT;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.peripheral.OutputBlock;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.logicgate.GateAND;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.logicgate.GateOR;
@@ -139,7 +140,7 @@ public abstract class Entity implements PropertyMutable {
      */
     public void onAddToCircuit() {
         addInterceptEntries();
-        spreadUpdate();
+        update();
     }
 
     /**
@@ -429,6 +430,8 @@ public abstract class Entity implements PropertyMutable {
             return InputBlock.parse(s, c);
         else if (enityType.equalsIgnoreCase("OutputBlock"))
             return new OutputBlock(new CircuitPoint(fields[0], fields[1], c), Integer.parseInt(fields[2]));
+        else if (enityType.equalsIgnoreCase("GateNOT"))
+            return GateNOT.parse(s, c);
         return null;
     }
 
@@ -455,6 +458,12 @@ public abstract class Entity implements PropertyMutable {
                                                               boolean strictWithWires);
 
     public abstract String toParsableString();
+
+    public Size getSize() {
+        return size;
+    }
+
+    protected Size size;
 
     public static class InterceptPermit {
         public Entity entity;
@@ -521,23 +530,26 @@ public abstract class Entity implements PropertyMutable {
         draw(g, PREVIEW_COLOR, 1);
     }
 
-    public abstract double getLineWidth();
+    public double getLineWidth() {
+        return c.getLineWidth();
+    }
 
     public void duplicate() {
         getCloned(c);
     }
 
+    public static final Size SMALL = Size.SMALL;
+    public static final Size NORMAL = Size.NORMAL;
+
     public enum Size {
-        SMALL, MEDIUM, LARGE;
+        SMALL, NORMAL;
 
         public static Size fromString(String s) {
             switch (s.toUpperCase()) {
                 case "SMALL":
                     return SMALL;
-                case "MEDIUM":
-                    return MEDIUM;
-                case "LARGE":
-                    return LARGE;
+                case "NORMAL":
+                    return NORMAL;
                 default:
                     return null;
             }

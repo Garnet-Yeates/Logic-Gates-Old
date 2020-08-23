@@ -2,6 +2,7 @@ package edu.wit.yeatesg.logicgates.gui;
 
 import edu.wit.yeatesg.logicgates.circuit.entity.Entity;
 import edu.wit.yeatesg.logicgates.circuit.entity.PropertyList;
+import edu.wit.yeatesg.logicgates.circuit.entity.connectible.logicgate.GateNOT;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.peripheral.OutputBlock;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.logicgate.GateAND;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.logicgate.GateOR;
@@ -13,6 +14,7 @@ import edu.wit.yeatesg.logicgates.circuit.entity.connectible.peripheral.InputBlo
 import edu.wit.yeatesg.logicgates.datatypes.CircuitPoint;
 import javafx.application.Application;
 import javafx.application.Platform;
+import javafx.event.ActionEvent;
 import javafx.geometry.Insets;
 import javafx.geometry.Orientation;
 import javafx.scene.Scene;
@@ -33,7 +35,6 @@ import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 
 import java.io.File;
-import java.util.ArrayList;
 
 
 // Rename to LogicGates
@@ -42,13 +43,17 @@ public class MainGUI extends Application {
     private Stage stage;
     private Project currProject;
 
+    private boolean addDefaultEntities;
+
+
     public static void main(String[] args) {
         Platform.runLater(() -> {
-            new MainGUI(new Stage(), null);
+            new MainGUI(new Stage(), null, true);
         });
     }
 
-    public MainGUI(Stage stage, Project project) {
+    public MainGUI(Stage stage, Project project, boolean addDefaultEntities) {
+        this.addDefaultEntities = addDefaultEntities;
         start(stage);
         initGUI();
         Project p = project;
@@ -62,9 +67,7 @@ public class MainGUI extends Application {
         fileChooser.setTitle(open ? "Open Project" : "Save Project To");
         fileChooser.setInitialDirectory(new File(System.getProperty("user.home")));
         fileChooser.getExtensionFilters().addAll(new FileChooser.ExtensionFilter("Circuit", "*.cxml"));
-
-        File f =  fileChooser.showOpenDialog(stage);
-        return f;
+        return open ? fileChooser.showOpenDialog(stage) : fileChooser.showSaveDialog(stage);
     }
 
     @Override
@@ -72,7 +75,13 @@ public class MainGUI extends Application {
         this.stage = stage;
     }
 
-    public void onMenuOpenPress() {
+    private void onMenuSavePress(ActionEvent e, boolean saveAs) {
+        if (saveAs)
+            currProject.toFile(getFileFromFileDialog(stage, false));
+
+    }
+
+    public void onMenuOpenPress(ActionEvent ev) {
         File f = getFileFromFileDialog(stage, true);
         Project proj;
         try {
@@ -82,10 +91,11 @@ public class MainGUI extends Application {
                 // TODO ask if they want to save
                 setCurrentProject(proj);
             });
-            yesNoGUI.setYesAction((e) -> Platform.runLater(() -> new MainGUI(new Stage(), proj)));
+            yesNoGUI.setYesAction((e) -> Platform.runLater(() -> new MainGUI(new Stage(), proj, false)));
             yesNoGUI.showAndWait();
         } catch (Project.LoadFailedException e) {
             // TODO show "Load Failed" dialog bs
+            e.printStackTrace();
             System.out.println(e.getMessage());
         }
     }
@@ -135,6 +145,11 @@ public class MainGUI extends Application {
 
         // Init Right Of Divider() -> <editorPanel>, editorInfoBox. The editorPanel isn't technically set until a project is set
         initRightOfDivider();
+
+        Scene scene = new Scene(mainBorderPane, 1250, 750, true, SceneAntialiasing.DISABLED);
+        stage.setScene(scene);
+        stage.setTitle("Logic Gates");
+        stage.show();
     }
 
     private void initMenuBar() {
@@ -149,13 +164,17 @@ public class MainGUI extends Application {
 
     private void initFileMenu() {
         fileMenu = new Menu("File");
-        MenuItem openMenuItem = new MenuItem("Open...     ");
-        openMenuItem.setOnAction((e) -> {
-            Platform.runLater(this::onMenuOpenPress);
-        });
+        MenuItem openMenuItem = new MenuItem("Open Project\n");
+        openMenuItem.setOnAction(this::onMenuOpenPress);
         fileMenu.getItems().add(openMenuItem);
+        MenuItem saveMenuItem = new MenuItem("Save Project As...");
+        saveMenuItem.setOnAction((e) -> onMenuSavePress(e, true));
+        fileMenu.getItems().add(saveMenuItem);
         menuBar.getMenus().add(fileMenu);
+
+
     }
+
 
     private Menu editMenu;
     private MenuItem undoMenuItem;
@@ -193,7 +212,7 @@ public class MainGUI extends Application {
         undoMenuItem.setAccelerator(new KeyCodeCombination(KeyCode.Z, KeyCombination.CONTROL_DOWN));
         editMenu.getItems().add(undoMenuItem);
         undoMenuItem.setOnAction((e) ->  {
-            editorPanel.undo(true);
+            editorPanel.userCTRLZ(false);
         });
             // TODO CALL UNDO FUNCTION
 
@@ -201,21 +220,21 @@ public class MainGUI extends Application {
         megaUndoMenuItem.setAccelerator(new KeyCodeCombination(KeyCode.Z, KeyCombination.CONTROL_DOWN, KeyCombination.SHIFT_DOWN));
         editMenu.getItems().add(megaUndoMenuItem);
         megaUndoMenuItem.setOnAction((e) -> {
-            editorPanel.megaUndo(true);
+            editorPanel.userCTRLZ(true);
         });
 
         redoMenuItem = new MenuItem("Redo  ");
         redoMenuItem.setAccelerator(new KeyCodeCombination(KeyCode.Y, KeyCombination.CONTROL_DOWN));
         editMenu.getItems().add(redoMenuItem);
         redoMenuItem.setOnAction((e) -> {
-            editorPanel.redo(true);
+            editorPanel.userCTRLY(false);
         });
 
         megaRedoMenuItem = new MenuItem("Mega Redo  ");
         megaRedoMenuItem.setAccelerator(new KeyCodeCombination(KeyCode.Y, KeyCombination.CONTROL_DOWN, KeyCombination.SHIFT_DOWN));
         editMenu.getItems().add(megaRedoMenuItem);
         megaRedoMenuItem.setOnAction((e) -> {
-            editorPanel.megaRedo(true);
+            editorPanel.userCTRLY(true);
         });
 
 
@@ -326,11 +345,6 @@ public class MainGUI extends Application {
 
         rightOfDivider.setCenter(editorPanel);
 
-        Scene scene = new Scene(mainBorderPane, 1250, 750, true, SceneAntialiasing.DISABLED);
-        stage.setScene(scene);
-        stage.setTitle("Logic Gates");
-        stage.show();
-
         setPropertyTable(editorPanel.c());
 
         stage.setMinHeight(menuBar.getMinHeight() + EDITOR_MIN_SIZE + 125);
@@ -353,59 +367,23 @@ public class MainGUI extends Application {
     public void postSetProj() {
         editorPanel.repaint(currProject.getCurrentCircuit());
         Circuit c = currProject.getCurrentCircuit();
+        if (addDefaultEntities) {
+            addDefaultEntities = false;
 
-        ArrayList<Integer> negates = new ArrayList<>();
-        negates.add(0);
-        negates.add(2);
-        negates.add(4);
+            c.addEntity(new GateAND(new CircuitPoint(0, 5, c), 0, Entity.Size.NORMAL, 5));
 
-        
-        
+            c.addEntity(new GateXOR(new CircuitPoint(17, 5, c), 0, Entity.Size.NORMAL, 5));
 
-        c.addEntity(new GateAND(new CircuitPoint(0, 05, c), 0, Entity.Size.MEDIUM, 5));
-        c.addEntity(new GateAND(new CircuitPoint(0, 12, c), 0, Entity.Size.MEDIUM, 7));
-        c.addEntity(new GateAND(new CircuitPoint(0, 19, c), 0, Entity.Size.MEDIUM, 9));
-        c.addEntity(new GateAND(new CircuitPoint(0, 26, c), 0, Entity.Size.MEDIUM, 11));
-        c.addEntity(new GateAND(new CircuitPoint(0, 33, c), 0, Entity.Size.MEDIUM, 13));
-        c.addEntity(new GateAND(new CircuitPoint(0, 40, c), 0, Entity.Size.MEDIUM, 15));
-        c.addEntity(new GateAND(new CircuitPoint(0, 47, c), 0, Entity.Size.MEDIUM, 17));
-        c.addEntity(new GateAND(new CircuitPoint(0, 54, c), 0, Entity.Size.MEDIUM, 19));
-        c.addEntity(new GateAND(new CircuitPoint(0, 61, c), 0, Entity.Size.MEDIUM, 21));
-        c.addEntity(new GateAND(new CircuitPoint(0, 68, c), 0, Entity.Size.MEDIUM, 23));
+            c.addEntity(new GateOR(new CircuitPoint(34, 5, c), 0, Entity.Size.NORMAL, 5));
+            c.addEntity(new GateOR(new CircuitPoint(40, 5, c), 0, Entity.Size.SMALL, 3));
+            c.addEntity(new GateXOR(new CircuitPoint(44, 5, c), 0, Entity.Size.SMALL, 3));
+            c.addEntity(new GateAND(new CircuitPoint(48, 5, c), 0, Entity.Size.SMALL, 3));
 
-        
-        c.addEntity(new GateXOR(new CircuitPoint(17, 05, c), 0, Entity.Size.MEDIUM, 5));
-        c.addEntity(new GateXOR(new CircuitPoint(17, 12, c), 0, Entity.Size.MEDIUM, 7));
-        c.addEntity(new GateXOR(new CircuitPoint(17, 19, c), 0, Entity.Size.MEDIUM, 9));
-        c.addEntity(new GateXOR(new CircuitPoint(17, 26, c), 0, Entity.Size.MEDIUM, 11));
-        c.addEntity(new GateXOR(new CircuitPoint(17, 33, c), 0, Entity.Size.MEDIUM, 13));
-        c.addEntity(new GateXOR(new CircuitPoint(17, 40, c), 0, Entity.Size.MEDIUM, 15));
-        c.addEntity(new GateXOR(new CircuitPoint(17, 47, c), 0, Entity.Size.MEDIUM, 17));
-        c.addEntity(new GateXOR(new CircuitPoint(17, 54, c), 0, Entity.Size.MEDIUM, 19));
-        c.addEntity(new GateXOR(new CircuitPoint(17, 61, c), 0, Entity.Size.MEDIUM, 21));
-        c.addEntity(new GateXOR(new CircuitPoint(17, 68, c), 0, Entity.Size.MEDIUM, 23));
-        c.addEntity(new GateXOR(new CircuitPoint(17, 75, c), 0, Entity.Size.MEDIUM, 25));
-        c.addEntity(new GateXOR(new CircuitPoint(17, 82, c), 0, Entity.Size.MEDIUM, 27));
-        c.addEntity(new GateXOR(new CircuitPoint(17, 89, c), 0, Entity.Size.MEDIUM, 29));
-        c.addEntity(new GateXOR(new CircuitPoint(17, 96, c), 0, Entity.Size.MEDIUM, 31));
+            c.addEntity(new OutputBlock(new CircuitPoint(-2, -5, c), 0));
+            c.addEntity(new InputBlock(new CircuitPoint(2, -5, c), 0));
 
-
-        c.addEntity(new GateOR(new CircuitPoint(34, 05, c), 0, Entity.Size.MEDIUM, 5));
-        c.addEntity(new GateOR(new CircuitPoint(34, 12, c), 0, Entity.Size.MEDIUM, 7));
-        c.addEntity(new GateOR(new CircuitPoint(34, 19, c), 0, Entity.Size.MEDIUM, 9));
-        c.addEntity(new GateOR(new CircuitPoint(34, 26, c), 0, Entity.Size.MEDIUM, 11));
-        c.addEntity(new GateOR(new CircuitPoint(34, 33, c), 0, Entity.Size.MEDIUM, 13));
-        c.addEntity(new GateOR(new CircuitPoint(34, 40, c), 0, Entity.Size.MEDIUM, 15));
-        c.addEntity(new GateOR(new CircuitPoint(34, 47, c), 0, Entity.Size.MEDIUM, 17));
-        c.addEntity(new GateOR(new CircuitPoint(34, 54, c), 0, Entity.Size.MEDIUM, 19));
-        c.addEntity(new GateOR(new CircuitPoint(34, 61, c), 0, Entity.Size.MEDIUM, 21));
-        c.addEntity(new GateOR(new CircuitPoint(34, 68, c), 0, Entity.Size.MEDIUM, 23));
-        c.addEntity(new GateOR(new CircuitPoint(34, 75, c), 0, Entity.Size.MEDIUM, 33));
-
-
-        c.addEntity(new OutputBlock(new CircuitPoint(-2, -5, c), 0));
-        c.addEntity(new InputBlock(new CircuitPoint(2, -5, c), 0));
-
+            c.addEntity(new GateNOT(new CircuitPoint(2, -10, c), 0));
+        }
 
         
 

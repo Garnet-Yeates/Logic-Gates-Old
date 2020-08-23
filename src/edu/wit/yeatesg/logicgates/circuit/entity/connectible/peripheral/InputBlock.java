@@ -76,7 +76,7 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
     }
 
     @Override
-    public boolean canPullPointGoHere(CircuitPoint gridSnap) {
+    public boolean isPullableLocation(CircuitPoint gridSnap) {
         return out.getLocation().equals(gridSnap);
     }
 
@@ -159,10 +159,6 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
 
     }
 
-
-    public double getLineWidth() {
-        return getCircuit().getLineWidth();
-    }
 
     @Override
     public CircuitPointList getInvalidInterceptPoints(Entity e) {

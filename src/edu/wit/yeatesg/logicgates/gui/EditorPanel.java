@@ -79,11 +79,15 @@ public class EditorPanel extends Pane {
         KeyCode co = event.getCode();
         Circuit c = c();
         Circuit.Selection currSelection = c.currentSelectionReference();
+        c.enablePowerUpdateBuffer();
         if (co == S // Displays whats in selection
                 || co == R // Rotates selection
                 || co == LEFT || co == RIGHT || co == DOWN || co == UP  // Moves selection
                 || co == D && event.isControlDown() // Duplicates selection
-                || co == ESCAPE) { // Deselects
+                || co == ESCAPE // Deselects / Cancels selection move / entities at cursor
+                || co.isDigitKey()
+                || co == MINUS && !event.isControlDown()
+                || co == EQUALS && !event.isControlDown()) {
             if (co == ESCAPE) {
                 if (placingAtCursor != null)
                     placingAtCursor.cancel();
@@ -96,7 +100,6 @@ public class EditorPanel extends Pane {
                     }
                 }
             } else if (placingAtCursor == null && !movingSelection && !currSelection.isEmpty()) { // If we have entities on the cursor, don't do any of this below
-
                 if (co == S) {
                     System.out.println("SELECTION:");
                     for (Entity en : currSelection)
@@ -105,7 +108,6 @@ public class EditorPanel extends Pane {
                 else if (co == R) {
                     for (Entity selected : currSelection.clone()) {
                         if (selected.hasProperty("facing")) {
-                            System.out.println(selected.getPropertyValue("facing"));
                             int rotation = Direction.rotationFromCardinal(selected.getPropertyValue("facing"));
                             int nextRotation = Integer.parseInt(Rotatable.getNextRotation(rotation) + "");
                             c.new PropertyChangeOperation(selected, "facing", Direction.cardinalFromRotation(nextRotation), true).operate();
@@ -118,12 +120,34 @@ public class EditorPanel extends Pane {
                     if ((vec = Vector.directionVectorFrom(co.getName())) != null)
                         userMoveSelection(vec, co.getName());
                 }
-                else /* if co == D and ctrl held */ {
+                else if (co == D && event.isControlDown()) {
                     duplicateSelection();
+                }
+                else if (co.isDigitKey()) {
+                    if (Integer.parseInt(co.getName()) >= 2)
+                        for (Entity selected : currSelection.clone())
+                            if (selected.hasProperty("num inputs"))
+                                c.new PropertyChangeOperation(selected, "num inputs", co.getName(), true).operate();
+                    c.appendCurrentStateChanges("Change Num Inputs Of " + currSelection.size() + " Entit" + (currSelection.size() == 1 ? "y" : "ies" ) + " to " + co.getName());
+
+                }
+                else if (co == MINUS) {
+                    for (Entity selected : currSelection.clone())
+                        if (selected.hasProperty("size") && selected.getSize() == Entity.NORMAL)
+                            c.new PropertyChangeOperation(selected, "size", "SMALL", true).operate();
+                    c.appendCurrentStateChanges("Size Down " + currSelection.size() + " Entit" + (currSelection.size() == 1 ? "y" : "ies" ));
+                } else if (co == EQUALS){
+                    for (Entity selected : currSelection.clone())
+                        if (selected.hasProperty("size") && selected.getSize() == Entity.SMALL)
+                            c.new PropertyChangeOperation(selected, "size", "NORMAL", true).operate();
+                    c.appendCurrentStateChanges("Size Up " + currSelection.size() + " Entit" + (currSelection.size() == 1 ? "y" : "ies" ));
+
                 }
 
             }
         }
+        c.disableAndPollPowerUpdateBuffer();
+        currSelection.selectionUpdate();
     }
 
 
@@ -159,16 +183,10 @@ public class EditorPanel extends Pane {
             c.bridgeWires(circuitPointAtMouse(true));
         }
         if (e.isControlDown() && e.getCode() == Z) {
-            if (e.isShiftDown())
-                megaUndo(true);
-            else
-                undo(true);
+            userCTRLZ(e.isShiftDown());
         }
         if (e.isControlDown() && e.getCode() == Y ) {
-            if (e.isShiftDown())
-                megaRedo(true);
-            else
-                redo(true);
+            userCTRLY(e.isShiftDown());
         }
 
         if (e.isControlDown() && (code == EQUALS || code == MINUS)) {
@@ -232,9 +250,29 @@ public class EditorPanel extends Pane {
         }
         e.consume();
         repaint(c());
-        if (code != SPACE)
-            c.recalculateTransmissions();
-        currSelection.updateConnectionView();
+        c.selectionTableUpdate();
+    }
+
+    public void userCTRLY(boolean shiftDown) {
+        Circuit c = c();
+        c.enablePowerUpdateBuffer();
+        if (shiftDown)
+            megaRedo(true);
+        else
+            redo(true);
+        c.disableAndPollPowerUpdateBuffer();
+        c.selectionTableUpdate();
+    }
+
+    public void userCTRLZ(boolean shiftDown) {
+        Circuit c = c();
+        c.enablePowerUpdateBuffer();
+        if (shiftDown)
+            megaUndo(true);
+        else
+            undo(true);
+        c.disableAndPollPowerUpdateBuffer();
+        c.selectionTableUpdate();
     }
 
     public void userMoveSelection(Vector vec, String dir) {
@@ -335,8 +373,11 @@ public class EditorPanel extends Pane {
             // Normal Left Click Processing
             pressPointGrid = circuitPointAtMouse(true);
             pressedOnSelectedEntity = currSelection.intercepts(panelDrawPointAtMouse());
-            if (placingAtCursor != null)
+            if (placingAtCursor != null) {
+                c.enablePowerUpdateBuffer();
                 placingAtCursor.place(circuitPointAtMouse(true));
+                c.disableAndPollPowerUpdateBuffer();
+            }
             else
                 determineSelecting();
             repaint(c());
@@ -347,8 +388,7 @@ public class EditorPanel extends Pane {
             if (currentPullPoint != null)
                 currentPullPoint.dropAndRestart();
         }
-        c.recalculateTransmissions();
-        currSelection.updateConnectionView();
+        c.selectionTableUpdate();
         repaint(c());
 
     }
@@ -712,6 +752,7 @@ public class EditorPanel extends Pane {
                 undoMsg = desMsg + " and " + selMsg;
             c().appendCurrentStateChanges(undoMsg);
         }
+        c.selectionTableUpdate();
    }
 
     public class SelectionBox extends BoundingBox {
@@ -813,8 +854,10 @@ public class EditorPanel extends Pane {
     }
 
     public void onReleaseSelectionBox() {
+        c().enablePowerUpdateBuffer();
         currSelectionBox.selectEntities();
         currSelectionBox = null;
+        c().disableAndPollPowerUpdateBuffer();
     }
 
     private void determineSelectingMouseRelease() {
@@ -825,8 +868,11 @@ public class EditorPanel extends Pane {
                 determineSelecting();
             }
         }
-        if (movingSelection)
+        if (movingSelection) {
+            c.enablePowerUpdateBuffer();
             onStopMovingSelection();
+            c.disableAndPollPowerUpdateBuffer();
+        }
         else
             cancelMovingSelection(); // Reset fields such as movingSelectionStartPoint etc
     }
@@ -869,6 +915,7 @@ public class EditorPanel extends Pane {
 
 
     public void repaint(Circuit calledFrom) {
+
         if (calledFrom != null && calledFrom.getCircuitName().contains("theoretical"))
             return;
         Project p = currProject;
@@ -876,7 +923,10 @@ public class EditorPanel extends Pane {
         Circuit.Selection currSelection = c.currentSelectionReference();
         Circuit.ConnectionSelection currConnectionView = c.currentConnectionViewReference();
 
+
         Platform.runLater(() -> {
+
+
             double width = canvasWidth();
             double height = canvasHeight();
             GraphicsContext gc = canvas.getGraphicsContext2D();
@@ -899,11 +949,9 @@ public class EditorPanel extends Pane {
             gc.strokeLine(tl.x, tl.y, tr.x, tr.y); // Top left to top right
             gc.strokeLine(tr.x, tr.y, br.x, br.y); // Top right to bottom right
             gc.strokeLine(bl.x, bl.y, br.x, br.y); // Bottom left to bottom right
-
             gc.setStroke(Color.PINK);
             gc.setLineWidth(3);
             //      gc.strokeRect(0, 0, canvasWidth(), canvasHeight());
-
 
             if (drawGridPoints)
                 drawGridPoints(gc);
@@ -932,7 +980,7 @@ public class EditorPanel extends Pane {
                     if (getScreenBoundaries().simpleTouches(e))
                         e.draw(gc);
                 } else if (getScreenBoundaries().touches(e))
-                        e.draw(gc);
+                    e.draw(gc);
 
             }
 
@@ -955,8 +1003,7 @@ public class EditorPanel extends Pane {
                     e.draw(gc);
                 for (Entity e : currSelection)
                     e.getBoundingBox().draw(gc);
-            }
-            else {
+            } else {
                 for (Entity e : movingSelectionPreviewEntities) {
                     e.drawPreview(gc);
                     for (CircuitPoint invalidPoint : e.getInvalidInterceptPoints()) {
@@ -972,7 +1019,6 @@ public class EditorPanel extends Pane {
 
             if (fuckedDrawState == 1 && lastFuckedUpOperand != null)
                 lastFuckedUpOperand.draw(gc, Color.PINK, 0.75);
-
         });
     }
 
@@ -1056,7 +1102,6 @@ public class EditorPanel extends Pane {
 
         public void setPowerStatuses() {
             String stateString = states[stateIndex];
-            System.out.println("CURR STATE STRING: " + stateString);
             for (InputBlock poking : poking) {
                 if (poking.getPowerBoolean())
                     poking.onPoke();
@@ -1096,7 +1141,7 @@ public class EditorPanel extends Pane {
         if (canUserShiftState && ppStateShift == 0)
             shifted = c().stateController().goRight();
         if (shifted && updateAfter)
-                postStateChangeUpdate();
+            postStateChangeUpdate();
         return shifted;
     }
 
@@ -1170,7 +1215,7 @@ public class EditorPanel extends Pane {
 
         public boolean canBePlacedHere(CircuitPoint location) {
             for (ConnectibleEntity ce : c().getAllEntitiesOfType(ConnectibleEntity.class))
-                if (ce.canPullPointGoHere(location))
+                if (ce.isPullableLocation(location))
                     return true;
             return false;
         }
@@ -1217,7 +1262,6 @@ public class EditorPanel extends Pane {
                     // TODO replace with c.deleteWithStateOperation
                 } else {
                    c.removeSimilarEntityAndTrackOperation(new Wire(start.clone(), end.clone()));
-                   System.out.println("SHORT");
                    undoMsg = "Shorten Wire";
                 }
             } else {

@@ -225,4 +225,6 @@ public class BoundingBox {
     public boolean isInMapRange() {
         return p1.isInMapRange() && p2.isInMapRange() && p3.isInMapRange() && p4.isInMapRange();
     }
+
+
 }

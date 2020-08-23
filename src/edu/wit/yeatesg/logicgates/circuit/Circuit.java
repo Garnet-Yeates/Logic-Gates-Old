@@ -20,6 +20,8 @@ import java.util.*;
 public class Circuit implements PropertyMutable {
 
     public Circuit(Project p, String circuitName) {
+        if (circuitName == null)
+            throw new RuntimeException();
         this.circuitName = circuitName;
         this.project = p;
         this.new InterceptMap();
@@ -543,6 +545,10 @@ public class Circuit implements PropertyMutable {
         getEditorPanel().repaint(this);
     }
 
+    public void selectionTableUpdate() {
+        currSelection.selectionUpdate();
+    }
+
     public class Selection extends ExactEntityList<Entity> {
 
         public Selection(Entity... entities) {
@@ -586,13 +592,11 @@ public class Circuit implements PropertyMutable {
             if (!entity.isSelected()) {
                 added = super.add(entity);
                 entity.onSelect();
-                entity.update();
-                onSelectionUpdate();
             }
             return added;
         }
 
-        public void onSelectionUpdate() {
+        public void selectionUpdate() {
             updateConnectionView();
             if (isEmpty())
                 project.getGUI().setPropertyTable(Circuit.this);
@@ -641,7 +645,6 @@ public class Circuit implements PropertyMutable {
             boolean removed = removeExact(e);
             if (removed) {
                 e.onDeselect();
-                onSelectionUpdate();
                 return true;
             }
             return false;
@@ -1093,20 +1096,6 @@ public class Circuit implements PropertyMutable {
      */
     public PieceList<Wire> buildWireFromCircuit(Wire building, SelectiveFocus focus) {
         PieceList<Wire> list = new PieceList<>();
-        building.edgeToEdgeIterator().forEachRemaining(circuitPoint -> {
-            boolean isEdgePoint = false;
-            EntityList<Wire> wiresInSameDir = circuitPoint.getInterceptingEntities().getWiresGoingInSameDirection(building);
-            for (Wire w : wiresInSameDir) {
-                if (w.isEdgePoint(circuitPoint)) {
-                    isEdgePoint = true;
-                    break;
-                }
-            }
-            if (isEdgePoint)
-                for (Wire w : wiresInSameDir)
-                    if (!w.isEdgePoint(circuitPoint))
-                        w.split(circuitPoint);
-        });
         for (CircuitPoint p : new CircuitPoint[] { building.getStartLocation(), building.getEndLocation()}) {
             o: for (Wire w : p.getInterceptingEntities().getWiresGoingInSameDirection(building)) {
                 if (!w.isEdgePoint(p)) {
@@ -1148,6 +1137,9 @@ public class Circuit implements PropertyMutable {
                                          Wire building,
                                          PieceList<Wire> currPieces,
                                          SelectiveFocus focus) {
+        for (Wire w : lefter.getInterceptingEntities().getWiresGoingInSameDirection(building))
+            if (!w.isEdgePoint(lefter))
+                w.split(lefter);
         if (building.getRighterEdgePoint().isSimilar(lefter)) {
             return currPieces;
         }
@@ -1293,7 +1285,6 @@ public class Circuit implements PropertyMutable {
         public void operate() {
             Entity operand = getOperandsOnCircuit(mainOperand, focus).get(0);
             EntityList<Entity> usedToIntercept = operand.getInterceptingEntities();
-            System.out.println("NEGATE OPERATION ON OPERAND: " + operand.toParsableString()); // TODO REM
             for (int negatedIndex : negatedIndices) {
                 if (input)
                     ((InputNegatable) operand).negateInput(negatedIndex);
@@ -1349,8 +1340,6 @@ public class Circuit implements PropertyMutable {
             }
             for (Entity e : shallow)
                 e.move(movement);
-            for (Entity e : shallow)
-                e.updateInvalidInterceptPoints();
             for (Entity e : shallow) {
                 e.enableUpdate();
                 if (e instanceof Wire)

@@ -41,7 +41,6 @@ public class Wire extends ConnectibleEntity implements Powerable {
         connections = new ConnectionList(this);
         boundingBox = new BoundingBox(startLocation, endLocation, this);
         edgeToEdgeIterator().forEachRemaining(intPoint -> interceptPoints.add(intPoint));
-        update();
         postInit();
     }
 
@@ -206,7 +205,7 @@ public class Wire extends ConnectibleEntity implements Powerable {
 
     @Override
     public BoundingBox getBoundingBox() {
-        return boundingBox;
+        return boundingBox.clone();
     }
 
     public Direction getDirection() {
@@ -257,21 +256,11 @@ public class Wire extends ConnectibleEntity implements Powerable {
         if (e instanceof Wire) {
             connections.add(new ConnectionNode(atLocation, this, e));
             ((Wire) e).connections.add(new ConnectionNode(atLocation, e, this));
-        } else if (e instanceof InputBlock) {
-            InputBlock block = (InputBlock) e;
+        } else {
             connections.add(new ConnectionNode(atLocation, this, e));
-            block.getNodeAt(atLocation).setConnectedTo(this);
+            e.getNodeAt(atLocation).setConnectedTo(this);
         }
-        else if (e instanceof OutputBlock) {
-            OutputBlock block = (OutputBlock) e;
-            connections.add(new ConnectionNode(atLocation, this, e));
-            block.getNodeAt(atLocation).setConnectedTo(this);
-        }
-        else if (e instanceof LogicGate) {
-            LogicGate gate = (LogicGate) e;
-            connections.add(new ConnectionNode(atLocation, this, e));
-            gate.getNodeAt(atLocation).setConnectedTo(this);
-        }
+
     }
 
     @Override
@@ -336,9 +325,6 @@ public class Wire extends ConnectibleEntity implements Powerable {
             if (other.getPointsExcludingEdgePoints().contains(edgePoint)
                     && other.getDirection() != getDirection()
                     && !c.isWireBridgeAt(edgePoint)) {// This means it is bisecting the wire
-                System.out.println("BISECT AT " + edgePoint.toParsableString());
-                System.out.println("  BISECTER: " + this.toParsableString());
-                System.out.println("  BISECTED: " + other.toParsableString());
                 CircuitPoint bisectPoint = edgePoint.getSimilar();
                 CircuitPoint otherOldStartLoc = other.getStartLocation();
                 blockBisect = true;
@@ -444,7 +430,7 @@ public class Wire extends ConnectibleEntity implements Powerable {
     // For the PullPoint inside of the Circuit class
 
     @Override
-    public boolean canPullPointGoHere(CircuitPoint gridSnap) {
+    public boolean isPullableLocation(CircuitPoint gridSnap) {
         return intercepts(gridSnap);
     }
 

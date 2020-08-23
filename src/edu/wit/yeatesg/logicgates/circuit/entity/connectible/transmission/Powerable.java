@@ -69,7 +69,6 @@ public interface Powerable {
 
     default void updateTreesAroundMe() {
         updateTreesByLevel(getTreesAroundMe());
-        System.out.println("UPDATE TREES CALLED ON " + this);
     }
 
     static void updateTreesAroundMultiple(ArrayList<Powerable> roots) {

@@ -3,19 +3,18 @@ package edu.wit.yeatesg.logicgates.gui;
 import edu.wit.yeatesg.logicgates.circuit.Circuit;
 import edu.wit.yeatesg.logicgates.circuit.entity.Entity;
 
-import javax.xml.stream.XMLEventReader;
-import javax.xml.stream.XMLInputFactory;
-import javax.xml.stream.XMLStreamConstants;
+import javax.xml.stream.*;
 import javax.xml.stream.events.*;
 import java.io.File;
 import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.ArrayList;
 
 public class Project {
 
     private ArrayList<Circuit> circuits = new ArrayList<>();
     private MainGUI gui;
-    private String name;
     private String path; // if !endsWith(name + ".lgp" throw)
     private Circuit currCircuit;
     private String projectName;
@@ -24,104 +23,111 @@ public class Project {
         this.projectName = projectName;
     }
 
+    public void toFile(File f) {
+        try {
+            XMLOutputFactory factory = XMLOutputFactory.newInstance();
+            XMLStreamWriter writer = factory.createXMLStreamWriter(new FileWriter(f));
+            writer.writeStartDocument();
+            writer.writeStartElement("project");
+            writer.writeAttribute("name", projectName);
+            for (Circuit c : circuits) {
+                writer.writeStartElement("circuit");
+                writer.writeAttribute("name", c.getCircuitName());
+                for (Entity e : c.getAllEntities()) {
+                    writer.writeStartElement("entity");
+                    writer.writeCharacters(e.toParsableString());
+                    writer.writeEndElement();;
+                }
+                writer.writeEndElement();
+            }
+            writer.writeEndElement();
+            writer.writeEndDocument();
+            writer.flush();
+            writer.close();
+
+        } catch (XMLStreamException | IOException e) {
+            e.printStackTrace();
+        }
+    }
+
     public static Project fromFile(File file) throws LoadFailedException {
-        Project project = new Project(null);
+        Project p = new Project(null);
+        p.path = file.getPath();
         try {
             XMLInputFactory factory = XMLInputFactory.newInstance();
             XMLEventReader eventReader =
                     factory.createXMLEventReader(new FileReader(file));
 
-            boolean addingToProject = false;
+            boolean project = false;
+            boolean parseEntity = false;
+            boolean circuit = false;
 
-            ArrayList<Entity> entityDefaults = new ArrayList<>();
-
-            boolean addingDefaults = false;
-            boolean addingEntitiesToCircuit = false;
-            boolean addingEntitiesToDefaults = false;
-            boolean readingEntityParse = false;
-
-            boolean addingCircuits = false;
-            Circuit circuitBeingAdded = null;
+            Circuit currCircuit = null;
 
             while (eventReader.hasNext()) {
                 try {
                     XMLEvent event = eventReader.nextEvent();
-
                     switch (event.getEventType()) {
                         case XMLStreamConstants.START_ELEMENT:
                             StartElement startElement = event.asStartElement();
                             String qName = startElement.getName().getLocalPart();
-                            if (qName.equalsIgnoreCase("project")) {
-                                addingToProject = true;
-                                startElement.getAttributes().forEachRemaining((at) -> {
-                                    if (at.getName().getLocalPart().equals("projectName"))
-                                        project.name = at.getValue();
-                                });
-                            }
-                            else if (addingToProject) {
-                                if (qName.equalsIgnoreCase("defaults"))
-                                    addingDefaults = true;
-                                else if (qName.equalsIgnoreCase("entities") && addingDefaults)
-                                    addingEntitiesToDefaults = true;
-                                else if (qName.equalsIgnoreCase("entities") && circuitBeingAdded != null)
-                                    addingEntitiesToCircuit = true;
-                                else if (qName.equalsIgnoreCase("circuits"))
-                                    addingCircuits = true;
-                                else if (qName.equalsIgnoreCase("entity"))
-                                    readingEntityParse = true;
-                                else if (qName.equalsIgnoreCase("circuit") && addingCircuits) {
-                                    StringBuilder circuitName = new StringBuilder();
+                            switch (qName) {
+                                case "project":
+                                    project = true;
                                     startElement.getAttributes().forEachRemaining((at) -> {
-                                        if (at.getName().getLocalPart().equals("circuitName"))
-                                            circuitName.append(at.getValue());
+                                        if (at.getName().getLocalPart().equals("name")) {
+                                            p.projectName = at.getValue();
+                                        }
                                     });
-                                    circuitBeingAdded = new Circuit(project, circuitName.toString());
-                                }
+                                    break;
+                                case "entity":
+                                    parseEntity = true;
+                                    break;
+                                case "circuit":
+                                    circuit = true;
+                                    ArrayList<Attribute> attributes = new ArrayList<>();
+                                    String circuitName = null;
+                                    startElement.getAttributes().forEachRemaining(attributes::add);
+                                    for (Attribute at : attributes) {
+                                        if (at.getName().getLocalPart().equalsIgnoreCase("name"))
+                                            circuitName = at.getValue();
+                                    }
+                                    currCircuit = new Circuit(p, circuitName);
+                                    break;
                             }
                             break;
-
                         case XMLStreamConstants.CHARACTERS:
-                            if (readingEntityParse /* || other cases where we need chars */) {
-                                Characters characters = event.asCharacters();
-                                if (addingEntitiesToDefaults)
-                                    ; // TODO implement later  entityDefaults.add(Entity.parseEntity(circuitBeingAdded, false, characters.getData()));
-                                else if (addingEntitiesToCircuit && circuitBeingAdded != null)
-                                    circuitBeingAdded.addEntity(Entity.parseEntity(circuitBeingAdded, true, characters.getData()));
-                            }
+                            Characters characters = event.asCharacters();
+                            if (project && circuit && parseEntity)
+                                currCircuit.addEntity(Entity.parseEntity(currCircuit, true, characters.getData()));
                             break;
-
                         case XMLStreamConstants.END_ELEMENT:
                             EndElement endElement = event.asEndElement();
                             String endElementName = endElement.getName().getLocalPart();
-                            if (endElementName.equalsIgnoreCase("project")) {
-                                addingToProject = false;
-                                // We are done
-                            } else if (endElementName.equalsIgnoreCase("defaults")) {
-                                project.setEntityDefaults(entityDefaults);
-                                addingDefaults = false;
-                            }
-                            else if (endElementName.equalsIgnoreCase("entities") && addingDefaults)
-                                addingEntitiesToDefaults = false;
-                            else if (endElementName.equalsIgnoreCase("entities") && circuitBeingAdded != null)
-                                addingEntitiesToCircuit = false;
-                            else if (endElementName.equalsIgnoreCase("entity"))
-                                readingEntityParse = false;
-                            else if (endElementName.equalsIgnoreCase("circuits")) {
-                                addingCircuits = false;
-                            } else if (endElementName.equalsIgnoreCase("circuit")) {
-                                project.addCircuit(circuitBeingAdded);
-                                circuitBeingAdded = null;
+                            switch (endElementName) {
+                                case "project":
+                                    project = false;
+                                    break;
+                                case "entity":
+                                    parseEntity = false;
+                                    break;
+                                case "circuit":
+                                    circuit = false;
+                                    currCircuit = null;
+                                    break;
                             }
                             break;
                     }
                 } catch (Exception e) {
+                    e.printStackTrace();
                     throw new LoadFailedException("Corrupt Circuit (.cxml) File");
                 }
             }
         } catch (Exception e) {
+            e.printStackTrace();
             throw new LoadFailedException("Invalid File");
         }
-        return project;
+        return p;
     }
 
     public static class LoadFailedException extends Exception {
@@ -130,8 +136,6 @@ public class Project {
         public String getMessage() { return message; }
     }
 
-    private void setEntityDefaults(ArrayList<Entity> entityDefaults) {
-    }
 
     public void setGUI(MainGUI gui) {
         this.gui = gui;
@@ -154,6 +158,8 @@ public class Project {
     }
 
     public void addCircuit(Circuit c) {
+        if (c == null)
+            throw new RuntimeException();
         if (!c.getCircuitName().contains("theoretical")) {
             for (Circuit other : getCircuits())
                 if (other.getCircuitName().equalsIgnoreCase(c.getCircuitName()))
