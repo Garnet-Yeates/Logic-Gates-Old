@@ -3,8 +3,11 @@ package edu.wit.yeatesg.logicgates.gui;
 import edu.wit.yeatesg.logicgates.circuit.Circuit;
 import edu.wit.yeatesg.logicgates.circuit.entity.Entity;
 
+import javax.swing.*;
 import javax.xml.stream.*;
 import javax.xml.stream.events.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
@@ -28,18 +31,23 @@ public class Project {
             XMLOutputFactory factory = XMLOutputFactory.newInstance();
             XMLStreamWriter writer = factory.createXMLStreamWriter(new FileWriter(f));
             writer.writeStartDocument();
+            writeLnTab(writer, 0);
             writer.writeStartElement("project");
             writer.writeAttribute("name", projectName);
+            writeLnTab(writer, 1);
             for (Circuit c : circuits) {
                 writer.writeStartElement("circuit");
                 writer.writeAttribute("name", c.getCircuitName());
                 for (Entity e : c.getAllEntities()) {
+                    writeLnTab(writer, 2);
                     writer.writeStartElement("entity");
                     writer.writeCharacters(e.toParsableString());
-                    writer.writeEndElement();;
+                    writer.writeEndElement();
                 }
+                writeLnTab(writer, 1);
                 writer.writeEndElement();
             }
+            writeLnTab(writer, 0);
             writer.writeEndElement();
             writer.writeEndDocument();
             writer.flush();
@@ -50,11 +58,19 @@ public class Project {
         }
     }
 
+    public void writeLnTab(XMLStreamWriter writer, int tabs) throws XMLStreamException {
+        StringBuilder tabString = new StringBuilder();
+        for (int i = 0; i < tabs; i++)
+            tabString.append("    ");
+        writer.writeCharacters("\n" + tabString + "");
+    }
+
     public static Project fromFile(File file) throws LoadFailedException {
         Project p = new Project(null);
         p.path = file.getPath();
         try {
             XMLInputFactory factory = XMLInputFactory.newInstance();
+            factory.setProperty(XMLInputFactory.IS_COALESCING, Boolean.TRUE);
             XMLEventReader eventReader =
                     factory.createXMLEventReader(new FileReader(file));
 
@@ -93,13 +109,19 @@ public class Project {
                                             circuitName = at.getValue();
                                     }
                                     currCircuit = new Circuit(p, circuitName);
+                                    currCircuit.disableUpdate();
+                                    currCircuit.enablePowerUpdateBuffer();
                                     break;
                             }
                             break;
                         case XMLStreamConstants.CHARACTERS:
                             Characters characters = event.asCharacters();
-                            if (project && circuit && parseEntity)
-                                currCircuit.addEntity(Entity.parseEntity(currCircuit, true, characters.getData()));
+                            System.out.println(characters.getData());
+                            if (project && circuit && parseEntity) {
+                                System.out.println("  parse " + characters.getData());
+                                    currCircuit.addEntity(Entity.parseEntity(currCircuit, true, characters.getData()));
+
+                            }
                             break;
                         case XMLStreamConstants.END_ELEMENT:
                             EndElement endElement = event.asEndElement();
@@ -113,6 +135,11 @@ public class Project {
                                     break;
                                 case "circuit":
                                     circuit = false;
+                                    if (currCircuit == null)
+                                        throw new RuntimeException();
+                                    currCircuit.enableUpdate();
+                                    currCircuit.getAllEntities().forEach(Entity::update);
+                                    currCircuit.disableAndPollPowerUpdateBuffer();
                                     currCircuit = null;
                                     break;
                             }

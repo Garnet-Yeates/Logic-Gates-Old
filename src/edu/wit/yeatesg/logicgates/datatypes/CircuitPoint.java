@@ -147,6 +147,10 @@ public class CircuitPoint {
         return x + "," + y;
     }
 
+    public CircuitPoint getChunkCoords() {
+        return new CircuitPoint((int) x < 0 ? Math.floor(x / Circuit.CHUNK_SIZE) : Math.ceil(x / Circuit.CHUNK_SIZE),
+                (int) y < 0 ? Math.floor(y / Circuit.CHUNK_SIZE) : Math.ceil(y / Circuit.CHUNK_SIZE), c);
+    }
 
 
 }

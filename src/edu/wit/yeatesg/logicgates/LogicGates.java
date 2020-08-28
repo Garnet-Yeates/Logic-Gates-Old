@@ -110,9 +110,19 @@ public class LogicGates {
         g.setLineWidth(lineWidth);
         g.setFont(f);
         g.setTextAlign(TextAlignment.LEFT);
-        g.fillText(text, pp.x + 0.45, pp.y);
 
-        pp.x -= width / 2;
+        double x = pp.x;
+        double y = pp.y;
+
+        if (c.getScale() == 7) {
+            x++;
+            y++;
+        }
+        if (c.getScale() == 6 || c.getScale() == 14 || c.getScale() == 16 || c.getScale() == 9)
+            x++;
+
+        g.fillText(text, x, y);
+
     }
 
 }

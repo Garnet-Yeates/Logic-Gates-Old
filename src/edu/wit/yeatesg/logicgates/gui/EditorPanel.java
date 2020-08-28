@@ -54,8 +54,8 @@ public class EditorPanel extends Pane {
     }
 
     public BoundingBox getScreenBoundaries() {
-        return new BoundingBox(new PanelDrawPoint(0, 0, c()).toCircuitPoint(),
-                new PanelDrawPoint(canvasWidth(), canvasHeight(), c()).toCircuitPoint(), null).getExpandedBy(17);
+        return new BoundingBox(new PanelDrawPoint(0, 0, c()).toCircuitPoint().getGridSnapped(),
+                new PanelDrawPoint(canvasWidth(), canvasHeight(), c()).toCircuitPoint().getGridSnapped(), null);
     }
 
     public void modifyOffset(Vector off) {
@@ -351,6 +351,7 @@ public class EditorPanel extends Pane {
     public void onMousePressed(MouseEvent e) {
         Circuit c = c();
         Circuit.Selection currSelection = c.currentSelectionReference();
+        CircuitPoint gridAtMouse = circuitPointAtMouse(true);
         canUserShiftState = false;
         gridSnapJustChanged = false;
         gridSnapChangedSinceLastPress = false;
@@ -358,6 +359,17 @@ public class EditorPanel extends Pane {
         updateMousePos(e);
         System.out.println("MOUSE PRESS: GRID SNAP CHANGE? " + gridSnapJustChanged);
         System.out.println(circuitPointAtMouse(true) + " AT MOUSE");
+        CircuitPoint chunkCoords = gridAtMouse.getChunkCoords();
+        int chunkX = (int) chunkCoords.x;
+        int chunkY = (int) chunkCoords.y;
+        System.out.println(chunkCoords + "CHUNK COORDS: " + chunkX + "," + chunkY);
+        System.out.println(c.getChunkAt(chunkX, chunkY) + " = getChunkAt(mouse)");
+        c.getChunkAt(circuitPointAtMouse(true)).forEach(ent -> System.out.println("  " + ent));
+
+        BoundingBox screenBox = getScreenBoundaries();
+        System.out.println("SCREEN TOP LEFT CP: " + screenBox.p1);
+        System.out.println("SCREEN BOT RIGHT CP: " + screenBox.p4);
+
         System.out.println("INTERCEPT MAP ENTRIES AT MOUSE: ");
         for (Entity ent : c().getInterceptMap().get(circuitPointAtMouse(true))) {
             System.out.println("  " + ent);
@@ -923,7 +935,6 @@ public class EditorPanel extends Pane {
         Circuit.Selection currSelection = c.currentSelectionReference();
         Circuit.ConnectionSelection currConnectionView = c.currentConnectionViewReference();
 
-
         Platform.runLater(() -> {
 
 
@@ -956,10 +967,15 @@ public class EditorPanel extends Pane {
             if (drawGridPoints)
                 drawGridPoints(gc);
 
+
+            BoundingBox screenBounds = getScreenBoundaries();
+            EntityList<Entity> drawing = new EntityList<>();
+            c.getChunksBetween(screenBounds.p1, screenBounds.p4).getEntityIterator().forEachRemaining(drawing::add);
+
             EntityList<Entity> drawOrder = new EntityList<>();
             EntityList<Entity> drawFirst = new EntityList<>();
             EntityList<Entity> drawSecond = new EntityList<>();
-            for (Entity e : c.getAllEntities()) {
+            for (Entity e : drawing) {
                 if (!currConnectionView.contains(e) && !e.isSelected()) {
                     if (e instanceof Wire)
                         drawFirst.add(e);
@@ -976,12 +992,7 @@ public class EditorPanel extends Pane {
                     for (ConnectionNode n : ((ConnectibleEntity) e).getConnections())
                         if (n.isOscillated())
                             oscillated.add(n);
-                if (e instanceof Wire) {
-                    if (getScreenBoundaries().simpleTouches(e))
-                        e.draw(gc);
-                } else if (getScreenBoundaries().touches(e))
-                    e.draw(gc);
-
+                e.draw(gc);
             }
 
             oscillated.forEach(node -> node.drawOscillationNumber(gc));
@@ -1200,7 +1211,7 @@ public class EditorPanel extends Pane {
             this.originalLoc = originalLoc;
             currentPullPoint = this;
             if (originalLoc.equals(pressPoint) && !lock)
-                for (Wire w : c.getAllEntitiesOfType(Wire.class))
+                for (Wire w : pressPoint.getInterceptingEntities().thatExtend(Wire.class))
                     if (w.isEdgePoint(pressPoint))
                         canDelete = true;
             if (!canCreateFromAll(cesAtStart))
@@ -1214,7 +1225,7 @@ public class EditorPanel extends Pane {
         }
 
         public boolean canBePlacedHere(CircuitPoint location) {
-            for (ConnectibleEntity ce : c().getAllEntitiesOfType(ConnectibleEntity.class))
+            for (ConnectibleEntity ce : location.getInterceptingEntities().thatExtend(ConnectibleEntity.class))
                 if (ce.isPullableLocation(location))
                     return true;
             return false;

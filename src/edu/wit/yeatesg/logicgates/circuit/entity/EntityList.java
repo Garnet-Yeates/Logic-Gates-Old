@@ -9,6 +9,7 @@ import edu.wit.yeatesg.logicgates.datatypes.CircuitPoint;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Iterator;
 
 
 // TODO We WILL do MemoryEntityList. The CircuitEntityList/InterceptMap Lists/InvalidEntity list will all be tracked via memory
@@ -18,6 +19,10 @@ public class EntityList<E extends Entity> extends ArrayList<E> {
 
     public EntityList(int size) {
         super(size);
+    }
+
+    public EntityList(Iterator<? extends E> it) {
+        it.forEachRemaining(Entity::add);
     }
 
     public EntityList(Collection<? extends E> list) {

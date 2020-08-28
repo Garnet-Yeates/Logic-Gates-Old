@@ -25,6 +25,7 @@ public class Circuit implements PropertyMutable {
         this.circuitName = circuitName;
         this.project = p;
         this.new InterceptMap();
+        this.new ChunkMap();
         p.addCircuit(this);
     }
 
@@ -96,6 +97,7 @@ public class Circuit implements PropertyMutable {
                 ((ConnectibleEntity) e).disconnectAll();
             EntityList<Entity> usedToIntercept = e.getInterceptingEntities();
             e.removeInterceptEntries();
+            e.removeChunkEntries();
             invalidEntities.removeExact(e); // Just in case it was invalid when it was deleted
             e.onRemove(); // Sets inCircuit field to false, but is encapsulated so I don't do it here
             for (Entity usedTo : usedToIntercept) {
@@ -259,6 +261,218 @@ public class Circuit implements PropertyMutable {
         return transformDisabled;
     }
 
+    /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+     *  CHUNK MAP STUFF (USED FOR RENDERING EFFICIENTLY)
+     * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+    public static final int NUM_CHUNKS = 64; // Must be even
+    public static final int CHUNK_SIZE = 16;
+
+    public static final int CHUNK_MAP_OFFSET = NUM_CHUNKS / 2; // Add to x,y to go from Chunk<x,y> to ChunkMap[x,y]
+
+    public class ChunkMap {
+
+        private Chunk[][] map;
+
+        public ChunkMap() {
+            map = new Chunk[NUM_CHUNKS + 1][NUM_CHUNKS + 1];
+            Circuit.this.chunkMap = this;
+            for (int chunkX = -NUM_CHUNKS/2; chunkX <= NUM_CHUNKS/2; chunkX++)
+                for (int chunkY = -NUM_CHUNKS/2; chunkY <= NUM_CHUNKS/2; chunkY++) {
+                    if (chunkX != 0 && chunkY != 0) {
+                   //     System.out.println("map[" + (chunkX + CHUNK_MAP_OFFSET) + "]" + "[" + (chunkY + CHUNK_MAP_OFFSET) + "] = new Chunk(" + (chunkX) + "," + (chunkY) + ")");
+                        map[chunkX + CHUNK_MAP_OFFSET][chunkY + CHUNK_MAP_OFFSET] = new Chunk(chunkX, chunkY);
+                    }
+                }
+        }
+
+        private Chunk getChunkAt(int chunkX, int chunkY) {
+        //    System.out.println("getChunkAt(" + chunkX + "," + chunkY + ") gonna return map[" + (chunkX + CHUNK_MAP_OFFSET) + "][" + (chunkY + CHUNK_MAP_OFFSET) + "]");
+            return map[chunkX + CHUNK_MAP_OFFSET][chunkY + CHUNK_MAP_OFFSET];
+        }
+    }
+
+    private ChunkMap chunkMap;
+
+    public Chunk getChunkAt(int chunkX, int chunkY) {
+        if (chunkX == 0)
+            chunkX = 1;
+        if (chunkY == 0)
+            chunkY = 1;
+        return chunkMap.getChunkAt(chunkX, chunkY);
+    }
+
+    public Chunk getChunkAt(CircuitPoint cp) {
+        CircuitPoint chunkCoords = cp.getChunkCoords();
+        return getChunkAt((int) chunkCoords.x, (int) chunkCoords.y);
+    }
+
+    /**
+     * Gets the chunks between two grid snapped CircuitPoints
+     * @param topLeft the top left grid point
+     * @param botRight the bottom right grid point
+     * @return a chunk list of all the chunks between these two points
+     */
+    public ChunkList getChunksBetween(CircuitPoint topLeft, CircuitPoint botRight) {
+        ChunkList chunkList = new ChunkList();
+        topLeft = topLeft.getChunkCoords();
+        botRight = botRight.getChunkCoords();
+        for (int chunkX = (int) topLeft.x; chunkX <= (int) botRight.x; chunkX++)
+            for (int chunkY = (int) topLeft.y; chunkY <= (int) botRight.y; chunkY++)
+                if (chunkX != 0 && chunkY != 0)
+                    chunkList.add(getChunkAt(chunkX, chunkY));
+        return chunkList;
+    }
+
+    public static class ChunkList extends LinkedList<Chunk> {
+
+        public Iterator<Entity> getEntityIterator() {
+            return new Iterator<>() {
+                private int currIndex = 0;
+                private Iterator<Entity> currIterator = currIndex < size() ? get(currIndex).iterator() : null;
+
+                @Override
+                public boolean hasNext() {
+                    if (currIterator != null && currIterator.hasNext())
+                        return true;
+                    else if (++currIndex < size()) {
+                        currIterator = get(currIndex).iterator();
+                        return hasNext();
+                    }
+                    else return false;
+                }
+
+                @Override
+                public Entity next() {
+                    return currIterator.next();
+                }
+            };
+        }
+
+    }
+
+
+    public class Chunk implements Iterable<Entity> {
+
+        private int size;
+
+        private ChunkNode first;
+        private ChunkNode last;
+
+        private int x;
+        private int y;
+
+        private Chunk(int x, int y) {
+            if (getChunkAt(x, y) != null)
+                throw new RuntimeException("This Chunk already exists!");
+            this.x = x;
+            this.y = y;
+        }
+
+        @Override
+        public String toString() {
+            return "Chunk{x=" + x +
+                    ", y=" + y +
+                    '}';
+        }
+
+        public ChunkNode add(Entity e) {
+            ChunkNode node = new ChunkNode(e);
+            nodeAdd(node);
+            return node;
+        }
+
+        private void nodeRemove(ChunkNode node) {
+            size--;
+            if (node == first) {
+                if (size == 0) {
+                    last = null;
+                    first = null;
+                } else {
+                    first = first.next;
+                    first.previous = null;
+                }
+            } else if (node == last) {
+                last.previous.next = null;
+                last = last.previous;
+            } else {
+                node.previous.next = node.next;
+                node.next.previous = node.previous;
+            }
+
+        }
+
+        private void nodeAdd(ChunkNode node) {
+            size++;
+            if (first == null ) { // implies last == null as well
+                first = node;
+                last = node;
+                return;
+            }
+            last.next = node;
+            node.previous = last;
+            last = node;
+        }
+
+        @Override
+        public Iterator<Entity> iterator() {
+            return new Iterator<>() {
+                ChunkNode curr = first;
+
+                @Override
+                public boolean hasNext() {
+                    return curr != null;
+                }
+
+                @Override
+                public Entity next() {
+                    Entity data = curr.data;
+                    curr = curr.next;
+                    return data;
+                }
+            };
+        }
+
+        public class ChunkNode {
+
+            private ChunkNode next;
+            private ChunkNode previous;
+            private Entity data;
+            private Chunk chunk;
+
+            private ChunkNode(Entity data) {
+                this.chunk = Chunk.this;
+                this.data = data;
+            }
+
+            public void remove() {
+                Chunk.this.nodeRemove(this);
+            }
+
+            public Entity getData() {
+                return data;
+            }
+
+            public ChunkNode getNext() {
+                return next;
+            }
+
+            public Chunk getChunk() {
+                return chunk;
+            }
+        }
+
+    }
+
+
+
+
+
+    /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+     *  INTERCEPT MAP STUFF (USED FOR PROGRAM EFFICIENCY)
+     * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+
     /**
      * Intercept map: Used to make the program efficient. Using a limited (however sill big) map size, we can track
      * interceptions much easier. To get the intercepting entities of an Entity e, instead of having to loop through
@@ -269,7 +483,7 @@ public class Circuit implements PropertyMutable {
      */
     public class InterceptMap {
 
-        public static final int MAP_SIZE = 999; // Must be an odd number for origin to work properly. Don't break this rule.
+        public static final int MAP_SIZE = NUM_CHUNKS * CHUNK_SIZE + 1; // Must be an odd number for origin to work properly. Don't break this rule.
         public static final int MAP_OFFSET = ( (MAP_SIZE - 1) / 2 ); // This needs to be added to map.get(x, y) operations
         public static final int CP_MIN = -1*MAP_OFFSET;
         public static final int CP_MAX = MAP_SIZE - 1 - MAP_OFFSET;
@@ -1499,7 +1713,7 @@ public class Circuit implements PropertyMutable {
      * Represents the distance between CircuitPoint 0,0 and 0,1 on the editor panel
      * (how many CircuitDrawPoints can fit between two CircuitPoints aka Grid Points?)
      * */
-    private int scale = 15;
+    private int scale = 14;
 
     public static final int SCALE_MAX = 70;
     public static final int SCALE_MIN = 6;

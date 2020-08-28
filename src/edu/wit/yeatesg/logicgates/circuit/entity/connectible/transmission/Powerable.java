@@ -39,14 +39,20 @@ public interface Powerable {
 
 
     static void updateTreesByLevel(ArrayList<DependencyTree> initialTrees) {
-        System.out.println("UPDATE TREES BY LEVEL (" + initialTrees.size() + " trees) (" + new Random().nextInt() + ")");
+        boolean print = false;
+        if (initialTrees.size() > 0)
+            print = true;
+
+        if (print)
+            System.out.println("UPDATE TREES BY LEVEL (" + initialTrees.size() + " trees) (" + new Random().nextInt() + ")");
         Map<ConnectibleEntity, FlowSignature> currPolling = new Map<>();
         Map<ConnectibleEntity, FlowSignature> nextPolling = new Map<>();
         int treeLevel = 0;
         while (!currPolling.isEmpty() || initialTrees != null) {
             nextPolling.clear();
             if (initialTrees != null) {
-                System.out.println("  TREE LEVEL " + treeLevel++);
+                if (print)
+                    System.out.println("  TREE LEVEL " + treeLevel++);
                 for (DependencyTree tree : initialTrees)
                     nextPolling.addAll(tree.determinePowerStatus());
                 initialTrees = null;
@@ -60,7 +66,7 @@ public interface Powerable {
                     updatedATree = true;
                 }
             }
-            if (updatedATree)
+            if (updatedATree && print)
                 System.out.println("  TREE LEVEL " + treeLevel++);
             currPolling = new Map<>(nextPolling);
 

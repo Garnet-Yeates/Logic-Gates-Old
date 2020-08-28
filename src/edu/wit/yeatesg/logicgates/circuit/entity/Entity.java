@@ -16,6 +16,9 @@ import edu.wit.yeatesg.logicgates.datatypes.CircuitPointList;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
+import static edu.wit.yeatesg.logicgates.circuit.Circuit.*;
+
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedList;
 
@@ -140,6 +143,7 @@ public abstract class Entity implements PropertyMutable {
      */
     public void onAddToCircuit() {
         addInterceptEntries();
+        addChunkEntries();
         update();
     }
 
@@ -175,13 +179,28 @@ public abstract class Entity implements PropertyMutable {
         getCircuit().getInterceptMap().addInterceptPointsFor(this);
     }
 
+    private LinkedList<Circuit.Chunk.ChunkNode> myChunkNodes = new LinkedList<>();
+
+    public void addChunkEntries() {
+        o: for (CircuitPoint p : interceptPoints) {
+            Circuit.Chunk chunk = c.getChunkAt(p);
+            for (Circuit.Chunk.ChunkNode node : myChunkNodes)
+                if (node.getChunk() == chunk)
+                    continue o;
+            myChunkNodes.add(chunk.add(this));
+        }
+    }
+
+    public void removeChunkEntries() {
+        for (Circuit.Chunk.ChunkNode node : myChunkNodes)
+            node.remove();
+        myChunkNodes.clear();
+    }
+
     public void removeInterceptEntries() {
         getCircuit().getInterceptMap().removeInterceptPointsFor(this);
     }
 
-    public void removeEntity() {
-        c.removeExact(this);
-    }
 
     public void removeWithTrackedStateOperation() {
         c.removeSimilarEntityAndTrackOperation(this);
