@@ -67,6 +67,33 @@ public class GateOR extends LogicGate {
     }
 
     @Override
+    public boolean isSimilar(Entity other) {
+        if (!(other instanceof GateOR))
+            return false;
+        GateOR o = (GateOR) other;
+        return o.origin.isSimilar(origin)
+                && o.rotation == rotation
+                && o.size == size
+                && o.numInputs == numInputs
+                && o.outputType == outputType
+                && o.dataBits == dataBits
+                && o.hasSimilarNots(this);
+    }
+
+    @Override
+    public GateOR getCloned(Circuit onto) {
+        return new GateOR(origin.clone(onto), rotation, size, numInputs, out.isNegated(), new ArrayList<>(inNots), outputType, dataBits);
+    }
+
+    @Override
+    public void construct() {
+        super.construct();
+        double itMult = size == Size.NORMAL ? 1 : 0.5;
+        curve = new BezierCurve(itMult, drawPoints.get(2), drawPoints.get(5), drawPoints.get(0));
+        curve2 = new BezierCurve(itMult, drawPoints.get(1), drawPoints.get(6), drawPoints.get(0));
+    }
+
+    @Override
     public void setDefaults() {
         backCurveUpShift = 0.08;
     }
@@ -154,16 +181,14 @@ public class GateOR extends LogicGate {
     }
 
 
+    private BezierCurve curve;
+    private BezierCurve curve2;
+
     @Override
     public void draw(GraphicsContext g, Color col, double opacity) {
         drawInputTails(g, col);
         g.setStroke(col == null ? Color.BLACK : col);
         g.setLineWidth(c.getLineWidth());
-
-        double itMult = size == Size.NORMAL ? 1 : 0.5;
-
-        BezierCurve curve = new BezierCurve(itMult, drawPoints.get(2), drawPoints.get(5), drawPoints.get(0));
-        BezierCurve curve2 = new BezierCurve(itMult, drawPoints.get(1), drawPoints.get(6), drawPoints.get(0));
 
         curve.draw(g, col, c.getLineWidth());
         curve2.draw(g, col, c.getLineWidth());
@@ -192,23 +217,9 @@ public class GateOR extends LogicGate {
             returning = PowerValue.OFF;
         if (outputNode.isNegated())
             returning = returning.getNegated();
-        if ( returning == PowerValue.ON && outputType == OutputType.ZERO_FLOATING || returning == PowerValue.OFF && outputType == OutputType.FLOATING_ONE)
+        if ( returning == PowerValue.ON && outputType == OutputType.ONE_AS_FLOATING || returning == PowerValue.OFF && outputType == OutputType.ZERO_AS_FLOATING)
             returning = PowerValue.FLOATING;
         return returning;
-    }
-
-    @Override
-    public boolean isSimilar(Entity other) {
-        return other instanceof GateOR
-                && ((GateOR) other).origin.isSimilar(origin)
-                && ((GateOR) other).rotation == rotation
-                && ((GateOR) other).size == size
-                && hasSimilarNots((GateOR) other);
-    }
-
-    @Override
-    public GateOR getCloned(Circuit onto) {
-        return new GateOR(origin.clone(onto), rotation, size, numInputs, out.isNegated(), new ArrayList<>(inNots), outputType, dataBits);
     }
 
     @Override

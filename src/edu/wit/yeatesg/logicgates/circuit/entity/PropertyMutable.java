@@ -12,6 +12,11 @@ public interface PropertyMutable {
 
     void onPropertyChangeViaTable(String propertyName, String old, String newVal);
 
+    default void onPropertyChangeViaTable(String propertyName, String newVal) {
+        onPropertyChangeViaTable(propertyName, getPropertyValue(propertyName), newVal);
+    }
+
+
     default void onPropertyChange(String propertyName, String newValue) {
         onPropertyChange(propertyName, getPropertyValue(propertyName), newValue);
     }

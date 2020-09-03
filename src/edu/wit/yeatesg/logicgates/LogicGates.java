@@ -2,6 +2,7 @@ package edu.wit.yeatesg.logicgates;
 
 import edu.wit.yeatesg.logicgates.circuit.Circuit;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission.ConnectionNode;
+import edu.wit.yeatesg.logicgates.datatypes.CircuitPointList;
 import edu.wit.yeatesg.logicgates.datatypes.Vector;
 import edu.wit.yeatesg.logicgates.datatypes.CircuitPoint;
 import edu.wit.yeatesg.logicgates.datatypes.PanelDrawPoint;
@@ -11,6 +12,7 @@ import javafx.scene.text.Font;
 import javafx.scene.text.Text;
 import javafx.scene.text.TextAlignment;
 
+import java.util.Collection;
 import java.util.Iterator;
 
 public class LogicGates {
@@ -80,6 +82,18 @@ public class LogicGates {
                     System.out.println("  " + args[i]);
             }
         }
+    }
+
+    public static void strokePolyLine(GraphicsContext g, Collection<? extends CircuitPoint> points) {
+        double[] x = new double[points.size()];
+        double[] y = new double[points.size()];
+        int i = 0;
+        for (CircuitPoint point : points) {
+            PanelDrawPoint pp = point.toPanelDrawPoint();
+            x[i] = pp.x;
+            y[i++] = pp.y;
+        }
+        g.strokePolyline(x, y, points.size());
     }
 
     public static void drawText(String text, double lineWidth, Circuit c, GraphicsContext g, Color col, CircuitPoint center, double fit) {

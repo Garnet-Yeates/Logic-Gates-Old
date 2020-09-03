@@ -86,7 +86,7 @@ public class Property {
     public static String[] possibleOutTypes;
     static {
         possibleOutTypes = new String[OutputType.values().length];
-        for (int i = 0; i < OutputType.values().length; i++)
+        for (int i = 0; i < OutputType.values().length - 1; i++)
             possibleOutTypes[i] = OutputType.values()[i].getSimpleString();
     }
 

@@ -50,14 +50,11 @@ public class OutputNode extends ConnectionNode {
         ArrayList<PowerValue> powerValues = new ArrayList<>();
         for (InputNode thatAffectsMe : inputsThatAffectMe) {
             PowerValue powerVal = thatAffectsMe.getPowerValue();
-
             if (powerVal == PowerValue.ACTIVE || powerVal == PowerValue.DONE_ACTIVE)
                 powerVal = PowerValue.ON;
             else if (powerVal == PowerValue.INACTIVE)
                 powerVal = PowerValue.OFF;
-
-
-            if (powerVal.isRelevantForCalculations())
+            if (powerVal.isRelevant())
                 powerValues.add(thatAffectsMe.isNegated ? powerVal.getNegated() : powerVal);
         }
         return powerValues;

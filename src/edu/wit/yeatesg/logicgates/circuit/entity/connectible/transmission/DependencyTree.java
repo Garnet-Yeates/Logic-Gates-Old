@@ -2,17 +2,19 @@ package edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission;
 
 import edu.wit.yeatesg.logicgates.circuit.Circuit;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.ConnectibleEntity;
+import edu.wit.yeatesg.logicgates.circuit.entity.connectible.logicgate.PullResistor;
 import edu.wit.yeatesg.logicgates.datatypes.Map;
 
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.LinkedList;
 
 public class DependencyTree {
 
     private ArrayList<OutputNode> roots;
     private ArrayList<Wire> branches;
     private ArrayList<InputNode> leaves;
+
+    private ArrayList<PullResistor> pullers;
 
     private FlowSignature signature;
 
@@ -32,6 +34,7 @@ public class DependencyTree {
         roots = new ArrayList<>();
         branches = new ArrayList<>();
         leaves = new ArrayList<>();
+        pullers = new ArrayList<>();
 
         c.clearMarkedPowerables();
         grow(startingFrom);
@@ -69,13 +72,16 @@ public class DependencyTree {
         pow.setDependencyTree(this);
 
         if (pow instanceof OutputNode) {
-            if (((OutputNode) pow).causesHighTriggering())
+            OutputNode out = (OutputNode) pow;
+            if (out.parent instanceof PullResistor)
+                pullers.add((PullResistor) out.parent);
+            if (out.causesHighTriggering())
                 causesHighTriggering = true;
-            roots.add((OutputNode) pow);
+            roots.add(out);
         }
-        else if (pow instanceof Wire)
+        else if (pow instanceof Wire) {
             branches.add((Wire) pow);
-        else {
+        } else {
             leaves.add((InputNode) pow); // If pows is an input, its parent now depends on this tree
         }
     }
@@ -130,7 +136,7 @@ public class DependencyTree {
             }
         }
 
-        // Data bit compatibility check
+        // Data bit compatibility check (numRoots x numNodes) efficiency
         if (powerValue == PowerValue.UNDETERMINED) {
             for (ConnectionNode n : roots) {
                 for (ConnectionNode n2 : leaves) {
@@ -143,18 +149,22 @@ public class DependencyTree {
         }
 
         // Root compatibility check
-        if (roots.size() > 1 && powerValue == PowerValue.UNDETERMINED) {
-            for (OutputNode root : roots) {
-                if (root.getOutputType() == OutputType.ZERO_ONE) {
-                    powerValue = PowerValue.INCOMPATIBLE_TYPES;
+        ArrayList<OutputType> types = new ArrayList<>();
+        for (OutputNode root : roots)
+            if (root.getOutputType() != OutputType.ANY)
+                types.add(root.getOutputType());
+        if (types.size() > 1 && powerValue == PowerValue.UNDETERMINED) {
+            for (OutputType type : types) {
+                if (type == OutputType.ZERO_ONE) {
+                    powerValue = PowerValue.DISCREPANCY_RISK;
                     break; // If we have any 0/1 mixed with any other OutputType (0/1, 0/f, f/1) it is invalid
                 }
             }
             if (powerValue == PowerValue.UNDETERMINED) {
-                for (OutputNode root : roots) {
-                    for (OutputNode root2 : roots) {
-                        if (root.getOutputType() != root2.getOutputType()) {
-                            powerValue = PowerValue.INCOMPATIBLE_TYPES;
+                for (OutputType t1 : types) {
+                    for (OutputType t2 : types) {
+                        if (t1 != t2) {
+                            powerValue = PowerValue.DISCREPANCY_RISK;
                             break; // We don't have any 0/1's, but they are not all equivalent
                         }
                     }
@@ -163,22 +173,39 @@ public class DependencyTree {
         }
 
 
-
-     /*   for (InputNode in : leaves)
-            if (in.getPowerValue() == PowerValue.DONE_ACTIVE)
-                in.setPowerValue(PowerValue.INACTIVE);*/ // NOT RLLY NECESSARY, BECAUSE POLL ONLY CARES ABT ACTIVE ANYWAYS. LEAVING THIS COMMENTED MEANS IT LOOKS PRETTIER
+        // TODO if pullers.size > 0 U KNOW WHAT TO DO, some type of new err
 
         if (powerValue == PowerValue.UNDETERMINED) {
-            LinkedList<PowerValue> possibleValues = new LinkedList<>();
+            ArrayList<PowerValue> possibleValues = new ArrayList<>();
             for (OutputNode root : roots)
-                possibleValues.add(root.getParent().getLocalPowerStateOf(root));
+                if (!(root.getParent() instanceof PullResistor)) // Todo maybe have a field in out node called 'canDetermineTree' set to false for pullresistor nodes
+                    possibleValues.add(root.getParent().getLocalPowerStateOf(root));
             possibleValues.sort(Comparator.comparingInt(PowerValue::getPriority));
 
-            powerValue = possibleValues.isEmpty() ? PowerValue.FLOATING : possibleValues.get(possibleValues.size() - 1);
+            if (possibleValues.size() > 1) {
+                PowerValue last = possibleValues.get(possibleValues.size() - 1);
+                if (!last.isError())
+                    for (PowerValue val : possibleValues)
+                        if ( (val.isOn() || val.isOff()) && val.isOn() != last.isOn()) {
+                            powerValue = PowerValue.DISCREPANCY;
+                            break;
+                        }
+            }
+
+            if (powerValue == PowerValue.UNDETERMINED)
+                powerValue = possibleValues.isEmpty() ? PowerValue.FLOATING : possibleValues.get(possibleValues.size() - 1);
         }
 
         if (powerValue == PowerValue.ON && causesHighTriggering)
             powerValue = PowerValue.ACTIVE;
+
+        if (powerValue == PowerValue.FLOATING && pullers.size() == 1) {
+            PullResistor puller = pullers.get(0);
+            if (puller.getPullDirection() == 1)
+                powerValue = PowerValue.ON;
+            else
+                powerValue = PowerValue.OFF;
+        }
         setPowerValue(powerValue);
         return getEntitiesToPollNext();
     }

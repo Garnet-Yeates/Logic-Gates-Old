@@ -62,7 +62,7 @@ public class GateAND extends LogicGate {
     public GateAND(CircuitPoint origin) {
         super(origin, 270);
     }
-    
+
     public static GateAND parse(String s, Circuit c) {
         String[] fields = s.split(",");
         CircuitPoint origin = new CircuitPoint(fields[0], fields[1], c);
@@ -80,6 +80,25 @@ public class GateAND extends LogicGate {
     }
 
     @Override
+    public boolean isSimilar(Entity other) {
+        if (!(other instanceof GateAND))
+            return false;
+        GateAND o = (GateAND) other;
+        return o.origin.isSimilar(origin)
+                && o.rotation == rotation
+                && o.size == size
+                && o.numInputs == numInputs
+                && o.outputType == outputType
+                && o.dataBits == dataBits
+                && o.hasSimilarNots(this);
+    }
+
+    @Override
+    public GateAND getCloned(Circuit onto) {
+        return new GateAND(origin.clone(onto), rotation, size, numInputs, out.isNegated(), new ArrayList<>(inNots), outputType, dataBits);
+    }
+
+    @Override
     protected double getOuterWingXOffset() {
         return 0;
     }
@@ -94,7 +113,6 @@ public class GateAND extends LogicGate {
         RelativePointSet relatives = new RelativePointSet();
         Circuit c = getCircuit();
         // Origin (middle bot of curve (u shaped curve))
-
         if (size == NORMAL) {
             relatives.add(0, 0, c);             // 0
 
@@ -136,6 +154,14 @@ public class GateAND extends LogicGate {
     }
 
     @Override
+    public void construct() {
+        super.construct();
+        double itMult = size == Size.NORMAL ? 1 : 1;
+        CircuitPointList ps = drawPoints;
+        frontCurve= new BezierCurve(itMult, ps.get(1), ps.get(2), ps.get(3), ps.get(4));
+    }
+
+    @Override
     public Vector getOriginToInputOrigin() {
         return new Vector(0, size == NORMAL ? -5 : -3);
     }
@@ -168,27 +194,11 @@ public class GateAND extends LogicGate {
             returning = PowerValue.ON;
         if (outputNode.isNegated())
             returning = returning.getNegated();
-        if ( returning == PowerValue.ON && outputType == OutputType.ZERO_FLOATING || returning == PowerValue.OFF && outputType == OutputType.FLOATING_ONE)
+        if ( returning == PowerValue.ON && outputType == OutputType.ONE_AS_FLOATING || returning == PowerValue.OFF && outputType == OutputType.ZERO_AS_FLOATING)
             returning = PowerValue.FLOATING;
         return returning;
     }
-
-
-    @Override
-    public boolean isSimilar(Entity other) {
-        return other instanceof GateAND
-                && ((GateAND) other).origin.isSimilar(origin)
-                && ((GateAND) other).rotation == rotation
-                && ((GateAND) other).size == size
-                && hasSimilarNots((GateAND) other);
-    }
-
-
-    @Override
-    public GateAND getCloned(Circuit onto) {
-        return new GateAND(origin.clone(onto), rotation, size, numInputs, out.isNegated(), new ArrayList<>(inNots), outputType, dataBits);
-    }
-
+    
     @Override
     public String getDisplayName() {
         return "AND Gate";
@@ -198,6 +208,8 @@ public class GateAND extends LogicGate {
     public String getPropertyTableHeader() {
         return "Properties For: Gate " + (!out.isNegated() ? "AND" : "NAND");
     }
+
+    private BezierCurve frontCurve;
 
     @Override
     public void draw(GraphicsContext g, Color col, double opacity) {
@@ -213,11 +225,10 @@ public class GateAND extends LogicGate {
         PanelDrawPoint p1 = ps.get(1).toPanelDrawPoint();
         PanelDrawPoint p4 = ps.get(4).toPanelDrawPoint();
 
-        double itMult = size == Size.NORMAL ? 1 : 1;
 
         // Curve 7, 1, 2, 0, 3, 4, 8
-        BezierCurve curve = new BezierCurve(itMult, ps.get(1), ps.get(2), ps.get(3), ps.get(4));
-        curve.draw(g, col, getLineWidth());
+
+        frontCurve.draw(g, col, getLineWidth());
 
         // Line 8 to 5
         g.strokeLine(p4.x, p4.y, p5.x, p5.y);
@@ -230,8 +241,4 @@ public class GateAND extends LogicGate {
         for (ConnectionNode node : connections)
             node.draw(g, col, opacity);
     }
-
-
-
-
 }

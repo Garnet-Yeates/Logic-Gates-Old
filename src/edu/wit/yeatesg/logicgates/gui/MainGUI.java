@@ -2,11 +2,8 @@ package edu.wit.yeatesg.logicgates.gui;
 
 import edu.wit.yeatesg.logicgates.circuit.entity.Entity;
 import edu.wit.yeatesg.logicgates.circuit.entity.PropertyList;
-import edu.wit.yeatesg.logicgates.circuit.entity.connectible.logicgate.GateNOT;
+import edu.wit.yeatesg.logicgates.circuit.entity.connectible.logicgate.*;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.peripheral.OutputBlock;
-import edu.wit.yeatesg.logicgates.circuit.entity.connectible.logicgate.GateAND;
-import edu.wit.yeatesg.logicgates.circuit.entity.connectible.logicgate.GateOR;
-import edu.wit.yeatesg.logicgates.circuit.entity.connectible.logicgate.GateXOR;
 import edu.wit.yeatesg.logicgates.circuit.entity.PropertyMutable;
 import edu.wit.yeatesg.logicgates.circuit.entity.Property;
 import edu.wit.yeatesg.logicgates.circuit.Circuit;
@@ -351,7 +348,7 @@ public class MainGUI extends Application {
         stage.setMinWidth(EDITOR_MIN_SIZE + LEFT_MIN_WIDTH + 75);
         mainBorderPane.setPrefSize(1250, 750);
 
-        editorPanel.repaint(currProject.getCurrentCircuit());
+        editorPanel.repaint();
 
         postSetProj();
     }
@@ -365,7 +362,7 @@ public class MainGUI extends Application {
     }
 
     public void postSetProj() {
-        editorPanel.repaint(currProject.getCurrentCircuit());
+        editorPanel.repaint();
         Circuit c = currProject.getCurrentCircuit();
         if (addDefaultEntities) {
             addDefaultEntities = false;
@@ -383,6 +380,16 @@ public class MainGUI extends Application {
             c.addEntity(new InputBlock(new CircuitPoint(2, -5, c), 0));
 
             c.addEntity(new GateNOT(new CircuitPoint(2, -10, c), 0));
+            c.addEntity(new Transistor(new CircuitPoint(2, -15, c), 0));
+            c.addEntity(new Transistor(new CircuitPoint(-2, -15, c), 0, true));
+
+            c.addEntity(new PullResistor(new CircuitPoint(-2, -20, c), 0));
+
+            c.addEntity(new PowerEmitter(new CircuitPoint(-2, -25, c), 0));
+            c.addEntity(new GroundEmitter(new CircuitPoint(2, -25, c), 0));
+
+
+
         }
 
         
@@ -422,7 +429,7 @@ public class MainGUI extends Application {
 
 
         c.recalculateTransmissions();
-        editorPanel.repaint(currProject.getCurrentCircuit());
+        editorPanel.repaint();
 
     }
 

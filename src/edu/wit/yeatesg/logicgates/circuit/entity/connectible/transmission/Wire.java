@@ -7,6 +7,7 @@ import edu.wit.yeatesg.logicgates.datatypes.*;
 import edu.wit.yeatesg.logicgates.circuit.entity.*;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.*;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.logicgate.LogicGate;
+import edu.wit.yeatesg.logicgates.datatypes.Map;
 import edu.wit.yeatesg.logicgates.datatypes.Vector;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
@@ -188,12 +189,11 @@ public class Wire extends ConnectibleEntity implements Powerable {
                     return interceptPoints; // If this Wire intercepts a non-wire at a non edge point location, it's invalid
                 ConnectibleEntity ce = (ConnectibleEntity) e;
                 CircuitPoint point = interceptPoints.get(0);
-                if (e instanceof LogicGate) {
-                    Direction blocked = ((LogicGate) e).getWireBlockDirection();
-                    for (CircuitPoint cp : ((LogicGate) e).getWireBlockLocations())
-                        if (cp.isSimilar(point) && getDirection() == blocked)
+                if (e.getWireBlockLocations() != null)
+                    for (Map.MapEntry<CircuitPoint, Direction> entry : e.getWireBlockLocations().getEntries())
+                        if (entry.getKey().isSimilar(point) && getDirection() == entry.getValue())
                             return interceptPoints;
-                }
+
                 if (!hasConnectionTo(ce) && !(ce.hasNodeAt(point) && ce.getNumEntitiesConnectedAt(point) == 0))
                     return interceptPoints; // If it hits the entity once, but cant connect, it's invalid
              }

@@ -4,6 +4,7 @@ import edu.wit.yeatesg.logicgates.LogicGates;
 import edu.wit.yeatesg.logicgates.datatypes.*;
 import edu.wit.yeatesg.logicgates.circuit.Circuit;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.ConnectibleEntity;
+import edu.wit.yeatesg.logicgates.gui.EditorPanel;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 

@@ -2,7 +2,7 @@ package edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission;
 
 public enum OutputType {
 
-    ZERO_FLOATING("0/f"), FLOATING_ONE("f/1"), ZERO_ONE("0/1");
+    ONE_AS_FLOATING("0/f"), ZERO_AS_FLOATING("f/1"), ZERO_ONE("0/1"), ANY("ANY");
 
     String simpleString;
 

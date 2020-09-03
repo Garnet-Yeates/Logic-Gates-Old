@@ -286,9 +286,21 @@ public class Circuit implements PropertyMutable {
                 }
         }
 
+        /**
+         * Obtains the {@link Chunk} that exists at the given chunkX and chunkY. If there is no chunk here (either because
+         * the given chunk coordinate is out of the ChunkMap bounds, or because the chunkX or chunkY are 0), then a new,
+         * empty chunk is returned instead of returning null (to prevent NullPointerExceptions).
+         * @param chunkX the x-coordinate of this chunk.
+         * @param chunkY the y-coordinate of this chunk
+         * @return the {@link Chunk} that exists at these chunk coordinates, or an empty chunk if none is found
+         */
         private Chunk getChunkAt(int chunkX, int chunkY) {
-        //    System.out.println("getChunkAt(" + chunkX + "," + chunkY + ") gonna return map[" + (chunkX + CHUNK_MAP_OFFSET) + "][" + (chunkY + CHUNK_MAP_OFFSET) + "]");
-            return map[chunkX + CHUNK_MAP_OFFSET][chunkY + CHUNK_MAP_OFFSET];
+            try {
+                Chunk at;
+                return (at = map[chunkX + CHUNK_MAP_OFFSET][chunkY + CHUNK_MAP_OFFSET]) == null ? new Chunk() : at;
+            } catch (IndexOutOfBoundsException e) {
+                return new Chunk(); // Return a blank chunk
+            }
         }
     }
 
@@ -351,7 +363,10 @@ public class Circuit implements PropertyMutable {
 
     }
 
-
+    /**
+     * A Chunk is a collection of entities inside a confined area. The size of this area is determined by the
+     * CHUNK_SIZE constant in the Circuit class. If CHUNK_SIZE is 16, then the size of a chu
+     */
     public class Chunk implements Iterable<Entity> {
 
         private int size;
@@ -362,12 +377,17 @@ public class Circuit implements PropertyMutable {
         private int x;
         private int y;
 
+        private boolean exists = true;
+
         private Chunk(int x, int y) {
-            if (getChunkAt(x, y) != null)
+            System.out.println(x + " " + y);
+            if (getChunkAt(x, y).exists)
                 throw new RuntimeException("This Chunk already exists!");
             this.x = x;
             this.y = y;
         }
+
+        private Chunk() { exists = false; } // Non existent chunk
 
         @Override
         public String toString() {
@@ -465,9 +485,6 @@ public class Circuit implements PropertyMutable {
     }
 
 
-
-
-
     /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
      *  INTERCEPT MAP STUFF (USED FOR PROGRAM EFFICIENCY)
      * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -543,7 +560,7 @@ public class Circuit implements PropertyMutable {
 
         public void addInterceptPoint(int x, int y, Entity e) {
             if (getRef(x, y).containsExact(e))
-                throw  new RuntimeException("Already Added " + e);
+                throw new RuntimeException("Already Added " + e);
             getRef(x, y).add(e);
         }
 
@@ -756,7 +773,7 @@ public class Circuit implements PropertyMutable {
     }
 
     public void repaint() {
-        getEditorPanel().repaint(this);
+        getEditorPanel().repaint();
     }
 
     public void selectionTableUpdate() {
@@ -1715,8 +1732,8 @@ public class Circuit implements PropertyMutable {
      * */
     private int scale = 14;
 
-    public static final int SCALE_MAX = 70;
-    public static final int SCALE_MIN = 6;
+    public static final int SCALE_MAX = 50;
+    public static final int SCALE_MIN = 4;
     public static final int SCALE_INC = 2;
 
     /**
@@ -1760,7 +1777,7 @@ public class Circuit implements PropertyMutable {
     }
 
     public int getGridLineWidth() {
-        int size = (int) (getLineWidth() / 2);
+        int size = (int) (getScale() / 10);
         if (size == 0) size++;
         return size;
     }

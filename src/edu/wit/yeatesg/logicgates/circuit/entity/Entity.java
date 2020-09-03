@@ -1,18 +1,13 @@
 package edu.wit.yeatesg.logicgates.circuit.entity;
 
 import edu.wit.yeatesg.logicgates.circuit.Circuit;
-import edu.wit.yeatesg.logicgates.circuit.entity.connectible.logicgate.GateNOT;
+import edu.wit.yeatesg.logicgates.circuit.entity.connectible.logicgate.*;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.peripheral.OutputBlock;
-import edu.wit.yeatesg.logicgates.circuit.entity.connectible.logicgate.GateAND;
-import edu.wit.yeatesg.logicgates.circuit.entity.connectible.logicgate.GateOR;
-import edu.wit.yeatesg.logicgates.circuit.entity.connectible.logicgate.GateXOR;
-import edu.wit.yeatesg.logicgates.datatypes.BoundingBox;
-import edu.wit.yeatesg.logicgates.datatypes.Vector;
+import edu.wit.yeatesg.logicgates.datatypes.*;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.ConnectibleEntity;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.peripheral.InputBlock;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission.Wire;
-import edu.wit.yeatesg.logicgates.datatypes.CircuitPoint;
-import edu.wit.yeatesg.logicgates.datatypes.CircuitPointList;
+import edu.wit.yeatesg.logicgates.gui.EditorPanel;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
@@ -181,6 +176,17 @@ public abstract class Entity implements PropertyMutable {
 
     private LinkedList<Circuit.Chunk.ChunkNode> myChunkNodes = new LinkedList<>();
 
+    private EditorPanel.DrawMark drawMark;
+
+    public boolean isDrawMarked() {
+        return drawMark != null && drawMark.isActive();
+    }
+
+    public void setDrawMark(EditorPanel.DrawMark mark) {
+        drawMark = mark;
+    }
+
+
     public void addChunkEntries() {
         o: for (CircuitPoint p : interceptPoints) {
             Circuit.Chunk chunk = c.getChunkAt(p);
@@ -308,6 +314,12 @@ public abstract class Entity implements PropertyMutable {
     /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
      * EXISTENCE IN THE CIRCUIT PART 4: INVALID INTERCEPTING (INVALIDLY INTERCEPTING ENTITIES CANNOT CONNECT / FUNCTION
      * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+    protected Map<CircuitPoint, Direction> blockWiresHere;
+
+    public Map<CircuitPoint, Direction> getWireBlockLocations() {
+        return blockWiresHere;
+    }
 
     private int invalidEntityIndex = -1;
 
@@ -451,6 +463,14 @@ public abstract class Entity implements PropertyMutable {
             return new OutputBlock(new CircuitPoint(fields[0], fields[1], c), Integer.parseInt(fields[2]));
         else if (enityType.equalsIgnoreCase("GateNOT"))
             return GateNOT.parse(s, c);
+        else if (enityType.equalsIgnoreCase("Transistor"))
+            return Transistor.parse(s, c);
+        else if (enityType.equalsIgnoreCase("PullResistor"))
+            return PullResistor.parse(s, c);
+        else if (enityType.equalsIgnoreCase("PowerEmitter"))
+            return PowerEmitter.parse(s, c);
+        else if (enityType.equalsIgnoreCase("GroundEmitter"))
+            return GroundEmitter.parse(s, c);
         return null;
     }
 

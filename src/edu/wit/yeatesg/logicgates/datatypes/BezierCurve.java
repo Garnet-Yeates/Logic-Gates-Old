@@ -11,35 +11,31 @@ public class BezierCurve {
     public CircuitPoint[] points;
 
     private CurvePolygon shape;
-
-    /*
-      int numIterations = 15;
-        if (c.getScale() < 12)
-            numIterations = (int) c.getScale();
-        if (c.getScale() < 8)
-            numIterations += 2;
-     */
-
+    private double iterationMultiplier;
+    private Circuit c;
 
     public BezierCurve(CurvePolygon shape, double iterationMultiplier) {
         this.shape = shape;
-        Circuit c = shape.points[0].getCircuit();
-        CurvePolygon.Line longestLine = null;
-        for (CurvePolygon.Line l : shape.lines)
-            if (longestLine == null || l.getLength() > longestLine.getLength())
-                longestLine = l;
-        assert longestLine != null;
+        this.iterationMultiplier = iterationMultiplier;
+        c = shape.points[0].getCircuit();
+        construct();
+    }
 
+    public double lastScale;
+
+    public void construct() {
+        double scale = c.getScale();
+        lastScale = scale;
 
         int numIterations = 12;
-        if (c.getScale() == 12)
+        if (scale == 12)
             numIterations = 14;
-        if (c.getScale() == 10)
-            numIterations = 12;
-        if (c.getScale() < 10)
+    //    if (scale == 10)
+    //        numIterations = 12;
+        if (scale < 10)
             numIterations = 8;
 
-        numIterations = (int) Math.max(iterationMultiplier*numIterations, 5);
+        numIterations = (int) Math.max(iterationMultiplier*numIterations, 6);
 
         points = new CircuitPoint[numIterations];
         double weightInc = 1.0 / (numIterations - 1);
@@ -61,21 +57,19 @@ public class BezierCurve {
     public void draw(GraphicsContext g, Color col, double lineWidth) {
         g.setStroke(col == null ? Color.BLACK : col);
         g.setLineWidth(lineWidth);
-
+        double scale = c.getScale();
+        if (scale != lastScale)
+            construct();
         g.beginPath();
-        for (CircuitPoint p : new CurvePolygon(points).points) {
-            PanelDrawPoint pp = p.toPanelDrawPoint();
-            double x = pp.x, y = pp.y;
-            g.lineTo(x, y);
-            g.moveTo(x, y);
+        double[] xs = new double[points.length];
+        double[] ys = new double[points.length];
+        for (int i = 0; i < points.length; i++) {
+            PanelDrawPoint pp = points[i].toPanelDrawPoint();
+            xs[i] = pp.x;
+            ys[i] = pp.y;
+
         }
-        g.closePath();
-        g.stroke();
-       /* for (CurvePolygon.Line l : new CurvePolygon(points).lines) {
-            PanelDrawPoint p1 = l.startPoint.toPanelDrawPoint();
-            PanelDrawPoint p2 = l.endPoint.toPanelDrawPoint();
-            g.strokeLine(p1.x, p1.y, p2.x, p2.y);
-        }*/
+        g.strokePolyline(xs, ys, xs.length);
     }
 
     public static CircuitPoint getBezierPoint(CurvePolygon shape, double weight) {

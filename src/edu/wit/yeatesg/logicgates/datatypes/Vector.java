@@ -50,6 +50,14 @@ public class Vector {
         return new Vector(x * multiplyingBy, y * multiplyingBy);
     }
 
+    public Vector getXMultiplied(double multiplyingBy) {
+        return new Vector(x * multiplyingBy, y);
+    }
+
+    public Vector getYMultiplied(double multiplyingBy) {
+        return new Vector(x, y * multiplyingBy);
+    }
+
     public Vector getDivided(double divingBy) {
         return getMultiplied(1.0 / divingBy);
     }

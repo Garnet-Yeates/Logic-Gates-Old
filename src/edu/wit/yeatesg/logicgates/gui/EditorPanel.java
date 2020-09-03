@@ -16,9 +16,12 @@ import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
+import javafx.scene.shape.Polygon;
+
 import javax.swing.Timer;
 import static edu.wit.yeatesg.logicgates.circuit.Circuit.*;
 
+import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.util.*;
@@ -58,6 +61,56 @@ public class EditorPanel extends Pane {
                 new PanelDrawPoint(canvasWidth(), canvasHeight(), c()).toCircuitPoint().getGridSnapped(), null);
     }
 
+    public static void drawArrow(GraphicsContext g, Color col, double distOut, double lineWidth, CircuitPoint start, CircuitPoint end) {
+        Vector v = new Vector(start, end);
+        Vector unit = v.getUnitVector();
+
+        Circuit c = start.getCircuit();
+
+        Vector n90 = unit.getRotated(90).getMultiplied(distOut);
+        Vector n270 = unit.getRotated(270).getMultiplied(distOut);
+
+        double a = distOut * 2;
+        // h = (1/2) * sqrt(3) * a;
+        Vector h = unit.getMultiplied(-(1.0/2.0)*Math.sqrt(3)*a);
+        CircuitPoint triTop = end.getIfModifiedBy(unit.getMultiplied(0.1));
+        CircuitPoint triBotMid = triTop.getIfModifiedBy(h);
+        CircuitPoint triBotLeft = triBotMid.getIfModifiedBy(n90);
+        CircuitPoint triBotRight = triBotMid.getIfModifiedBy(n270);
+
+        Color strokeCol = col == null ? Color.BLACK : col;
+        g.setStroke(strokeCol);
+        g.setFill(strokeCol);
+        g.setLineWidth(lineWidth);
+
+        PanelDrawPoint tBL = triBotLeft.toPanelDrawPoint();
+        PanelDrawPoint tBR = triBotRight.toPanelDrawPoint();
+        PanelDrawPoint endPanel  = end.toPanelDrawPoint();
+        PanelDrawPoint tT = triTop.toPanelDrawPoint();
+        PanelDrawPoint s = start.toPanelDrawPoint();
+
+        g.strokeLine(s.x, s.y, endPanel.x, endPanel.y);
+
+        double[] ex, why;
+        ex = new double[]{ tBL.x, tBR.x, tT.x, };
+        why = new double[]{ tBL.y, tBR.y, tT.y, };
+
+        g.fillPolygon(ex, why, 3);
+        g.strokePolygon(ex, why, 3);
+
+
+      /*  g.beginPath();
+        g.moveTo(tBL.x, tBL.y);
+        g.lineTo(tBR.x, tBR.y);
+        g.lineTo(tT.x, tT.y);
+        g.lineTo(tBL.x, tBL.y);
+        g.fill();
+        g.stroke();*/
+
+
+
+    }
+
     public void modifyOffset(Vector off) {
         c().modifyOffset(off);
     }
@@ -87,7 +140,8 @@ public class EditorPanel extends Pane {
                 || co == ESCAPE // Deselects / Cancels selection move / entities at cursor
                 || co.isDigitKey()
                 || co == MINUS && !event.isControlDown()
-                || co == EQUALS && !event.isControlDown()) {
+                || co == EQUALS && !event.isControlDown()
+                || co == DELETE) {
             if (co == ESCAPE) {
                 if (placingAtCursor != null)
                     placingAtCursor.cancel();
@@ -127,9 +181,8 @@ public class EditorPanel extends Pane {
                     if (Integer.parseInt(co.getName()) >= 2)
                         for (Entity selected : currSelection.clone())
                             if (selected.hasProperty("num inputs"))
-                                c.new PropertyChangeOperation(selected, "num inputs", co.getName(), true).operate();
+                                selected.onPropertyChangeViaTable("num inputs", co.getName());
                     c.appendCurrentStateChanges("Change Num Inputs Of " + currSelection.size() + " Entit" + (currSelection.size() == 1 ? "y" : "ies" ) + " to " + co.getName());
-
                 }
                 else if (co == MINUS) {
                     for (Entity selected : currSelection.clone())
@@ -141,13 +194,13 @@ public class EditorPanel extends Pane {
                         if (selected.hasProperty("size") && selected.getSize() == Entity.SMALL)
                             c.new PropertyChangeOperation(selected, "size", "NORMAL", true).operate();
                     c.appendCurrentStateChanges("Size Up " + currSelection.size() + " Entit" + (currSelection.size() == 1 ? "y" : "ies" ));
-
-                }
-
+                } else if (co == DELETE)
+                    currSelection.deleteAllEntitiesAndTrack();
             }
+            currSelection.selectionUpdate();
+
         }
         c.disableAndPollPowerUpdateBuffer();
-        currSelection.selectionUpdate();
     }
 
 
@@ -171,8 +224,6 @@ public class EditorPanel extends Pane {
         }
         if (code == BACK_SLASH);
           //  c.getOperands(new Wire(LL, RR));
-        if (code == DELETE)
-            currSelection.deleteAllEntitiesAndTrack();
         if (code == B)
             if (currentPullPoint != null)
                 currentPullPoint.dropAndRestart();
@@ -194,11 +245,11 @@ public class EditorPanel extends Pane {
             if (code == EQUALS && c().canScaleUp()) {
                 c().scaleUp();
                 view(oldCenter);
-                repaint(c);
+                repaint();
             } else if (code == MINUS && c().canScaleDown()) {
                 c().scaleDown();
                 view(oldCenter);
-                repaint(c);
+                repaint();
             }
         }
         if (code == SPACE)
@@ -207,7 +258,7 @@ public class EditorPanel extends Pane {
             shift = true;
             if (ppStateShift == 0)
                 currentPullPoint = null;
-            repaint(c);
+            repaint();
         }
         if (code == ESCAPE) {
             if (ppStateShift > 0) {
@@ -219,7 +270,7 @@ public class EditorPanel extends Pane {
         }
         if (code == P) {
             onPoke();
-            repaint(c);
+            repaint();
         }
         if (code == G) {
             toggleDrawGridPoints();
@@ -235,8 +286,6 @@ public class EditorPanel extends Pane {
                     c.new EntityNegateOperation(intercepting, false, negatedIndices, intercepting.isSelected() ? SELECTED : NON_SELECTED, true).operate();
                     break;
                 }
-                if (intercepting instanceof InputNegatable)
-                System.out.println("INDEX OF INPUT = " + ((InputNegatable) intercepting).indexOfInput(gridSnapAtMouse));
                 if (intercepting instanceof InputNegatable &&
                         (negatedIndex = ((InputNegatable) intercepting).indexOfInput(gridSnapAtMouse)) != -1) {
                     ArrayList<Integer> negatedIndices = new ArrayList<>();
@@ -249,8 +298,7 @@ public class EditorPanel extends Pane {
                 c.appendCurrentStateChanges("Negate ConnectionNode at " + gridSnapAtMouse.toParsableString());
         }
         e.consume();
-        repaint(c());
-        c.selectionTableUpdate();
+        repaint();
     }
 
     public void userCTRLY(boolean shiftDown) {
@@ -316,7 +364,7 @@ public class EditorPanel extends Pane {
         this.new PullPoint(gridSnapAtMouse);
         if (gridSnapJustChanged && placingAtCursor != null)
             placingAtCursor.onGridSnapChange();
-        repaint(c());
+        repaint();
     }
 
     public void onMouseClicked(MouseEvent e) {
@@ -392,7 +440,7 @@ public class EditorPanel extends Pane {
             }
             else
                 determineSelecting();
-            repaint(c());
+            repaint();
         } else if (e.getButton() == MouseButton.SECONDARY) {
             if (placingAtCursor != null)
                 placingAtCursor.cancel();
@@ -401,7 +449,7 @@ public class EditorPanel extends Pane {
                 currentPullPoint.dropAndRestart();
         }
         c.selectionTableUpdate();
-        repaint(c());
+        repaint();
 
     }
 
@@ -435,10 +483,6 @@ public class EditorPanel extends Pane {
         gridSnapJustChanged = false;
     }
 
-    public void repaint() {
-        repaint(c());
-    }
-
     public void updateConnectionView() {
         c().currentSelectionReference().updateConnectionView();
     }
@@ -455,7 +499,7 @@ public class EditorPanel extends Pane {
             if (gridSnapJustChanged)
                 onGridSnapChangeWhileDragging();
         }
-        repaint(c());
+        repaint();
     }
 
     public Circuit c() {
@@ -587,17 +631,40 @@ public class EditorPanel extends Pane {
     }
 
     private void drawGridPoints(GraphicsContext g) {
-        int w = canvasWidth(), h = canvasHeight();
+        Circuit c = c();
         Color col = COL_GRID;
         double whiteWeight = 0;
-        if (c().getScale() < 10)
-            whiteWeight = 1 - (c().getScale() / 10.0);
+        if (c.getScale() < 60)
+            whiteWeight = (1 - (c().getScale() / 60));
         double normWeight = 1 - whiteWeight;
         int white = (int) (255.0*whiteWeight);
         Color paintCol = Color.rgb((int) (white + col.getRed()*255*normWeight),
                 (int) (white + col.getGreen()*255*normWeight),
                 (int) (white + col.getBlue()*255*normWeight), 1);
-        for (int x = (int)(-w*0.1); x < w + w*0.1; x += c().getScale()) {
+        g.setFill(paintCol);
+        g.fillRect(0, 0, canvasWidth(), canvasHeight());
+        int scale = (int) c.getScale();
+
+        int gridWidth = c.getGridLineWidth();
+   //     int widthOut = gridWidth % 2 == 0 ? gridWidth / 2 : (gridWidth - 1) / 2;
+        double widthOut = gridWidth / 2.0;
+
+        g.setFill(COL_BG);
+        for (int x = -3*scale; x < canvasWidth() + 3*scale; x+= scale) {
+            PanelDrawPoint dp = new PanelDrawPoint(x, 0, c).toCircuitPoint().getGridSnapped().toPanelDrawPoint();
+            dp.x += widthOut + 1;
+            g.fillRect(dp.x, 0, scale - 2*widthOut - 1, canvasHeight());
+        }
+        for (int y = -3*scale; y < canvasHeight() + 3*scale; y+= scale) {
+            PanelDrawPoint dp = new PanelDrawPoint(0, y, c).toCircuitPoint().getGridSnapped().toPanelDrawPoint();
+            dp.y += widthOut + 1;
+            g.fillRect(0, dp.y, canvasWidth(), scale - 2*widthOut - 1);
+        }
+
+
+       // int w = canvasWidth(), h = canvasHeight();
+
+      /*  for (int x = (int)(-w*0.1); x < w + w*0.1; x += c().getScale()) {
             for (int y = (int)(-h*0.1); y < h + h*0.1; y += c().getScale()) {
                 CircuitPoint gridPoint = circuitPointAt(x, y, true);
                 if (gridPoint.isInMapRange()) {
@@ -606,9 +673,9 @@ public class EditorPanel extends Pane {
                     g.setLineWidth(c().getGridLineWidth());
                     g.setStroke(paintCol);
                     if (gridPoint.representsOrigin()) {
-                        double strokeSize = c().getLineWidth();
+                        double strokeSize = c().getGridLineWidth();
                         strokeSize *= 1.5;
-                        if (strokeSize == c().getLineWidth())
+                        if (strokeSize == c().getGridLineWidth())
                             strokeSize++;
                         g.setLineWidth(strokeSize);
                         g.setStroke(Circuit.COL_ORIGIN);
@@ -616,7 +683,7 @@ public class EditorPanel extends Pane {
                     g.strokeLine(drawLoc.x, drawLoc.y, drawLoc.x, drawLoc.y);
                 }
             }
-        }
+        }*/
     }
 
     public void viewOrigin() {
@@ -789,6 +856,7 @@ public class EditorPanel extends Pane {
             EntityList<Entity> selected = currSelection.selectMultipleAndTrackOperation(this.getInterceptingEntities());
             if (selected.size() > 0)
                 c().appendCurrentStateChanges("Select " + selected.size() + " entit" + (selected.size() == 1 ? "y" : "ies"));
+            currSelection.selectionUpdate();
         }
     }
 
@@ -862,7 +930,7 @@ public class EditorPanel extends Pane {
 
     public void onMouseDragWhileCreatingSelectionBox() {
         currSelectionBox = new SelectionBox(selectionBoxStartPoint, circuitPointAtMouse(false));
-        repaint(c());
+        repaint();
     }
 
     public void onReleaseSelectionBox() {
@@ -913,7 +981,7 @@ public class EditorPanel extends Pane {
         if (w != canvas.getWidth() || h != canvas.getHeight()) {
             canvas.setWidth(w);
             canvas.setHeight(h);
-            repaint(c());
+            repaint();
         }
     }
 
@@ -926,111 +994,158 @@ public class EditorPanel extends Pane {
     }
 
 
-    public void repaint(Circuit calledFrom) {
+    public DrawMark currDrawMark;
 
-        if (calledFrom != null && calledFrom.getCircuitName().contains("theoretical"))
-            return;
+    public class DrawMark {
+
+        private boolean active;
+
+        public DrawMark() {
+            currDrawMark = this;
+            active = true;
+        }
+
+        public void deactivate() {
+            active = false;
+        }
+
+        public boolean isActive() {
+            return active;
+        }
+    }
+
+    public void repaint() {
         Project p = currProject;
         Circuit c = c();
         Circuit.Selection currSelection = c.currentSelectionReference();
         Circuit.ConnectionSelection currConnectionView = c.currentConnectionViewReference();
 
+
         Platform.runLater(() -> {
+            this.new DrawMark();
+            try {
+                double width = canvasWidth();
+                double height = canvasHeight();
+                GraphicsContext gc = canvas.getGraphicsContext2D();
 
 
-            double width = canvasWidth();
-            double height = canvasHeight();
-            GraphicsContext gc = canvas.getGraphicsContext2D();
+                gc.setFill(Color.rgb(240, 240, 240, 1));
+                gc.fillRect(0, 0, width, height);
 
-            gc.setFill(Color.rgb(240, 240, 240, 1));
-            gc.fillRect(0, 0, width, height);
+                gc.setFill(COL_BG);
+                BoundingBox rangeBox = c.getInterceptMap().getBoundingBox().getExpandedBy(0.3);
+                PanelDrawPoint tl = rangeBox.p1.toPanelDrawPoint();
+                PanelDrawPoint tr = rangeBox.p2.toPanelDrawPoint();
+                PanelDrawPoint bl = rangeBox.p3.toPanelDrawPoint();
+                PanelDrawPoint br = rangeBox.p4.toPanelDrawPoint();
 
-            gc.setFill(COL_BG);
-            BoundingBox rangeBox = c.getInterceptMap().getBoundingBox().getExpandedBy(0.3);
-            PanelDrawPoint tl = rangeBox.p1.toPanelDrawPoint();
-            PanelDrawPoint tr = rangeBox.p2.toPanelDrawPoint();
-            PanelDrawPoint bl = rangeBox.p3.toPanelDrawPoint();
-            PanelDrawPoint br = rangeBox.p4.toPanelDrawPoint();
+                gc.fillRect(tl.x, tl.y, tr.x - tl.x, br.y - tr.y);
 
-            gc.fillRect(tl.x, tl.y, tr.x - tl.x, br.y - tr.y);
+                gc.setStroke(Color.BLACK);
+                gc.setLineWidth(1);
+                gc.strokeLine(tl.x, tl.y, bl.x, bl.y); // Top left to bottom left
+                gc.strokeLine(tl.x, tl.y, tr.x, tr.y); // Top left to top right
+                gc.strokeLine(tr.x, tr.y, br.x, br.y); // Top right to bottom right
+                gc.strokeLine(bl.x, bl.y, br.x, br.y); // Bottom left to bottom right
+                gc.setStroke(Color.PINK);
+                gc.setLineWidth(3);
+                //      gc.strokeRect(0, 0, canvasWidth(), canvasHeight());
 
-            gc.setStroke(Color.BLACK);
-            gc.setLineWidth(1);
-            gc.strokeLine(tl.x, tl.y, bl.x, bl.y); // Top left to bottom left
-            gc.strokeLine(tl.x, tl.y, tr.x, tr.y); // Top left to top right
-            gc.strokeLine(tr.x, tr.y, br.x, br.y); // Top right to bottom right
-            gc.strokeLine(bl.x, bl.y, br.x, br.y); // Bottom left to bottom right
-            gc.setStroke(Color.PINK);
-            gc.setLineWidth(3);
-            //      gc.strokeRect(0, 0, canvasWidth(), canvasHeight());
+                if (drawGridPoints)
+                    drawGridPoints(gc);
 
-            if (drawGridPoints)
-                drawGridPoints(gc);
+                BoundingBox screenBounds = getScreenBoundaries();
+                EntityList<Entity> drawing = new EntityList<>();
+                c.getChunksBetween(screenBounds.p1, screenBounds.p4).getEntityIterator().forEachRemaining(drawing::add);
 
+                EntityList<Entity> drawOrder = new EntityList<>();
+                EntityList<Entity> drawFirst = new EntityList<>();
+                EntityList<Entity> drawSecond = new EntityList<>();
 
-            BoundingBox screenBounds = getScreenBoundaries();
-            EntityList<Entity> drawing = new EntityList<>();
-            c.getChunksBetween(screenBounds.p1, screenBounds.p4).getEntityIterator().forEachRemaining(drawing::add);
+                EntityList<Entity> selectedDrawFirst = new EntityList<>();
+                EntityList<Entity> selectedDrawSecond = new EntityList<>();
 
-            EntityList<Entity> drawOrder = new EntityList<>();
-            EntityList<Entity> drawFirst = new EntityList<>();
-            EntityList<Entity> drawSecond = new EntityList<>();
-            for (Entity e : drawing) {
-                if (!currConnectionView.contains(e) && !e.isSelected()) {
-                    if (e instanceof Wire)
-                        drawFirst.add(e);
-                    else
-                        drawSecond.add(e);
-                }
-            }
-            drawOrder.addAll(drawFirst);
-            drawOrder.addAll(drawSecond);
+                for (Entity e : drawing) {
+                    if (!e.isDrawMarked()) {
+                        e.setDrawMark(currDrawMark);
+                        if (!currConnectionView.contains(e)) {
+                            if (e instanceof Wire) {
+                                if (e.isSelected()) {
+                                    selectedDrawFirst.add(e);
+                                    continue;
+                                }
+                                drawFirst.add(e);
+                            }
+                            else {
+                                if (e.isSelected()) {
+                                    selectedDrawSecond.add(e);
+                                    continue;
+                                }
+                                drawSecond.add(e);
 
-            ArrayList<ConnectionNode> oscillated = new ArrayList<>();
-            for (Entity e : drawOrder) {
-                if (e instanceof ConnectibleEntity)
-                    for (ConnectionNode n : ((ConnectibleEntity) e).getConnections())
-                        if (n.isOscillated())
-                            oscillated.add(n);
-                e.draw(gc);
-            }
-
-            oscillated.forEach(node -> node.drawOscillationNumber(gc));
-
-            if (currentPullPoint != null)
-                currentPullPoint.drawPullPoint(gc);
-
-            if (currSelectionBox != null)
-                currSelectionBox.draw(gc);
-
-            c.drawInvalidEntities(gc);
-
-            for (Entity e : currConnectionView) {
-                currConnectionView.draw(e, gc);
-            }
-
-            if (!movingSelection || lastSelectionMovePoint.isSimilar(movingSelectionStartPoint)) {
-                for (Entity e : currSelection)
-                    e.draw(gc);
-                for (Entity e : currSelection)
-                    e.getBoundingBox().draw(gc);
-            } else {
-                for (Entity e : movingSelectionPreviewEntities) {
-                    e.drawPreview(gc);
-                    for (CircuitPoint invalidPoint : e.getInvalidInterceptPoints()) {
-                        c.drawInvalidGridPoint(gc, invalidPoint);
-                        c.drawInvalidGridPoint(gc, invalidPoint); // Double draw, so you can see it easier
+                            }
+                        }
                     }
                 }
+                drawOrder.addAll(drawFirst);
+                drawOrder.addAll(drawSecond);
+
+                EntityList<Entity> selected = new EntityList<>();
+                selected.addAll(selectedDrawFirst);
+                selected.addAll(selectedDrawSecond);
+
+                ArrayList<ConnectionNode> oscillated = new ArrayList<>();
+                for (Entity e : drawOrder) {
+                    if (e instanceof ConnectibleEntity)
+                        for (ConnectionNode n : ((ConnectibleEntity) e).getConnections())
+                            if (n.isOscillated())
+                                oscillated.add(n);
+                    e.draw(gc);
+                }
+
+                oscillated.forEach(node -> node.drawOscillationNumber(gc));
+
+                if (currentPullPoint != null)
+                    currentPullPoint.drawPullPoint(gc);
+
+                if (currSelectionBox != null)
+                    currSelectionBox.draw(gc);
+
+                c.drawInvalidEntities(gc);
+
+                for (Entity e : currConnectionView) {
+                    currConnectionView.draw(e, gc);
+                }
+
+                if (!currSelection.isEmpty() && (!movingSelection || lastSelectionMovePoint.isSimilar(movingSelectionStartPoint))) {
+                    for (Entity e : selected)
+                        e.draw(gc);
+                    for (Entity e : selected)
+                        e.getBoundingBox().draw(gc);
+                } else if (movingSelection && !lastSelectionMovePoint.isSimilar(movingSelectionStartPoint)){
+                    for (Entity e : movingSelectionPreviewEntities) {
+                        e.drawPreview(gc);
+                        for (CircuitPoint invalidPoint : e.getInvalidInterceptPoints()) {
+                            c.drawInvalidGridPoint(gc, invalidPoint);
+                            c.drawInvalidGridPoint(gc, invalidPoint); // Double draw, so you can see it easier
+                        }
+                    }
+                }
+
+                if (placingAtCursor != null)
+                    placingAtCursor.draw(gc);
+
+                if (fuckedDrawState == 1 && lastFuckedUpOperand != null)
+                    lastFuckedUpOperand.draw(gc, Color.PINK, 0.75);
             }
-
-            if (placingAtCursor != null)
-                placingAtCursor.draw(gc);
-
-
-            if (fuckedDrawState == 1 && lastFuckedUpOperand != null)
-                lastFuckedUpOperand.draw(gc, Color.PINK, 0.75);
+            catch (Exception e) {
+                e.printStackTrace();
+            }
+            finally {
+                currDrawMark.deactivate();
+            }
         });
+
     }
 
 
@@ -1174,7 +1289,7 @@ public class EditorPanel extends Pane {
 
     public void postStateChangeUpdate() {
         c().recalculateTransmissions();
-        repaint(c());
+        repaint();
         new PullPoint(circuitPointAtMouse(true));
     }
 
@@ -1203,7 +1318,7 @@ public class EditorPanel extends Pane {
             if (!canBePlacedHere(pressPoint) || !currSelection.isEmpty() || shift) {
                 currentPullPoint = null;
                 if (old != null)
-                    repaint(c);
+                    repaint();
                 return;
             }
             EntityList<ConnectibleEntity> cesAtStart = c.getEntitiesThatIntercept(pressPoint).thatExtend(ConnectibleEntity.class);
@@ -1217,7 +1332,7 @@ public class EditorPanel extends Pane {
             if (!canCreateFromAll(cesAtStart))
                 deleteOnly = true;
             if (old == null)
-                repaint(c());
+                repaint();
         }
 
         public PullPoint(CircuitPoint location) {
@@ -1322,7 +1437,7 @@ public class EditorPanel extends Pane {
             }
 
             c.disableAndPollPowerUpdateBuffer();
-            repaint(c);
+            repaint();
         }
 
         public void onRelease() {
@@ -1330,7 +1445,7 @@ public class EditorPanel extends Pane {
             ppStateShift = 0;
             currentPullPoint = null;
             if (repaint)
-                repaint(c());
+                repaint();
             c().stateController().clip();
         }
 

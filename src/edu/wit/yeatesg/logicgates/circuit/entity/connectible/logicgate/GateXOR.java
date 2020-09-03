@@ -49,6 +49,15 @@ public class GateXOR extends LogicGate {
         super(origin, 270);
     }
 
+    @Override
+    public void construct() {
+        super.construct();
+        double itMult = size == Size.NORMAL ? 1 : 0.5;
+        curve = new BezierCurve(itMult, drawPoints.get(2), drawPoints.get(5), drawPoints.get(0));
+        curve2 = new BezierCurve(itMult, drawPoints.get(1), drawPoints.get(6), drawPoints.get(0));
+        backCurve = new BezierCurve(itMult, drawPoints.get(8), drawPoints.get(7), drawPoints.get(9));
+    }
+
     public static GateXOR parse(String s, Circuit c) {
         String[] fields = s.split(",");
         CircuitPoint origin = new CircuitPoint(fields[0], fields[1], c);
@@ -63,6 +72,25 @@ public class GateXOR extends LogicGate {
         OutputType outType = OutputType.parse(fields[7]);
         int dataBits = Integer.parseInt(fields[8]);
         return new GateXOR(origin, rotation, size, numInputs, negate, nots, outType, dataBits);
+    }
+
+    @Override
+    public boolean isSimilar(Entity other) {
+        if (!(other instanceof GateXOR))
+            return false;
+        GateXOR o = (GateXOR) other;
+        return o.origin.isSimilar(origin)
+                && o.rotation == rotation
+                && o.size == size
+                && o.numInputs == numInputs
+                && o.outputType == outputType
+                && o.dataBits == dataBits
+                && o.hasSimilarNots(this);
+    }
+
+    @Override
+    public GateXOR getCloned(Circuit onto) {
+        return new GateXOR(origin.clone(onto), rotation, size, numInputs, out.isNegated(), new ArrayList<>(inNots), outputType, dataBits);
     }
 
     @Override
@@ -159,18 +187,14 @@ public class GateXOR extends LogicGate {
         return new Vector(0, size == Size.NORMAL ? -6 : -4);
     }
 
+    private BezierCurve curve;
+    private BezierCurve curve2;
+    private BezierCurve backCurve;
 
     @Override
     public void draw(GraphicsContext g, Color col, double opacity) {
         drawInputTails(g, col);
         g.setLineWidth(c.getLineWidth());
-
-        double itMult = size == Size.NORMAL ? 1 : 0.5;
-
-        BezierCurve curve = new BezierCurve(itMult, drawPoints.get(2), drawPoints.get(5), drawPoints.get(0));
-        BezierCurve curve2 = new BezierCurve(itMult, drawPoints.get(1), drawPoints.get(6), drawPoints.get(0));
-
-        BezierCurve backCurve = new BezierCurve(itMult, drawPoints.get(8), drawPoints.get(7), drawPoints.get(9));
 
         curve.draw(g, col, c.getLineWidth());
         curve2.draw(g, col, c.getLineWidth());
@@ -196,23 +220,9 @@ public class GateXOR extends LogicGate {
         PowerValue returning = numOn == 1 ? PowerValue.ON : PowerValue.OFF;
         if (outputNode.isNegated())
             returning = returning.getNegated();
-        if ( returning == PowerValue.ON && outputType == OutputType.ZERO_FLOATING || returning == PowerValue.OFF && outputType == OutputType.FLOATING_ONE)
+        if ( returning == PowerValue.ON && outputType == OutputType.ONE_AS_FLOATING || returning == PowerValue.OFF && outputType == OutputType.ZERO_AS_FLOATING)
             returning = PowerValue.FLOATING;
         return returning;
-    }
-
-    @Override
-    public boolean isSimilar(Entity other) {
-        return other instanceof GateXOR
-                && ((GateXOR) other).origin.isSimilar(origin)
-                && ((GateXOR) other).rotation == rotation
-                && ((GateXOR) other).size == size
-                && hasSimilarNots((GateXOR) other);
-    }
-
-    @Override
-    public GateXOR getCloned(Circuit onto) {
-        return new GateXOR(origin.clone(onto), rotation, size, numInputs, out.isNegated(), new ArrayList<>(inNots), outputType, dataBits);
     }
 
     @Override

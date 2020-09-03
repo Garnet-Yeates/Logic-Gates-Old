@@ -127,7 +127,7 @@ public abstract class LogicGate extends ConnectibleEntity implements Rotatable, 
 
         leftWing = null;
         rightWing = null;
-        blockWiresHere.clear();
+        blockWiresHere = new Map<>();
 
         mainWing = getMainInputWing();
         drawPoints = getRelativePointSet().applyToOrigin(origin, rotation);
@@ -319,19 +319,6 @@ public abstract class LogicGate extends ConnectibleEntity implements Rotatable, 
 
     protected abstract double getOuterWingYOffset();
 
-
-    private ArrayList<CircuitPoint> blockWiresHere = new ArrayList<>();
-
-    public ArrayList<CircuitPoint> getWireBlockLocations() {
-        return blockWiresHere;
-    }
-
-    public Direction getWireBlockDirection() {
-        if (rotation == 0 || rotation == 180)
-            return Direction.HORIZONTAL;
-        return Direction.VERTICAL;
-    }
-
     public void constructNodesIntPointsAndBoundingBox() {
         inputNodes = new ArrayList<>();
         CircuitPoint inputOrigin = new CircuitPoint(0, 0, c).getIfModifiedBy(getOriginToInputOrigin());
@@ -342,8 +329,9 @@ public abstract class LogicGate extends ConnectibleEntity implements Rotatable, 
         int numIterations = (numInputs % 2 == 0 ? numInputs : numInputs - 1) / 2 + 1;
         while (originOffset < numIterations) {
             CircuitPoint addingInputAt = inputOrigin.getIfModifiedBy(new Vector(originOffset, 0).getMultiplied(dir)).getRotated(origin, rotation);
-            if (originOffset == numIterations - 1)
-                blockWiresHere.add(addingInputAt);
+            if (originOffset == numIterations - 1) {
+                blockWiresHere.put(addingInputAt, rotation == 0 || rotation == 180 ? Direction.HORIZONTAL : Direction.VERTICAL);
+            }
             establishInputNode(addingInputAt);
             inputNodes.add((InputNode) getNodeAt(addingInputAt));
             interceptPoints.add(addingInputAt);
