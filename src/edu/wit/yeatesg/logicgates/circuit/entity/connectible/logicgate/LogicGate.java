@@ -438,8 +438,10 @@ public abstract class LogicGate extends ConnectibleEntity implements Rotatable, 
 
     @Override
     public void onPropertyChangeViaTable(String propName, String old, String newVal) {
-        if (isTemplateEntity())
+        if (isItemEntity()) {
             onPropertyChange(propName, old, newVal);
+            treeItem.onClick();
+        }
         else {
             if (propName.equalsIgnoreCase("num inputs")) {
                 ArrayList<Integer> negatedInputs = new ArrayList<>(getNegatedInputIndices());

@@ -22,14 +22,26 @@ public class Project {
     private Circuit currCircuit;
     private String projectName;
 
+    public String getPath() {
+        return path;
+    }
+
+    public void setPath(String path) {
+        this.path = path;
+        if (gui != null)
+            gui.updateSaveMenuBars();
+    }
+
     public Project(String projectName) {
         this.projectName = projectName;
     }
 
-    public void toFile(File f) {
+    public void writeToFile(File f) {
+        XMLStreamWriter writer = null;
         try {
             XMLOutputFactory factory = XMLOutputFactory.newInstance();
-            XMLStreamWriter writer = factory.createXMLStreamWriter(new FileWriter(f));
+            FileWriter fw = new FileWriter(f);
+            writer = factory.createXMLStreamWriter(fw);
             writer.writeStartDocument();
             writeLnTab(writer, 0);
             writer.writeStartElement("project");
@@ -52,27 +64,33 @@ public class Project {
             writer.writeEndDocument();
             writer.flush();
             writer.close();
-
+            fw.close();
         } catch (XMLStreamException | IOException e) {
             e.printStackTrace();
+            if (writer != null) {
+                try {
+                    writer.close();
+                } catch (XMLStreamException ex) {
+                    ex.printStackTrace();
+                }
+            }
         }
     }
 
     public void writeLnTab(XMLStreamWriter writer, int tabs) throws XMLStreamException {
         StringBuilder tabString = new StringBuilder();
-        for (int i = 0; i < tabs; i++)
-            tabString.append("    ");
+        tabString.append("    ".repeat(Math.max(0, tabs)));
         writer.writeCharacters("\n" + tabString + "");
     }
 
     public static Project fromFile(File file) throws LoadFailedException {
         Project p = new Project(null);
-        p.path = file.getPath();
+        p.setPath(file.getPath());
+        XMLEventReader eventReader = null;
         try {
             XMLInputFactory factory = XMLInputFactory.newInstance();
             factory.setProperty(XMLInputFactory.IS_COALESCING, Boolean.TRUE);
-            XMLEventReader eventReader =
-                    factory.createXMLEventReader(new FileReader(file));
+            eventReader = factory.createXMLEventReader(new FileReader(file));
 
             boolean project = false;
             boolean parseEntity = false;
@@ -91,7 +109,8 @@ public class Project {
                                 case "project":
                                     project = true;
                                     startElement.getAttributes().forEachRemaining((at) -> {
-                                        if (at.getName().getLocalPart().equals("name")) {
+                                        String local = at.getName().getLocalPart();
+                                        if (local.equalsIgnoreCase("name")) {
                                             p.projectName = at.getValue();
                                         }
                                     });
@@ -152,6 +171,11 @@ public class Project {
             }
         } catch (Exception e) {
             e.printStackTrace();
+            if (eventReader != null) {
+                try {
+                    eventReader.close();
+                } catch (XMLStreamException ignored) { }
+            }
             throw new LoadFailedException("Invalid File");
         }
         return p;
@@ -213,6 +237,8 @@ public class Project {
         if (!foundMatch)
             throw new RuntimeException("Can't set current circuit to this circuit; doesn't exist in the Project instance");
         currCircuit = c;
+        currCircuit.stateController().updateMenuBars();
+        currCircuit.selectionTableUpdate();
     }
 
     public Circuit getCurrentCircuit() {

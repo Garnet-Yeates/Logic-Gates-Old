@@ -162,6 +162,19 @@ public class ConnectionNode implements Powerable {
         g.strokeOval(p1.x, p1.y, dist, dist);
     }
 
+    public void draw(GraphicsContext g, Color col, double opacity, double negationCircleDiameter) {
+        if (isNegated) {
+            CircuitPoint negCenter = location.getIfModifiedBy(getVectorToParent().getMultiplied(0.5));
+            ConnectionNode.drawNegationCircle(g, col == null ? Color.BLACK : col, negCenter, negationCircleDiameter);
+        }
+        col = col == null ? getPowerValue().getColor() : col;
+        g.setFill(col);
+        double circleSize = parent.getCircuit().getScale() * 0.5;
+        circleSize *= getLocation().getCircuit().getScale() < 10 ? 1.1 : 1;
+        PanelDrawPoint drawPoint = getLocation().toPanelDrawPoint();
+        g.fillOval(drawPoint.x - circleSize/2.00, drawPoint.y - circleSize/2.00, circleSize, circleSize);
+    }
+
     public DependencyTree dependencyTree;
 
     @Override

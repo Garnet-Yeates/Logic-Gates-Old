@@ -1,18 +1,19 @@
 package edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission;
 
 import edu.wit.yeatesg.logicgates.circuit.Circuit;
-import edu.wit.yeatesg.logicgates.circuit.entity.connectible.peripheral.InputBlock;
-import edu.wit.yeatesg.logicgates.circuit.entity.connectible.peripheral.OutputBlock;
+import edu.wit.yeatesg.logicgates.circuit.entity.Entity;
+import edu.wit.yeatesg.logicgates.circuit.entity.EntityList;
+import edu.wit.yeatesg.logicgates.circuit.entity.PropertyList;
+import edu.wit.yeatesg.logicgates.circuit.entity.connectible.ConnectibleEntity;
+import edu.wit.yeatesg.logicgates.circuit.entity.connectible.ConnectionList;
 import edu.wit.yeatesg.logicgates.datatypes.*;
-import edu.wit.yeatesg.logicgates.circuit.entity.*;
-import edu.wit.yeatesg.logicgates.circuit.entity.connectible.*;
-import edu.wit.yeatesg.logicgates.circuit.entity.connectible.logicgate.LogicGate;
-import edu.wit.yeatesg.logicgates.datatypes.Map;
-import edu.wit.yeatesg.logicgates.datatypes.Vector;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.Iterator;
+import java.util.LinkedList;
 
 public class Wire extends ConnectibleEntity implements Powerable {
 
@@ -522,7 +523,7 @@ public class Wire extends ConnectibleEntity implements Powerable {
     }
 
     public static double getLineWidth(Circuit c) {
-        return c.getLineWidth() * 1.25;
+        return c.getLineWidth() * 1.2;
     }
 
 

@@ -7,7 +7,6 @@ import edu.wit.yeatesg.logicgates.circuit.entity.PropertyList;
 import edu.wit.yeatesg.logicgates.circuit.entity.Rotatable;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.ConnectibleEntity;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.ConnectionList;
-import edu.wit.yeatesg.logicgates.circuit.entity.connectible.peripheral.OutputBlock;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission.*;
 import edu.wit.yeatesg.logicgates.datatypes.*;
 import javafx.scene.canvas.GraphicsContext;
@@ -175,7 +174,7 @@ public class GateNOT extends ConnectibleEntity implements Rotatable {
 
     @Override
     public GateNOT getCloned(Circuit onto) {
-        return new GateNOT(origin, rotation, size);
+        return new GateNOT(origin.clone(onto), rotation, size);
     }
 
 
@@ -241,8 +240,10 @@ public class GateNOT extends ConnectibleEntity implements Rotatable {
 
     @Override
     public void onPropertyChangeViaTable(String propName, String old, String newVal) {
-        if (isTemplateEntity())
+        if (isItemEntity()) {
             onPropertyChange(propName, old, newVal);
+            treeItem.onClick();
+        }
         else
             c.new PropertyChangeOperation(this, propName, newVal, true).operate();
 

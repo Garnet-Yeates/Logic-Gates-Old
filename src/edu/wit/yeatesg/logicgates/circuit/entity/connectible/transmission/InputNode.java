@@ -51,15 +51,7 @@ public class InputNode extends ConnectionNode {
 
     @Override
     public void draw(GraphicsContext g, Color col, double opacity) {
-        if (isNegated) {
-            CircuitPoint negCenter = location.getIfModifiedBy(getVectorToParent().getMultiplied(0.5));
-            ConnectionNode.drawNegationCircle(g, col == null ? Color.BLACK : col, negCenter, 0.8);
-        }
-        col = col == null ? getPowerValue().getColor() : col;
-        g.setFill(col);
-        double circleSize = parent.getCircuit().getScale() * 0.55;
-        circleSize *= getLocation().getCircuit().getScale() < 10 ? 1.1 : 1;
-        PanelDrawPoint drawPoint = getLocation().toPanelDrawPoint();
-        g.fillOval(drawPoint.x - circleSize/2.00, drawPoint.y - circleSize/2.00, circleSize, circleSize);
+        draw(g, col, opacity, 0.85);
     }
+
 }

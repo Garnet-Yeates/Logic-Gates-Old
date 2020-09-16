@@ -36,6 +36,8 @@ public class BezierCurve {
             numIterations = 8;
 
         numIterations = (int) Math.max(iterationMultiplier*numIterations, 6);
+        if (scale > 8)
+            numIterations *= 1.15;
 
         points = new CircuitPoint[numIterations];
         double weightInc = 1.0 / (numIterations - 1);

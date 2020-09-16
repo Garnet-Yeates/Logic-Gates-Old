@@ -5,6 +5,7 @@ import edu.wit.yeatesg.logicgates.LogicGates;
 import edu.wit.yeatesg.logicgates.circuit.entity.*;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.ConnectibleEntity;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.ConnectionList;
+import edu.wit.yeatesg.logicgates.circuit.entity.connectible.logicgate.LogicGate;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission.*;
 import edu.wit.yeatesg.logicgates.datatypes.*;
 import edu.wit.yeatesg.logicgates.datatypes.PanelDrawPoint;
@@ -29,6 +30,10 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
 
     public InputBlock(CircuitPoint origin, int rotation) {
         this(origin, rotation, false);
+    }
+
+    public InputBlock(CircuitPoint origin) {
+        this(origin, 0);
     }
 
     @Override
@@ -124,22 +129,28 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
 
         // Draw Circle Inside
         CircuitPoint centerPoint = pts.get(5);
-        double circleSize = (c.getScale() * 1.3);
-        circleSize *= 1.2;
+        double circleSize = (c.getScale() * 1.5);
+        double radius = circleSize / 2.0;
         drawPoint = centerPoint.toPanelDrawPoint();
 
         g.setFill(col == null ? out.getPowerValue().getColor() : col);
-        g.fillOval(drawPoint.x - circleSize/2.00, drawPoint.y - circleSize/2.00, circleSize, circleSize);
+        g.fillOval(drawPoint.x - radius, drawPoint.y - radius, circleSize, circleSize);
 
         // Draw Text 0 / 1
         PowerValue outStatus = out.getPowerValue();
         String text = outStatus.getAbbreviated();
-        double widthOfThisHereInputBlock = c.getScale()*2; // TODO change for diff size
-        double maxWidth = widthOfThisHereInputBlock*0.70;
-        Color numCol = strokeCol;
-        if (col == null && outStatus == PowerValue.OFF)
-            numCol = Color.rgb(0, 0, 0);
-        LogicGates.drawText(text, getLineWidth()*0.5, c, g, numCol, centerPoint.getSimilar(), maxWidth);
+
+        radius /= c.getScale();
+        BoundingBox bb = new BoundingBox(new CircuitPoint(centerPoint.x - radius, centerPoint.y - radius, c),
+                new CircuitPoint(centerPoint.x + radius, centerPoint.y + radius, c), null);
+        bb = bb.getShrunkBy(0.1);
+        if (text.equals("?"))
+            bb = bb.getShrunkBy(0.15);
+        if (text.equals("E") || text.equals("O"))
+            bb = bb.getShrunkBy(0.1);
+
+        if (col == null)
+            LogicGates.drawText(text, bb, c, g, Color.BLACK);
 
         g.setLineWidth(getLineWidth());
         g.setStroke(strokeCol);
@@ -164,6 +175,12 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
     public CircuitPointList getInvalidInterceptPoints(Entity e) {
         if (e instanceof Wire)
             return e.getInvalidInterceptPoints(this);
+        else if (e instanceof InputBlock) {
+            InputBlock other = (InputBlock) e;
+            CircuitPointList view = new CircuitPointList(drawPoints.get(0), drawPoints.get(5));
+            CircuitPointList otherView = new CircuitPointList(other.drawPoints.get(0), other.drawPoints.get(5));
+            return view.intersection(other.interceptPoints).union(otherView.intersection(interceptPoints));
+        }
         return getInterceptPoints(e); // If it's not a wire, any intersect point is invalid
     }
 
@@ -253,8 +270,9 @@ public class InputBlock extends ConnectibleEntity implements Pokable, Rotatable 
 
     @Override
     public void onPropertyChangeViaTable(String propertyName, String old, String newVal) {
-        if (isTemplateEntity()) {
+        if (isItemEntity()) {
             onPropertyChange(propertyName, old, newVal);
+            treeItem.onClick();
         } else {
             c.new PropertyChangeOperation(this, propertyName, newVal, true).operate();
         }

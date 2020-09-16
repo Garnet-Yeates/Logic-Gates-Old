@@ -2,10 +2,8 @@ package edu.wit.yeatesg.logicgates;
 
 import edu.wit.yeatesg.logicgates.circuit.Circuit;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission.ConnectionNode;
-import edu.wit.yeatesg.logicgates.datatypes.CircuitPointList;
-import edu.wit.yeatesg.logicgates.datatypes.Vector;
-import edu.wit.yeatesg.logicgates.datatypes.CircuitPoint;
-import edu.wit.yeatesg.logicgates.datatypes.PanelDrawPoint;
+import edu.wit.yeatesg.logicgates.datatypes.*;
+import javafx.geometry.VPos;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
@@ -96,46 +94,27 @@ public class LogicGates {
         g.strokePolyline(x, y, points.size());
     }
 
-    public static void drawText(String text, double lineWidth, Circuit c, GraphicsContext g, Color col, CircuitPoint center, double fit) {
+    public static void drawText(String text, BoundingBox b, Circuit c, GraphicsContext g, Color col) {
         Color strokeCol = col == null ? Color.BLACK : col;
         g.setStroke(strokeCol);
 
-        Text toFindSize = new Text(text);
-        double width;
-        double height;
-        double fontSize = (fit / (c.getScale()*1.5))*c.getScale() * 2.6;
-        Font f;
-        int numIts = 0;
-        do{
-            numIts++;
-            toFindSize.setFont((f = new Font("Consolas", fontSize -= Math.max(0.1, fontSize * 0.05))));
-            toFindSize.setTextAlignment(TextAlignment.CENTER);
-            toFindSize.applyCss();
-            width = toFindSize.getLayoutBounds().getWidth();
-            height = fontSize*0.66;
-        } while (width > fit || height > fit);
+        double w = b.p4.x - b.p1.x;
+        PanelDrawPoint center = b.p1.getIfModifiedBy(new Vector(b.p1, b.p4).getMultiplied(0.5)).toPanelDrawPoint();
 
-        PanelDrawPoint pp = center.toPanelDrawPoint();
+        double heightInCircuitPoints = b.p3.y - b.p1.y;
+        double wPP = w * c.getScale();
 
-        pp.y += height / 2;
-        pp.x -= width / 2;
+        Font font =  new Font("Consolas", heightInCircuitPoints*c.getScale()*1.55);
 
-        g.setFill(strokeCol);
-        g.setLineWidth(lineWidth);
-        g.setFont(f);
-        g.setTextAlign(TextAlignment.LEFT);
+        double yShiftInCircuitPoints = 0.15;
 
-        double x = pp.x;
-        double y = pp.y;
+      //  b.drawBorder(g, Color.ORANGE, 1);
 
-        if (c.getScale() == 7) {
-            x++;
-            y++;
-        }
-        if (c.getScale() == 6 || c.getScale() == 14 || c.getScale() == 16 || c.getScale() == 9)
-            x++;
-
-        g.fillText(text, x, y);
+        g.setTextAlign(TextAlignment.CENTER);
+        g.setFill(Color.BLACK);
+        g.setFont(font);
+        g.setTextBaseline(VPos.CENTER);
+        g.fillText(text, center.x, center.y + yShiftInCircuitPoints * c.getScale(), wPP);
 
     }
 

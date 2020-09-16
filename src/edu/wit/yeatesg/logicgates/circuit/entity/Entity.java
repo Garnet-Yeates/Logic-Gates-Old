@@ -1,5 +1,6 @@
 package edu.wit.yeatesg.logicgates.circuit.entity;
 
+import com.sun.tools.javac.Main;
 import edu.wit.yeatesg.logicgates.circuit.Circuit;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.logicgate.*;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.peripheral.OutputBlock;
@@ -8,12 +9,10 @@ import edu.wit.yeatesg.logicgates.circuit.entity.connectible.ConnectibleEntity;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.peripheral.InputBlock;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission.Wire;
 import edu.wit.yeatesg.logicgates.gui.EditorPanel;
+import edu.wit.yeatesg.logicgates.gui.MainGUI;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
-import static edu.wit.yeatesg.logicgates.circuit.Circuit.*;
-
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedList;
 
@@ -339,7 +338,7 @@ public abstract class Entity implements PropertyMutable {
 
     public boolean invalidlyIntercepts(Entity e) {
         CircuitPointList invalids = getInvalidInterceptPoints(e);
-        return invalids != null && invalids.size() > 0;
+        return invalids.size() > 0;
     }
 
     protected CircuitPointList invalidInterceptPoints = new CircuitPointList();
@@ -421,16 +420,15 @@ public abstract class Entity implements PropertyMutable {
      * TEMPLATE ENTITY STUFF (PRINCIPAL ENTITIES THAT ARE CLONED WHEN THE USER ADDS THEM VIA THE LEFT SIDE TREE VIEW)
      * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-    private boolean isTemplateEntity;
+    protected MainGUI.EntityTreeItem treeItem;
 
-    public boolean isTemplateEntity() {
-        return isTemplateEntity;
+    public boolean isItemEntity() {
+        return treeItem != null;
     }
 
-    public void flagAsTemplateEntity() {
-        isTemplateEntity = true;
+    public void setTreeItem(MainGUI.EntityTreeItem item) {
+        treeItem = item;
     }
-
 
     /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
      * OTHER, IM TOO LAZY TO FINISH ORGANIZING. WHAT DID THE DOCTOR SAY TO THE OTHER DOCTOR? THIS ORGAN BOOK IS VERY ORGAN-IZED

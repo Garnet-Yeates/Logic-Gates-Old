@@ -95,4 +95,10 @@ public class CircuitPointList extends ArrayList<CircuitPoint> {
             p.y += v.y;
         }
     }
+
+    public CircuitPointList union(CircuitPointList other) {
+        CircuitPointList union = new CircuitPointList(this);
+        union.addAll(other);
+        return union;
+    }
 }

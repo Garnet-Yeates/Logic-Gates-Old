@@ -5,17 +5,12 @@ import edu.wit.yeatesg.logicgates.circuit.Circuit;
 import edu.wit.yeatesg.logicgates.circuit.entity.Entity;
 import edu.wit.yeatesg.logicgates.circuit.entity.Property;
 import edu.wit.yeatesg.logicgates.circuit.entity.PropertyList;
-import edu.wit.yeatesg.logicgates.circuit.entity.Rotatable;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.ConnectibleEntity;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.ConnectionList;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission.*;
 import edu.wit.yeatesg.logicgates.datatypes.*;
-import edu.wit.yeatesg.logicgates.gui.EditorPanel;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
-
-import java.awt.*;
-import java.util.ArrayList;
 
 public class GroundEmitter extends ConnectibleEntity {
 
@@ -65,7 +60,7 @@ public class GroundEmitter extends ConnectibleEntity {
 
     @Override
     public GroundEmitter getCloned(Circuit onto) {
-        return new GroundEmitter(origin, rotation);
+        return new GroundEmitter(origin.clone(onto), rotation);
     }
 
 
@@ -78,8 +73,8 @@ public class GroundEmitter extends ConnectibleEntity {
         double totalHeight = 1.5;
         double neckLength = 0.5;
         double workingLength = totalHeight - neckLength;
-        double startOut = 0.9;
-        double endOut = 0.3;
+        double startOut = 0.8;
+        double endOut = 0.2;
 
         double distOut = startOut;
         polyLines = new CircuitPointList[4];
@@ -221,8 +216,10 @@ public class GroundEmitter extends ConnectibleEntity {
 
     @Override
     public void onPropertyChangeViaTable(String propName, String old, String newVal) {
-        if (isTemplateEntity())
+        if (isItemEntity()) {
             onPropertyChange(propName, old, newVal);
+            treeItem.onClick();
+        }
         else
             c.new PropertyChangeOperation(this, propName, newVal, true).operate();
 

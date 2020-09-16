@@ -10,7 +10,7 @@ import java.util.Comparator;
 
 public class DependencyTree {
 
-    private ArrayList<OutputNode> roots;
+    private ArrayList<OutputNode> roots, pullerRoots;
     private ArrayList<Wire> branches;
     private ArrayList<InputNode> leaves;
 
@@ -31,6 +31,7 @@ public class DependencyTree {
         if (!(startingFrom instanceof OutputNode) && !(startingFrom instanceof InputNode))
             throw new RuntimeException("Can only create from Input/Output nodes");
         this.signature = signature.copy();
+        pullerRoots = new ArrayList<>();
         roots = new ArrayList<>();
         branches = new ArrayList<>();
         leaves = new ArrayList<>();
@@ -73,11 +74,13 @@ public class DependencyTree {
 
         if (pow instanceof OutputNode) {
             OutputNode out = (OutputNode) pow;
-            if (out.parent instanceof PullResistor)
-                pullers.add((PullResistor) out.parent);
             if (out.causesHighTriggering())
                 causesHighTriggering = true;
-            roots.add(out);
+            if (out.parent instanceof PullResistor) {
+                pullerRoots.add(out);
+                pullers.add((PullResistor) out.parent);
+            } else
+                roots.add(out);
         }
         else if (pow instanceof Wire) {
             branches.add((Wire) pow);
@@ -90,6 +93,7 @@ public class DependencyTree {
         roots.forEach(out -> out.setDependencyTree(null));
         branches.forEach(wire -> wire.setDependencyTree(null));
         leaves.forEach(in -> in.setDependencyTree(null));
+        pullerRoots.forEach(out -> out.setDependencyTree(null));
     }
 
     public FlowSignature getSignature() {
@@ -178,10 +182,8 @@ public class DependencyTree {
         if (powerValue == PowerValue.UNDETERMINED) {
             ArrayList<PowerValue> possibleValues = new ArrayList<>();
             for (OutputNode root : roots)
-                if (!(root.getParent() instanceof PullResistor)) // Todo maybe have a field in out node called 'canDetermineTree' set to false for pullresistor nodes
-                    possibleValues.add(root.getParent().getLocalPowerStateOf(root));
+                possibleValues.add(root.getParent().getLocalPowerStateOf(root));
             possibleValues.sort(Comparator.comparingInt(PowerValue::getPriority));
-
             if (possibleValues.size() > 1) {
                 PowerValue last = possibleValues.get(possibleValues.size() - 1);
                 if (!last.isError())
@@ -218,10 +220,10 @@ public class DependencyTree {
 
     public void setPowerValue(PowerValue val) {
         roots.forEach(outputNode -> outputNode.setPowerValue(val));
+        pullerRoots.forEach(outputNode -> outputNode.setPowerValue(val));
         branches.forEach(wire -> wire.setPowerValue(val));
         leaves.forEach(inputNode -> inputNode.setPowerValue(val));
     }
-
 
     public ArrayList<OutputNode> getRoots() {
         return roots;

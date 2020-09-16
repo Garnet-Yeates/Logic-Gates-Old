@@ -24,6 +24,10 @@ public class OutputBlock extends ConnectibleEntity implements Rotatable {
         construct();
     }
 
+    public OutputBlock(CircuitPoint origin) {
+        this(origin, 0);
+    }
+
     @Override
     public void construct() {
         connections = new ConnectionList(this);
@@ -39,7 +43,6 @@ public class OutputBlock extends ConnectibleEntity implements Rotatable {
     public OutputBlock getCloned(Circuit c) {
         return new OutputBlock(origin.clone(c), rotation);
     }
-
 
     @Override
     public boolean isSimilar(Entity other) {
@@ -74,11 +77,11 @@ public class OutputBlock extends ConnectibleEntity implements Rotatable {
         RelativePointSet drawPointRelative = new RelativePointSet();
         Circuit c = getCircuit();
         drawPointRelative.add(0, 0, c); // Origin (bottom middle) is 0
-        drawPointRelative.add(-1, 0, c); // top left is 1
-        drawPointRelative.add(-1, 2, c); // bot left is 2
-        drawPointRelative.add(1, 2, c); // bot right is 3
-        drawPointRelative.add(1, 0, c); // top right is 4
-        drawPointRelative.add(0, 1, c); // center point is 5
+        drawPointRelative.add(-1, -2, c); // top left is 1
+        drawPointRelative.add(-1, 0, c); // bot left is 2
+        drawPointRelative.add(1, 0, c); // bot right is 3
+        drawPointRelative.add(1, -2, c); // top right is 4
+        drawPointRelative.add(0, -1, c); // center point is 5
         return drawPointRelative;
     }
 
@@ -109,10 +112,7 @@ public class OutputBlock extends ConnectibleEntity implements Rotatable {
 
         CircuitPoint centerPoint = pts.get(5);
 
-        PanelDrawPoint tL = pts.get(1).toPanelDrawPoint();
-        PanelDrawPoint bL = pts.get(2).toPanelDrawPoint();
-        PanelDrawPoint bR = pts.get(3).toPanelDrawPoint();
-        PanelDrawPoint tR = pts.get(4).toPanelDrawPoint();
+
         double circleSize = (c.getScale() * 2);
         drawPoint = centerPoint.toPanelDrawPoint();
         g.strokeOval(drawPoint.x - circleSize/2.00, drawPoint.y - circleSize/2.00, circleSize, circleSize);
@@ -124,16 +124,24 @@ public class OutputBlock extends ConnectibleEntity implements Rotatable {
         // Draw Circle Inside
         g.setFill(col == null ? in.getPowerValue().getColor() : col);
         circleSize = (c.getScale() * 1.5);
+        double radius = circleSize / 2.0;
         drawPoint = centerPoint.toPanelDrawPoint();
-        g.fillOval(drawPoint.x - circleSize/2.00, drawPoint.y - circleSize/2.00, circleSize, circleSize);
+        g.fillOval(drawPoint.x - radius, drawPoint.y - radius, circleSize, circleSize);
 
         PowerValue inStatus = in.getPowerValue();
         String text = inStatus.getAbbreviated();
-        double widthOfThisHereInputBlock = c.getScale()*2; // TODO change for diff size
-        double maxWidth = widthOfThisHereInputBlock*0.70;
-        if (col == null && inStatus == PowerValue.OFF)
-            strokeCol = Color.rgb(0, 0, 0);
-        LogicGates.drawText(text, getLineWidth()*0.5, c, g, strokeCol, centerPoint.getSimilar(), maxWidth*0.9);
+
+        radius /= c.getScale();
+        BoundingBox bb = new BoundingBox(new CircuitPoint(centerPoint.x - radius, centerPoint.y - radius, c),
+                new CircuitPoint(centerPoint.x + radius, centerPoint.y + radius, c), null);
+        bb = bb.getShrunkBy(0.1);
+        if (text.equals("?"))
+            bb = bb.getShrunkBy(0.15);
+        if (text.equals("E") || text.equals("O"))
+            bb = bb.getShrunkBy(0.1);
+
+        if (col == null)
+         LogicGates.drawText(text, bb, c, g, Color.BLACK);
     }
 
 
@@ -141,6 +149,12 @@ public class OutputBlock extends ConnectibleEntity implements Rotatable {
     public CircuitPointList getInvalidInterceptPoints(Entity e) {
         if (e instanceof Wire)
             return e.getInvalidInterceptPoints(this);
+        if (e instanceof OutputBlock) {
+            OutputBlock other = (OutputBlock) e;
+            CircuitPointList view = new CircuitPointList(drawPoints.get(0), drawPoints.get(5));
+            CircuitPointList otherView = new CircuitPointList(other.drawPoints.get(0), other.drawPoints.get(5));
+            return view.intersection(other.interceptPoints).union(otherView.intersection(interceptPoints));
+        }
         return getInterceptPoints(e); // If it's not a wire, any intersect point is invalid
     }
 
@@ -211,8 +225,9 @@ public class OutputBlock extends ConnectibleEntity implements Rotatable {
 
     @Override
     public void onPropertyChangeViaTable(String propertyName, String old, String newVal) {
-        if (isTemplateEntity()) {
+        if (isItemEntity()) {
             onPropertyChange(propertyName, old, newVal);
+            treeItem.onClick();
         } else {
             c.new PropertyChangeOperation(this, propertyName, newVal, true).operate();
         }

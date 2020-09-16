@@ -1,11 +1,9 @@
 package edu.wit.yeatesg.logicgates.gui;
 
-import edu.wit.yeatesg.logicgates.circuit.entity.Entity;
-import edu.wit.yeatesg.logicgates.circuit.entity.PropertyList;
+import com.sun.javafx.application.PlatformImpl;
+import edu.wit.yeatesg.logicgates.circuit.entity.*;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.logicgate.*;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.peripheral.OutputBlock;
-import edu.wit.yeatesg.logicgates.circuit.entity.PropertyMutable;
-import edu.wit.yeatesg.logicgates.circuit.entity.Property;
 import edu.wit.yeatesg.logicgates.circuit.Circuit;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.peripheral.InputBlock;
 import edu.wit.yeatesg.logicgates.datatypes.CircuitPoint;
@@ -26,15 +24,16 @@ import javafx.scene.image.ImageView;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 
 import java.io.File;
+import java.io.IOException;
 
 
-// Rename to LogicGates
 public class MainGUI extends Application {
 
     private Stage stage;
@@ -42,8 +41,8 @@ public class MainGUI extends Application {
 
     private boolean addDefaultEntities;
 
-
     public static void main(String[] args) {
+        PlatformImpl.startup(() -> {});
         Platform.runLater(() -> {
             new MainGUI(new Stage(), null, true);
         });
@@ -61,8 +60,14 @@ public class MainGUI extends Application {
 
     public File getFileFromFileDialog(Stage stage, boolean open) {
         final FileChooser fileChooser = new FileChooser();
-        fileChooser.setTitle(open ? "Open Project" : "Save Project To");
-        fileChooser.setInitialDirectory(new File(System.getProperty("user.home")));
+        fileChooser.setTitle(open ? "Open File" : "Save To File");
+
+        File f = new File(System.getProperty("user.home")
+                + File.separator + "Documents"
+                + File.separator + "Logic Gates"
+                + File.separator + "Projects");
+        f.mkdirs();
+        fileChooser.setInitialDirectory(f);
         fileChooser.getExtensionFilters().addAll(new FileChooser.ExtensionFilter("Circuit", "*.cxml"));
         return open ? fileChooser.showOpenDialog(stage) : fileChooser.showSaveDialog(stage);
     }
@@ -72,28 +77,51 @@ public class MainGUI extends Application {
         this.stage = stage;
     }
 
-    private void onMenuSavePress(ActionEvent e, boolean saveAs) {
-        if (saveAs)
-            currProject.toFile(getFileFromFileDialog(stage, false));
 
+    public void saveAs() {
+        File f = getFileFromFileDialog(stage, false);
+        if (f != null) {
+            currProject.setPath(f.getPath());
+            currProject.writeToFile(f);
+        }
+    }
+
+    public void save() {
+        if (currProject.getPath() == null) {
+            saveAs();
+            return;
+        }
+        File f = new File(currProject.getPath());
+        if (f.exists() && !f.isDirectory()) {
+            if (f.delete()) {
+                try {
+                    if (!f.createNewFile())
+                        f = new File(currProject.getPath());
+                } catch (IOException e) {
+                    f = new File(currProject.getPath());
+                }
+            }
+        }
+        currProject.writeToFile(f);
     }
 
     public void onMenuOpenPress(ActionEvent ev) {
         File f = getFileFromFileDialog(stage, true);
-        Project proj;
-        try {
-            proj = Project.fromFile(f);
-            YesNoGUI yesNoGUI = new YesNoGUI(new Stage(), "Option", "Open Project In New Window?");
-            yesNoGUI.setNoAction((e) -> {
-                // TODO ask if they want to save
-                setCurrentProject(proj);
-            });
-            yesNoGUI.setYesAction((e) -> Platform.runLater(() -> new MainGUI(new Stage(), proj, false)));
-            yesNoGUI.showAndWait();
-        } catch (Project.LoadFailedException e) {
-            // TODO show "Load Failed" dialog bs
-            e.printStackTrace();
-            System.out.println(e.getMessage());
+        if (f != null) {
+            Project proj;
+            try {
+                proj = Project.fromFile(f);
+                YesNoGUI yesNoGUI = new YesNoGUI(new Stage(), "Option", "Open Project In New Window?");
+                yesNoGUI.setNoAction((e) -> {
+                    setCurrentProject(proj);
+                });
+                yesNoGUI.setYesAction((e) -> Platform.runLater(() -> new MainGUI(new Stage(), proj, false)));
+                yesNoGUI.showAndWait();
+            } catch (Project.LoadFailedException e) {
+                // TODO show "Load Failed" dialog bs
+                e.printStackTrace();
+                System.out.println(e.getMessage());
+            }
         }
     }
 
@@ -113,7 +141,7 @@ public class MainGUI extends Application {
 
             // Left of the divider pane
             private VBox leftOfDivider;
-                private BorderPane        whereButtonsGo;
+                private BorderPane buttonBorderPane;
                 private TreeView<String>  treeView;
                 private BorderPane        propertiesGoHere;
 
@@ -158,18 +186,30 @@ public class MainGUI extends Application {
 
     private Menu fileMenu;
     private MenuItem openMenuItem;
+    private MenuItem saveMenuItem;
+
+    public MenuItem getOpenMenuItem() {
+        return openMenuItem;
+    }
+
+    public MenuItem getSaveMenuItem() {
+        return saveMenuItem;
+    }
 
     private void initFileMenu() {
         fileMenu = new Menu("File");
         MenuItem openMenuItem = new MenuItem("Open Project\n");
         openMenuItem.setOnAction(this::onMenuOpenPress);
         fileMenu.getItems().add(openMenuItem);
-        MenuItem saveMenuItem = new MenuItem("Save Project As...");
-        saveMenuItem.setOnAction((e) -> onMenuSavePress(e, true));
+        MenuItem saveAsMenuItem = new MenuItem("Save As");
+        saveAsMenuItem.setOnAction((e) -> saveAs());
+        fileMenu.getItems().add(saveAsMenuItem);
+
+        saveMenuItem = new MenuItem("Save");
+        saveMenuItem.setOnAction((e) -> save());
         fileMenu.getItems().add(saveMenuItem);
+
         menuBar.getMenus().add(fileMenu);
-
-
     }
 
 
@@ -213,7 +253,7 @@ public class MainGUI extends Application {
         });
             // TODO CALL UNDO FUNCTION
 
-        megaUndoMenuItem = new MenuItem("Mega Undo  ");
+        megaUndoMenuItem = new MenuItem("Mega Unldo  ");
         megaUndoMenuItem.setAccelerator(new KeyCodeCombination(KeyCode.Z, KeyCombination.CONTROL_DOWN, KeyCombination.SHIFT_DOWN));
         editMenu.getItems().add(megaUndoMenuItem);
         megaUndoMenuItem.setOnAction((e) -> {
@@ -250,10 +290,10 @@ public class MainGUI extends Application {
         leftRightDividerPane.getItems().add(leftOfDivider);
 
         // The top of the VBox is the area where buttons will go. Idk what these buttons will do yet
-        whereButtonsGo = new BorderPane();
-        whereButtonsGo.setCenter(new Label("Buttons and stuff go here"));
-        whereButtonsGo.setMinHeight(100);
-        leftOfDivider.getChildren().add(whereButtonsGo);
+        buttonBorderPane = new BorderPane();
+        buttonBorderPane.setCenter(new Label("Buttons and stuff go here"));
+        buttonBorderPane.setMinHeight(100);
+        leftOfDivider.getChildren().add(buttonBorderPane);
 
         // The middle of the VBox is the treeView to choose entities to add to the Circuit
         treeView = new TreeView<>();
@@ -263,54 +303,144 @@ public class MainGUI extends Application {
         TreeItem<String> treeRoot = new TreeItem<>("untitled");
         treeRoot.setExpanded(true);
 
-        TreeItem<String> circuitsItem = new TreeItem<>("Circuits");
-        circuitsItem.setExpanded(true);
-        circuitsItem.getChildren().add(new TreeItem<>("CircuitA"));
-        circuitsItem.getChildren().add(new TreeItem<>("CircuitB"));
-        circuitsItem.getChildren().add(new TreeItem<>("CircuitC"));
+        TreeItem<String> circuitAItem = new TreeItem<>("Circuit A");
+        circuitAItem.setGraphic(new ImageView(new Image("/assets/Logic Gate Icons/CircuitIcon.png")));
+        treeRoot.getChildren().add(circuitAItem);
 
-        TreeItem<String> objectsItem = new TreeItem<>("Objects");
-        objectsItem.setExpanded(true);
+        TreeItem<String> circuitBItem = new TreeItem<>("Circuit B");
+        circuitBItem.setGraphic(new ImageView(new Image("/assets/Logic Gate Icons/CircuitIcon.png")));
+        treeRoot.getChildren().add(circuitBItem);
+
+        TreeItem<String> circuitCItem = new TreeItem<>("Circuit C");
+        circuitCItem.setGraphic(new ImageView(new Image("/assets/Logic Gate Icons/CircuitIcon.png")));
+        treeRoot.getChildren().add(circuitCItem);
+
+        TreeItem<String> wiringItem = new TreeItem<>("Wiring");
+        treeRoot.getChildren().add(wiringItem);
+        wiringItem.setExpanded(true);
+
+        Circuit t = new Circuit();
+        CircuitPoint o = new CircuitPoint(0, 0, t);
+
+        EntityTreeItem inputBlockItem = new EntityTreeItem(new InputBlock(o, 270), "Input Block");
+
+        inputBlockItem.setGraphic(new ImageView(new Image("/assets/Logic Gate Icons/InputBlockIcon.png")));
+        wiringItem.getChildren().add(inputBlockItem);
+
+        EntityTreeItem outputBlockItem = new EntityTreeItem(new OutputBlock(o, 90), "Output Block");
+        outputBlockItem.setGraphic(new ImageView(new Image("/assets/Logic Gate Icons/OutputBlockIcon.png")));
+        wiringItem.getChildren().add(outputBlockItem);
+
+        EntityTreeItem pullUpResistorItem = new EntityTreeItem(new PullResistor(o, 270, 1), "Pull Up Resistor");
+        pullUpResistorItem.setGraphic(new ImageView(new Image("/assets/Logic Gate Icons/PullUpResistorIcon.png")));
+        wiringItem.getChildren().add(pullUpResistorItem);
+
+        EntityTreeItem pullDownResistorItem = new EntityTreeItem(new PullResistor(o, 270, 0), "Pull Down Resistor");
+        pullDownResistorItem.setGraphic(new ImageView(new Image("/assets/Logic Gate Icons/PullDownResistorIcon.png")));
+        wiringItem.getChildren().add(pullDownResistorItem);
+
+        EntityTreeItem powerIcon = new EntityTreeItem(new PowerEmitter(o), "Power");
+        powerIcon.setGraphic(new ImageView(new Image("/assets/Logic Gate Icons/PowerIcon.png")));
+        wiringItem.getChildren().add(powerIcon);
+
+        EntityTreeItem groundIcon = new EntityTreeItem(new GroundEmitter(o), "Ground");
+        groundIcon.setGraphic(new ImageView(new Image("/assets/Logic Gate Icons/GroundIcon.png")));
+        wiringItem.getChildren().add(groundIcon);
+
+        EntityTreeItem pTypeTransistorIcon = new EntityTreeItem(new Transistor(o, 0, false), "P Type Transistor");
+        pTypeTransistorIcon.setGraphic(new ImageView(new Image("/assets/Logic Gate Icons/pTypeTransistorIcon.png")));
+        wiringItem.getChildren().add(pTypeTransistorIcon);
+
+        EntityTreeItem nTypeTransistorIcon = new EntityTreeItem(new Transistor(o, 0, true), "N Type Transistor");
+        nTypeTransistorIcon.setGraphic(new ImageView(new Image("/assets/Logic Gate Icons/nTypeTransistorIcon.png")));
+        wiringItem.getChildren().add(nTypeTransistorIcon);
 
         TreeItem<String> logicGatesItem = new TreeItem<>("Logic Gates");
+        logicGatesItem.setExpanded(true);
+        treeRoot.getChildren().add(logicGatesItem);
 
-        TreeItem<String> andItem = new TreeItem<>("AND Gate");
+        EntityTreeItem andItem = new EntityTreeItem(new GateAND(o, 270, Entity.Size.NORMAL, 2, false), "AND Gate");
         andItem.setGraphic(new ImageView(new Image("/assets/Logic Gate Icons/ANDIcon.png")));
         logicGatesItem.getChildren().add(andItem);
 
-        TreeItem<String> nandItem = new TreeItem<>("NAND Gate");
+        EntityTreeItem nandItem = new EntityTreeItem(new GateAND(o, 270, Entity.Size.NORMAL, 2, true), "NAND Gate");
         nandItem.setGraphic(new ImageView(new Image("/assets/Logic Gate Icons/NANDIcon.png")));
         logicGatesItem.getChildren().add(nandItem);
 
-        TreeItem<String> orItem = new TreeItem<>("OR Gate");
+        EntityTreeItem orItem = new EntityTreeItem(new GateOR(o, 270, Entity.Size.NORMAL, 2, false), "OR Gate");
         orItem.setGraphic(new ImageView(new Image("/assets/Logic Gate Icons/ORIcon.png")));
         logicGatesItem.getChildren().add(orItem);
 
-        TreeItem<String> norItem = new TreeItem<>("NOR Gate");
+        EntityTreeItem norItem = new EntityTreeItem(new GateOR(o, 270, Entity.Size.NORMAL, 2, true), "NOR Gate");
         norItem.setGraphic(new ImageView(new Image("/assets/Logic Gate Icons/NORIcon.png")));
         logicGatesItem.getChildren().add(norItem);
 
-        TreeItem<String> xorItem = new TreeItem<>("XOR Gate");
+        EntityTreeItem xorItem = new EntityTreeItem(new GateXOR(o, 270, Entity.Size.NORMAL, 2, false), "XOR Gate");
         xorItem.setGraphic(new ImageView(new Image("/assets/Logic Gate Icons/XORIcon.png")));
         logicGatesItem.getChildren().add(xorItem);
 
-        TreeItem<String> xnorItem = new TreeItem<>("XNOR Gate");
+        EntityTreeItem xnorItem = new EntityTreeItem(new GateXOR(o, 270, Entity.Size.NORMAL, 2, true), "XNOR Gate");
         xnorItem.setGraphic(new ImageView(new Image("/assets/Logic Gate Icons/XNORIcon.png")));
         logicGatesItem.getChildren().add(xnorItem);
-        logicGatesItem.setExpanded(true);
 
-        objectsItem.getChildren().add(logicGatesItem);
-
-        TreeItem<String> item3 = new TreeItem<>("Wiring");
-        treeRoot.getChildren().add(circuitsItem);
-        treeRoot.getChildren().add(objectsItem);
-        treeRoot.getChildren().add(item3);
         treeView.setRoot(treeRoot);
+        treeView.setEditable(false);
+        treeView.setCellFactory(p -> new CustomTreeCell());
 
         // Property table
         propertiesGoHere = new BorderPane();
+
         propertiesGoHere.setCenter(new Label("Item Properties and shit go here"));
         leftOfDivider.getChildren().add(propertiesGoHere);
+    }
+
+    private final class CustomTreeCell extends TreeCell<String> {
+
+        public CustomTreeCell() {
+            addEventHandler(MouseEvent.MOUSE_PRESSED, e -> {
+                TreeItem<String> myItem = getTreeItem();
+                if (myItem instanceof EntityTreeItem)
+                    ((EntityTreeItem) myItem).onClick();
+            });
+        }
+
+        @Override
+        protected void updateItem(String s, boolean empty) {
+            super.updateItem(s, empty);
+            if (empty) {
+                setText(null);
+                setGraphic(null);
+            }
+            else {
+                setText(getTreeItem().getValue());
+                setGraphic(getTreeItem().getGraphic());
+            }
+        }
+    }
+    
+    public Circuit c() {
+        return currProject.getCurrentCircuit();
+    }
+
+    public class EntityTreeItem extends TreeItem<String> {
+
+        private Entity entity;
+
+        public EntityTreeItem(Entity entity, String string) {
+            super(string);
+            entity.setTreeItem(this);
+            this.entity = entity;
+        }
+
+        public void onClick() {
+            Circuit c = c();
+            c.deselectAllAndTrack();
+            c.appendCurrentStateChanges("Deselect All");
+            editorPanel.cancelCurrentPlacement();
+            editorPanel.previewPlacementNextFocusGain(entity);
+            setPropertyTable(entity);
+            editorPanel.repaint();
+        }
     }
 
     private void initRightOfDivider() {
@@ -328,7 +458,7 @@ public class MainGUI extends Application {
 
 
     public void setCurrentProject(Project p) {
-        p.setGUI(this); // TODO probs set this upon project construction
+        p.setGUI(this);
         this.currProject = p;
         if (!currProject.hasCircuits()) {
             new Circuit(currProject, "main");
@@ -336,7 +466,9 @@ public class MainGUI extends Application {
 
         final int EDITOR_MIN_SIZE = 500;
         editorPanel = new EditorPanel(currProject);
-        editorPanel.setPrefSize(700, 700);
+        int height = 700;
+        int width = 700;
+        editorPanel.setPrefSize(width, height);
         editorPanel.setMinSize(EDITOR_MIN_SIZE, EDITOR_MIN_SIZE);
         // Bind canvas size to stack pane size.
 
@@ -348,9 +480,13 @@ public class MainGUI extends Application {
         stage.setMinWidth(EDITOR_MIN_SIZE + LEFT_MIN_WIDTH + 75);
         mainBorderPane.setPrefSize(1250, 750);
 
-        editorPanel.repaint();
 
-        postSetProj();
+        editorPanel.repaint();
+        updateSaveMenuBars();
+        currProject.getCurrentCircuit().stateController().updateMenuBars();
+        currProject.getCurrentCircuit().selectionTableUpdate();
+        currProject.getCurrentCircuit().setXOffset(width / 2);
+        currProject.getCurrentCircuit().setYOffset(height / 2);
     }
 
     public EditorPanel getEditorPanel() {
@@ -361,87 +497,10 @@ public class MainGUI extends Application {
         return currProject;
     }
 
-    public void postSetProj() {
-        editorPanel.repaint();
-        Circuit c = currProject.getCurrentCircuit();
-        if (addDefaultEntities) {
-            addDefaultEntities = false;
-
-            c.addEntity(new GateAND(new CircuitPoint(0, 5, c), 0, Entity.Size.NORMAL, 5));
-
-            c.addEntity(new GateXOR(new CircuitPoint(17, 5, c), 0, Entity.Size.NORMAL, 5));
-
-            c.addEntity(new GateOR(new CircuitPoint(34, 5, c), 0, Entity.Size.NORMAL, 5));
-            c.addEntity(new GateOR(new CircuitPoint(40, 5, c), 0, Entity.Size.SMALL, 3));
-            c.addEntity(new GateXOR(new CircuitPoint(44, 5, c), 0, Entity.Size.SMALL, 3));
-            c.addEntity(new GateAND(new CircuitPoint(48, 5, c), 0, Entity.Size.SMALL, 3));
-
-            c.addEntity(new OutputBlock(new CircuitPoint(-2, -5, c), 0));
-            c.addEntity(new InputBlock(new CircuitPoint(2, -5, c), 0));
-
-            c.addEntity(new GateNOT(new CircuitPoint(2, -10, c), 0));
-            c.addEntity(new Transistor(new CircuitPoint(2, -15, c), 0));
-            c.addEntity(new Transistor(new CircuitPoint(-2, -15, c), 0, true));
-
-            c.addEntity(new PullResistor(new CircuitPoint(-2, -20, c), 0));
-
-            c.addEntity(new PowerEmitter(new CircuitPoint(-2, -25, c), 0));
-            c.addEntity(new GroundEmitter(new CircuitPoint(2, -25, c), 0));
-
-
-
-        }
-
-        
-
-
-
-
-
-
-
-
-
-    /*    c.addEntity(new SimpleGateAND(new CircuitPoint(-1, 10, c), 0));
-        c.addEntity(new SimpleGateAND(new CircuitPoint(-2, 8, c), 0));
-        c.addEntity(new SimpleGateAND(new CircuitPoint(-4, 6, c), 0));
-        c.addEntity(new SimpleGateAND(new CircuitPoint(-5, 5, c), 0));
-        c.addEntity(new SimpleGateAND(new CircuitPoint(5, 5, c), 0));
-        c.addEntity(new SimpleGateAND(new CircuitPoint(15, 5, c), 0));
-        c.addEntity(new SimpleGateAND(new CircuitPoint(25, 5, c), 0));
-        c.addEntity(new SimpleGateAND(new CircuitPoint(35, 5, c), 0));
-
-        c.addEntity(new SimpleGateAND(new CircuitPoint(20, 15, c), 0));
-
-        c.addEntity(new SimpleGateAND(new CircuitPoint(30, 15, c), 0));
-
-        c.addEntity(new SimpleGateAND(new CircuitPoint(20, 25, c), 0));
-
-        c.addEntity(new SimpleGateAND(new CircuitPoint(30, 25, c), 0));
-
-        c.addEntity(new SimpleGateAND(new CircuitPoint(20, 35, c), 0));
-
-        c.addEntity(new SimpleGateAND(new CircuitPoint(30, 35, c), 0));*/
-
-
-// 14, -9
-        // 16, -9
-
-
-        c.recalculateTransmissions();
-        editorPanel.repaint();
-
-    }
-
     private static final int TABLE_HEIGHT = 210;
 
     public void setPropertyTable(PropertyMutable dynamic) {
-        TableView<Property> table = dynamic.getPropertyList().toTableView();
-        table.setMaxHeight(210);
-        table.setMinHeight(210);
-        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
-        propertiesGoHere.setCenter(table);
-        propertiesGoHere.setMinHeight(TABLE_HEIGHT);
+        setPropertyTable(dynamic.getPropertyList());
     }
 
     public void setPropertyTable(PropertyList properties) {
@@ -453,4 +512,14 @@ public class MainGUI extends Application {
         propertiesGoHere.setMinHeight(TABLE_HEIGHT);
     }
 
+    public void updateSaveMenuBars() {
+        String path = currProject.getPath();
+        if (path == null) {
+            saveMenuItem.setDisable(true);
+            saveMenuItem.setText("Save");
+        } else {
+            saveMenuItem.setDisable(false);
+            saveMenuItem.setText("Overwrite " + path);
+        }
+    }
 }

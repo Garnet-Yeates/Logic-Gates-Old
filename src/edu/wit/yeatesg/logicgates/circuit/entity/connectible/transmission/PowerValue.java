@@ -11,11 +11,9 @@ public class PowerValue {
     public static final PowerValue ON = new PowerValue("ON", 2, Color.rgb(55, 219, 0, 1), "1");
     public static final Color MULTI_BIT_COLOR = Color.rgb(154, 222, 17);
 
-
     public static final PowerValue ACTIVE = new PowerValue("ACTIVE", 2, Color.rgb(135, 220, 0), "A");
     public static final PowerValue DONE_ACTIVE = new PowerValue("DONE_ACTIVE", 2, Color.rgb(135, 220, 0), "A");
     public static final PowerValue INACTIVE = new PowerValue("INACTIVE", 2, Color.rgb(135, 220, 0), "I");
-
 
     public static final PowerValue DISCREPANCY_RISK = new PowerValue("DISCREPANCY_RISK", 3, Color.rgb(120, 0, 10, 1), "E");
     public static final PowerValue DISCREPANCY = new PowerValue("DISCREPANCY", 3, Color.rgb(120, 0, 120, 1), "E");

@@ -64,7 +64,6 @@ public class Transistor extends ConnectibleEntity implements Rotatable {
         base = (InputNode) getNodeAt(drawPoints.get(0));
         emitter = (OutputNode) getNodeAt(drawPoints.get(8));
 
-
         emitter.setOutputType(OutputType.ANY);
         assignOutputsToInputs();
 
@@ -212,7 +211,7 @@ public class Transistor extends ConnectibleEntity implements Rotatable {
 
     @Override
     public Transistor getCloned(Circuit onto) {
-        return new Transistor(origin, rotation, isNType);
+        return new Transistor(origin.clone(onto), rotation, isNType);
     }
 
     private BoundingBox boundingBox;
@@ -276,8 +275,10 @@ public class Transistor extends ConnectibleEntity implements Rotatable {
 
     @Override
     public void onPropertyChangeViaTable(String propName, String old, String newVal) {
-        if (isTemplateEntity())
+        if (isItemEntity()) {
             onPropertyChange(propName, old, newVal);
+            treeItem.onClick();
+        }
         else
             c.new PropertyChangeOperation(this, propName, newVal, true).operate();
 

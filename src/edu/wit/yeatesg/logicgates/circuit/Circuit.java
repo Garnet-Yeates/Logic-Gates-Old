@@ -29,6 +29,13 @@ public class Circuit implements PropertyMutable {
         p.addCircuit(this);
     }
 
+    public Circuit() {
+        this.new InterceptMap();
+        this.new ChunkMap();
+    }
+
+
+
 
     private String circuitName;
 
@@ -50,7 +57,7 @@ public class Circuit implements PropertyMutable {
 
         @Override
         public boolean add(E entity) {
-            if (entity.isTemplateEntity())
+            if (entity.isItemEntity())
                 throw new RuntimeException("Should not add default entities to Circuit");
    //         System.out.println("[+1][" + allEntities.size() + "]" + "ADD "  + entity + entity.getEntityID());
             if (entity.existsInCircuit())
@@ -692,7 +699,7 @@ public class Circuit implements PropertyMutable {
         boolean movingSelection = getEditorPanel().isMovingSelection();
         for (Entity invalidEntity : invalidEntities)
             for (CircuitPoint interceptPoint : invalidEntity.getInvalidInterceptPoints())
-                if (!movingSelection || !invalidEntity.isSelected())
+                if (!movingSelection || !invalidEntity.isSelected() || getEditorPanel().getLastSelectionMovePoint().isSimilar(getEditorPanel().getMovingSelectionStartPoint()))
                   drawInvalidGridPoint(g, interceptPoint);
     }
 
@@ -777,7 +784,7 @@ public class Circuit implements PropertyMutable {
     }
 
     public void selectionTableUpdate() {
-        currSelection.selectionUpdate();
+        currSelection.selectionTableUpdate();
     }
 
     public class Selection extends ExactEntityList<Entity> {
@@ -827,20 +834,21 @@ public class Circuit implements PropertyMutable {
             return added;
         }
 
-        public void selectionUpdate() {
+        public void selectionTableUpdate() {
             updateConnectionView();
-            if (isEmpty())
-                project.getGUI().setPropertyTable(Circuit.this);
-            else {
-                PropertyList list = null;
-                for (Entity e : this)
-                    if (list == null)
-                        list = e.getPropertyList();
-                    else
-                        list.addParent(e);
-                project.getGUI().setPropertyTable(list);
+            if (project != null && project.getGUI() != null) {
+                if (isEmpty())
+                    project.getGUI().setPropertyTable(Circuit.this);
+                else {
+                    PropertyList list = null;
+                    for (Entity e : this)
+                        if (list == null)
+                            list = e.getPropertyList();
+                        else
+                            list.addParent(e);
+                    project.getGUI().setPropertyTable(list);
+                }
             }
-            // TODO update prop table
         }
 
         public boolean selectAndTrackStateOperation(Entity e) {
@@ -1092,6 +1100,8 @@ public class Circuit implements PropertyMutable {
 
         public void updateMenuBars() {
             MainGUI gui = project.getGUI();
+            if (gui == null)
+                return;
             MenuItem undoItem = gui.getUndoMenuItem();
             undoItem.setText("Undo ");
             undoItem.setDisable(true);
@@ -1730,10 +1740,10 @@ public class Circuit implements PropertyMutable {
      * Represents the distance between CircuitPoint 0,0 and 0,1 on the editor panel
      * (how many CircuitDrawPoints can fit between two CircuitPoints aka Grid Points?)
      * */
-    private int scale = 14;
+    private int scale = 16;
 
     public static final int SCALE_MAX = 50;
-    public static final int SCALE_MIN = 4;
+    public static final int SCALE_MIN = 5;
     public static final int SCALE_INC = 2;
 
     /**
@@ -1806,22 +1816,9 @@ public class Circuit implements PropertyMutable {
         return yoff;
     }
 
-    /**
-     * Returns the the vector that you have to add to a {@link CircuitPoint} to get its {@link PanelDrawPoint}
-     * @return CircuitDrawPoint + this = PanelDrawPoint
-     */
-    public Vector getOffset() {
-        return new Vector(xoff, yoff);
-    }
-
     public void modifyOffset(Vector vector) {
         xoff += vector.x;
         yoff += vector.y;
-    }
-
-    public void setOffset(Vector vector) {
-        xoff = (int) vector.x;
-        yoff = (int) vector.y;
     }
 
     public void setXOffset(int x) {
@@ -1900,8 +1897,6 @@ public class Circuit implements PropertyMutable {
      * BUFFERING POWER RESETS
      * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-
-
     private ArrayList<Powerable> powerUpdateBuffer = null;
 
     public void enablePowerUpdateBuffer() {
@@ -1926,12 +1921,4 @@ public class Circuit implements PropertyMutable {
         } else
             ce.updateTreesNearMe();
     }
-
-
-    public void recalculateTransmissions() {}
-    public void recalculatePowerStatuses() {}
-
-
-
-
 }

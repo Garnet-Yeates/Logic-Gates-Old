@@ -5,16 +5,13 @@ import edu.wit.yeatesg.logicgates.circuit.Circuit;
 import edu.wit.yeatesg.logicgates.circuit.entity.Entity;
 import edu.wit.yeatesg.logicgates.circuit.entity.Property;
 import edu.wit.yeatesg.logicgates.circuit.entity.PropertyList;
-import edu.wit.yeatesg.logicgates.circuit.entity.Rotatable;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.ConnectibleEntity;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.ConnectionList;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission.*;
 import edu.wit.yeatesg.logicgates.datatypes.*;
-import edu.wit.yeatesg.logicgates.gui.EditorPanel;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
-import java.awt.*;
 import java.util.ArrayList;
 
 public class PowerEmitter extends ConnectibleEntity {
@@ -64,10 +61,8 @@ public class PowerEmitter extends ConnectibleEntity {
 
     @Override
     public PowerEmitter getCloned(Circuit onto) {
-        return new PowerEmitter(origin, rotation);
+        return new PowerEmitter(origin.clone(onto), rotation);
     }
-
-
 
     private OutputNode out;
 
@@ -209,8 +204,10 @@ public class PowerEmitter extends ConnectibleEntity {
 
     @Override
     public void onPropertyChangeViaTable(String propName, String old, String newVal) {
-        if (isTemplateEntity())
+        if (isItemEntity()) {
             onPropertyChange(propName, old, newVal);
+            treeItem.onClick();
+        }
         else
             c.new PropertyChangeOperation(this, propName, newVal, true).operate();
 

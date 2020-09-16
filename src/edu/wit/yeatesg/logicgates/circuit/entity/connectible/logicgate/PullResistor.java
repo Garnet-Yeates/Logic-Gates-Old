@@ -10,12 +10,10 @@ import edu.wit.yeatesg.logicgates.circuit.entity.connectible.ConnectibleEntity;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.ConnectionList;
 import edu.wit.yeatesg.logicgates.circuit.entity.connectible.transmission.*;
 import edu.wit.yeatesg.logicgates.datatypes.*;
-import edu.wit.yeatesg.logicgates.gui.EditorPanel;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
-import java.awt.*;
-import java.util.ArrayList;
+import java.util.Arrays;
 
 public class PullResistor extends ConnectibleEntity implements Rotatable {
 
@@ -26,7 +24,7 @@ public class PullResistor extends ConnectibleEntity implements Rotatable {
     /**
      * ConnectibleEntity constructor template:
      * set main fields such as rotation, origin, etc based on the params in the constructor
-     * set {@link #connections} to a new ConnectionList
+     * set {@link #connections} to a new ConnectionListnu
      * call construct()
      *
      * @param origin the Circuit
@@ -59,7 +57,7 @@ public class PullResistor extends ConnectibleEntity implements Rotatable {
 
     @Override
     public PullResistor getCloned(Circuit onto) {
-        return new PullResistor(origin, rotation, pullDirection);
+        return new PullResistor(origin.clone(onto), rotation, pullDirection);
     }
 
     public static PullResistor parse(String s, Circuit c) {
@@ -155,6 +153,8 @@ public class PullResistor extends ConnectibleEntity implements Rotatable {
         g.strokePolyline(xx, yy, xx.length);
 
         LogicGates.strokePolyLine(g, new CircuitPointList(drawPoints.get(numIterations + 3), drawPoints.get(numIterations + 4)));
+        LogicGates.strokePolyLine(g, new CircuitPointList(drawPoints.get(numIterations + 3), drawPoints.get(numIterations + 4)));
+
         out.draw(g, col, opacity);
     }
 
@@ -254,8 +254,10 @@ public class PullResistor extends ConnectibleEntity implements Rotatable {
 
     @Override
     public void onPropertyChangeViaTable(String propName, String old, String newVal) {
-        if (isTemplateEntity())
+        if (isItemEntity()) {
             onPropertyChange(propName, old, newVal);
+            treeItem.onClick();
+        }
         else
             c.new PropertyChangeOperation(this, propName, newVal, true).operate();
 

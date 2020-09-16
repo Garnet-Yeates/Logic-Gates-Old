@@ -108,6 +108,17 @@ public class BoundingBox {
 
     }
 
+    @Override
+    public String toString() {
+        return "BoundingBox{" +
+                "p1=" + p1 +
+                ", p2=" + p2 +
+                ", p3=" + p3 +
+                ", p4=" + p4 +
+                ", owner=" + owner +
+                '}';
+    }
+
     public BoundingBox getIfModifiedBy(Vector v) {
         return new BoundingBox(p1.getIfModifiedBy(v), p4.getIfModifiedBy(v), null);
     }
@@ -119,6 +130,11 @@ public class BoundingBox {
     public BoundingBox getExpandedBy(double amount) {
         return new BoundingBox(new CircuitPoint(p1.x - amount, p1.y - amount, p1.getCircuit()),
                 new CircuitPoint(p4.x + amount, p4.y + amount, p1.getCircuit()), owner);
+    }
+
+    public BoundingBox getShrunkBy(double amount) {
+        return new BoundingBox(new CircuitPoint(p1.x + amount, p1.y + amount, p1.getCircuit()),
+                new CircuitPoint(p4.x - amount, p4.y - amount, p1.getCircuit()), owner);
     }
 
     public CircuitPointList getInterceptPoints() {
@@ -201,17 +217,10 @@ public class BoundingBox {
 
     public static Color HIGHLIGHT_COL = Color.ORANGE;
 
-    public void drawBorder(GraphicsContext g) {
-        drawBorder(g, null);
-    }
 
-    public void drawBorder(GraphicsContext g, Color col) {
+    public void drawBorder(GraphicsContext g, Color col, double lineWidth) {
         g.setStroke(col == null ? HIGHLIGHT_COL : col);
-        double ownerStroke = owner == null ? 1 : owner.getLineWidth();
-        double stroke = (ownerStroke * 0.55);
-        stroke = Math.min(ownerStroke - 2, stroke);
-        stroke = Math.max(1, stroke);
-        g.setLineWidth(stroke);
+        g.setLineWidth(lineWidth);
         PanelDrawPoint p1 = this.p1.toPanelDrawPoint();
         PanelDrawPoint p2 = this.p2.toPanelDrawPoint();
         PanelDrawPoint p3 = this.p3.toPanelDrawPoint();
